@@ -95,21 +95,23 @@ async function loadRole(){
 async function loadAll(){
   if(S.role==='guia' && S.myGuia){
     // guia only sees their own data
-    const [e,i,h] = await Promise.all([
-      db.from('eventos').select('*').eq('guia_id',S.myGuia.id).order('fecha',{ascending:false}),
+    const [e,i,h,l] = await Promise.all([
+      db.from('eventos').select('*').order('fecha',{ascending:false}),
       db.from('invitaciones').select('*').eq('guia_id',S.myGuia.id).order('created_at',{ascending:false}),
       db.from('historial').select('*').eq('guia_id',S.myGuia.id).order('created_at',{ascending:false}).limit(100),
+      db.from('liquidaciones').select('*').eq('guia_id',S.myGuia.id).order('created_at',{ascending:false}),
     ]);
-    set({ guias:[S.myGuia], eventos:e.data||[], invitaciones:i.data||[], historial:h.data||[] });
+    set({ guias:[S.myGuia], eventos:e.data||[], invitaciones:i.data||[], historial:h.data||[], liquidaciones:l.data||[] });
   } else {
     // admin sees everything
-    const [g,e,i,h] = await Promise.all([
+    const [g,e,i,h,l] = await Promise.all([
       db.from('guias').select('*').order('apellido'),
       db.from('eventos').select('*').order('fecha',{ascending:false}),
       db.from('invitaciones').select('*').order('created_at',{ascending:false}),
       db.from('historial').select('*').order('created_at',{ascending:false}).limit(200),
+      db.from('liquidaciones').select('*').order('created_at',{ascending:false}),
     ]);
-    set({ guias:g.data||[], eventos:e.data||[], invitaciones:i.data||[], historial:h.data||[] });
+    set({ guias:g.data||[], eventos:e.data||[], invitaciones:i.data||[], historial:h.data||[], liquidaciones:l.data||[] });
   }
 }
 
@@ -257,8 +259,7 @@ async function cambiarEstadoLiq(liqId, nuevoEstado){
 }
 
 async function loadLiquidaciones(){
-  const {data} = await db.from('liquidaciones').select('*').order('created_at',{ascending:false});
-  set({liquidaciones: data||[]});
+  await loadAll();
 }
 
 function exportLiquidaciones(){
@@ -815,6 +816,7 @@ function buildGuias(){
             ${isAdmin()?`<div style="font-size:12px;color:#9E9A93">💰 $${g.valor_hora}/hora · ${eventosGuia} evento(s) confirmado(s)</div>`:`<div style="font-size:12px;color:#9E9A93">${eventosGuia} evento(s) confirmado(s)</div>`}
           </div>
           <div style="display:flex;gap:8px">
+            <button data-ver-calendario="${g.id}" style="flex:1;padding:7px;border-radius:7px;border:1px solid #E8E4DD;background:white;font-size:12px;cursor:pointer;color:#555;font-weight:600;font-family:'DM Sans',sans-serif">📅 Calendario</button>
             <button data-edit-guia="${g.id}" style="flex:1;${btnP(T.teal)}padding:7px;font-size:12px">✏️ Editar</button>
             <button data-toggle-guia="${g.id}" style="flex:1;${btnS}padding:7px;font-size:12px">${g.estado==='ACTIVO'?'⏸ Desactivar':'▶ Activar'}</button>
           </div>
@@ -854,6 +856,7 @@ function buildEventos(){
                 <td style="padding:10px 14px;font-size:13px">
                   <div style="font-weight:600;color:${T.dark}">${esc(e.tipo_evento)}</div>
                   ${e.nro_file?`<div style="font-size:10px;color:#9E9A93;margin-top:2px">📁 ${esc(e.nro_file)}</div>`:''}
+                  ${e.feedback_texto||e.feedback_foto_url?`<div style="font-size:10px;color:#2E7D32;margin-top:2px;font-weight:600">📝 Feedback cargado</div>`:''}
                 </td>
                 <td style="padding:10px 14px;font-size:12px;color:#9E9A93;white-space:nowrap">${fecha}</td>
                 <td style="padding:10px 14px;font-size:12px;color:#9E9A93;white-space:nowrap">${e.hora_inicio}${e.hora_fin?' - '+e.hora_fin:''}</td>
@@ -1212,6 +1215,7 @@ function buildModal(){
   if(m.type==='register')     return buildRegModal();
   if(m.type==='usuario-form')    return buildUsuarioModal(m.entry);
   if(m.type==='import-preview')  return buildImportPreviewModal(m.entity, m.rows, m.file);
+  if(m.type==='calendario-guia')   return buildCalendarioGuiaModal(m.guiaId);
   if(m.type==='feedback')          return buildFeedbackModal(m.eventoId);
   if(m.type==='nueva-liq')         return buildNuevaLiquidacionModal(m.eventoId);
   if(m.type==='ver-liq')           return buildVerLiquidacionModal(m.liqId);
@@ -1493,6 +1497,87 @@ function buildVerLiquidacionModal(liqId){
   </div>`;
 }
 
+function buildCalendarioGuiaModal(guiaId){
+  const guia = S.guias.find(g=>g.id===guiaId);
+  if(!guia) return '';
+  const misEventos = S.eventos
+    .filter(e=>e.guia_id===guiaId && e.estado!=='CANCELADO')
+    .sort((a,b)=>new Date(a.fecha)-new Date(b.fecha));
+
+  // build mini calendar — current + next month
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+
+  const eventDates = new Set(misEventos.map(e=>e.fecha));
+
+  function buildMiniMonth(y, m){
+    const monthName = new Date(y,m,1).toLocaleDateString('es-AR',{month:'long',year:'numeric'});
+    const firstDay = new Date(y,m,1).getDay();
+    const daysInMonth = new Date(y,m+1,0).getDate();
+    const offset = firstDay===0?6:firstDay-1; // monday first
+    let cells = '';
+    for(let i=0;i<offset;i++) cells+=`<div></div>`;
+    for(let d=1;d<=daysInMonth;d++){
+      const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const hasEvent = eventDates.has(dateStr);
+      const isToday = dateStr===today.toISOString().slice(0,10);
+      cells+=`<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:12px;font-weight:${hasEvent?700:400};background:${hasEvent?T.teal:isToday?T.teal+'20':'transparent'};color:${hasEvent?'white':isToday?T.teal:'#1A1A1A'};position:relative">
+        ${d}
+        ${hasEvent?`<span style="position:absolute;bottom:1px;width:4px;height:4px;border-radius:50%;background:${T.coral}"></span>`:''}
+      </div>`;
+    }
+    return `<div style="margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;color:#1A1A1A;text-transform:capitalize;margin-bottom:10px;text-align:center">${monthName}</div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center">
+        ${['Lu','Ma','Mi','Ju','Vi','Sa','Do'].map(d=>`<div style="font-size:10px;font-weight:700;color:#9E9A93;padding:4px 0">${d}</div>`).join('')}
+        ${cells}
+      </div>
+    </div>`;
+  }
+
+  return `
+  <div id="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px">
+    <div style="background:white;border-radius:16px;width:100%;max-width:620px;max-height:90vh;overflow:auto;box-shadow:0 24px 80px rgba(0,0,0,0.25);animation:slideIn 0.2s ease">
+      <div style="background:linear-gradient(135deg,${T.teal},${T.tealMid});padding:20px 28px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="color:rgba(255,255,255,0.7);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">Calendario del guía</div>
+          <div style="color:white;font-size:18px;font-weight:700">${esc(guia.nombre)} ${esc(guia.apellido)}</div>
+          <div style="color:rgba(255,255,255,0.6);font-size:12px;margin-top:2px">${guia.tipo} · ${misEventos.length} evento(s) confirmado(s)</div>
+        </div>
+        <button id="btn-close-modal" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;color:white;font-size:20px;width:36px;height:36px;cursor:pointer">×</button>
+      </div>
+      <div style="padding:24px;display:flex;flex-direction:column;gap:20px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+          ${buildMiniMonth(year, month)}
+          ${buildMiniMonth(year, month+1 > 11 ? 0 : month+1)}
+        </div>
+        ${misEventos.length===0?`<div style="text-align:center;padding:20px;color:#9E9A93">Sin eventos confirmados</div>`:`
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Próximos eventos</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            ${misEventos.map(e=>{
+              const fecha = new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'short'});
+              const past = new Date(e.fecha) < today;
+              return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;background:${past?'#F5F3EF':'white'};border:1.5px solid ${past?'#E8E4DD':T.teal+'40'}">
+                <div style="width:42px;text-align:center;flex-shrink:0">
+                  <div style="font-size:18px;font-weight:700;color:${past?'#9E9A93':T.teal};line-height:1">${new Date(e.fecha+'T12:00:00').getDate()}</div>
+                  <div style="font-size:10px;color:#9E9A93;text-transform:uppercase">${new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{month:'short'})}</div>
+                </div>
+                <div style="flex:1">
+                  <div style="font-size:13px;font-weight:600;color:${past?'#9E9A93':'#1A1A1A'}">${esc(e.tipo_evento)}</div>
+                  <div style="font-size:11px;color:#9E9A93">${e.hora_inicio}${e.hora_fin?' - '+e.hora_fin:''}${e.nro_file?' · 📁 '+esc(e.nro_file):''}</div>
+                </div>
+                <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:${past?'#E8E4DD':'#D4EDDA'};color:${past?'#9E9A93':'#155724'}">${past?'Realizado':'Confirmado'}</span>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`}
+      </div>
+    </div>
+  </div>`;
+}
+
 function buildFeedbackModal(eventoId){
   const evento = S.eventos.find(e=>e.id===eventoId)||{};
   const fecha = evento.fecha ? new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long'}) : '—';
@@ -1580,6 +1665,7 @@ function attachEvents(){
 
   // edit guia
   document.querySelectorAll('[data-edit-guia]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();const g=S.guias.find(x=>x.id===parseInt(btn.dataset.editGuia));if(g)set({modal:{type:'guia-form',entry:g}});}));
+  document.querySelectorAll('[data-ver-calendario]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();set({modal:{type:'calendario-guia',guiaId:parseInt(btn.dataset.verCalendario)}});}));
 
   // toggle guia status
   document.querySelectorAll('[data-toggle-guia]').forEach(btn=>btn.addEventListener('click',async e=>{
@@ -2073,3 +2159,4 @@ init();
 </script>
 </body>
 </html>
+
