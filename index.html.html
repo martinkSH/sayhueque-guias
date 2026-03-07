@@ -834,9 +834,20 @@ function buildGuias(){
 
 // ── EVENTOS ───────────────────────────────────────────────────────────────────
 function buildEventos(){
-  const filtered = S.filterEstado ? S.eventos.filter(e=>e.estado===S.filterEstado) : S.eventos;
+  const searchFile = (S.searchFile||'').toLowerCase().trim();
+  const filtered = S.eventos
+    .filter(e => !S.filterEstado || e.estado===S.filterEstado)
+    .filter(e => !searchFile || (e.nro_file||'').toLowerCase().includes(searchFile) || (e.tipo_evento||'').toLowerCase().includes(searchFile));
   return `
   <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+      <div style="position:relative">
+        <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#9E9A93;font-size:13px">🔍</span>
+        <input id="search-file" value="${S.searchFile||''}" placeholder="Buscar Nro File o tipo..." style="padding:8px 12px 8px 30px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;width:220px"/>
+      </div>
+      ${searchFile?`<button id="btn-clear-search" style="padding:6px 12px;border-radius:8px;border:1px solid #E8E4DD;background:white;font-size:12px;cursor:pointer;color:#9E9A93;font-family:'DM Sans',sans-serif">✕ Limpiar</button>`:''}
+      <span style="font-size:12px;color:#9E9A93;margin-left:auto">${filtered.length} evento(s)</span>
+    </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       ${['','A_ASIGNAR','CONFIRMADO','CANCELADO','EXPIRADO'].map(s=>
         `<button data-filter-estado="${s}" style="padding:6px 14px;border-radius:20px;border:1.5px solid ${S.filterEstado===s?T.teal:'#E8E4DD'};background:${S.filterEstado===s?T.teal:'white'};color:${S.filterEstado===s?'white':'#9E9A93'};font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">${s||'Todos'}</button>`
@@ -862,7 +873,7 @@ function buildEventos(){
                 <td style="padding:10px 14px;font-size:13px">
                   <div style="font-weight:600;color:${T.dark}">${esc(e.tipo_evento)}</div>
                   ${e.nro_file?`<div style="font-size:10px;color:#9E9A93;margin-top:2px">📁 ${esc(e.nro_file)}</div>`:''}
-                  ${e.feedback_texto||e.feedback_foto_url?`<div style="font-size:10px;color:#2E7D32;margin-top:2px;font-weight:600">📝 Feedback cargado</div>`:''}
+                  ${e.feedback_texto||e.feedback_foto_url?`<div onclick="abrirFeedback(${e.id})" style="font-size:10px;color:#2E7D32;margin-top:2px;font-weight:600;cursor:pointer;text-decoration:underline">📝 Feedback cargado</div>`:''}
                 </td>
                 <td style="padding:10px 14px;font-size:12px;color:#9E9A93;white-space:nowrap">${fecha}</td>
                 <td style="padding:10px 14px;font-size:12px;color:#9E9A93;white-space:nowrap">${e.hora_inicio}${e.hora_fin?' - '+e.hora_fin:''}</td>
@@ -1601,7 +1612,7 @@ function buildFeedbackModal(eventoId){
       <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
         <div>
           <label style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">📝 Comentarios de la salida</label>
-          <textarea id="feedback-texto" rows="4" placeholder="¿Cómo salió el evento? Novedades, incidentes, observaciones..." style="${iStyle}resize:vertical">${esc(evento.feedback_texto||'')}</textarea>
+          <textarea id="feedback-texto" rows="4" placeholder="¿Cómo salió el evento? Novedades, incidentes, observaciones..." style="${iStyle}resize:vertical;${isAdmin()&&evento.feedback_texto?'background:#F5F3EF;color:#555':''}" ${isAdmin()&&evento.feedback_texto?'readonly':''}>${esc(evento.feedback_texto||'')}</textarea>
         </div>
         <div>
           <label style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">📸 Foto de la salida</label>
@@ -1619,8 +1630,8 @@ function buildFeedbackModal(eventoId){
         </div>
         <div id="feedback-upload-progress" style="display:none;font-size:12px;color:${T.tealMid};text-align:center">⟳ Subiendo foto...</div>
         <div style="display:flex;gap:10px;justify-content:flex-end">
-          <button id="btn-close-modal2" style="${btnS}">Cancelar</button>
-          <button id="btn-save-feedback" data-evento-id="${eventoId}" style="${btnP(T.tealMid)}">💾 Guardar feedback</button>
+          <button id="btn-close-modal2" style="${btnS}">${isAdmin() && evento.feedback_texto ? 'Cerrar' : 'Cancelar'}</button>
+          ${!isAdmin() || !evento.feedback_texto ? `<button id="btn-save-feedback" data-evento-id="${eventoId}" style="${btnP(T.tealMid)}">💾 Guardar feedback</button>` : ''}
         </div>
       </div>
     </div>
@@ -1805,6 +1816,8 @@ function attachEvents(){
   });
   document.getElementById('btn-cancel-reg')?.addEventListener('click',()=>set({modal:null}));
   document.getElementById('btn-logout')?.addEventListener('click',()=>{if(confirm('¿Cerrar sesión?'))logout();});
+  document.getElementById('search-file')?.addEventListener('input', e=>{ set({searchFile: e.target.value}); });
+  document.getElementById('btn-clear-search')?.addEventListener('click', ()=>{ set({searchFile:''}); });
 
   // mobile drawer
   const openDrawer = ()=>{ document.getElementById('mobile-drawer')?.classList.add('open'); };
@@ -2165,4 +2178,5 @@ init();
 </script>
 </body>
 </html>
+
 
