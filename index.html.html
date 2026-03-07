@@ -1850,12 +1850,12 @@ function attachEvents(){
   if(searchInput){
     searchInput.addEventListener('keydown', e=>{
       e.stopPropagation();
-      if(e.key==='Enter'){ S.searchFile=searchInput.value; renderEventosTable(); }
+      if(e.key==='Enter'){ set({searchFile: searchInput.value}); }
     });
   }
   document.getElementById('btn-do-search')?.addEventListener('click', ()=>{
-    S.searchFile = document.getElementById('search-file')?.value || '';
-    renderEventosTable();
+    const val = document.getElementById('search-file')?.value || '';
+    set({searchFile: val});
   });
   document.getElementById('btn-clear-search')?.addEventListener('click', ()=>{ 
     set({searchFile:''});
