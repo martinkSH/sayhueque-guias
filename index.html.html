@@ -28,6 +28,7 @@ const SB_URL  = 'https://ewxbghnyjvaijpfiygqg.supabase.co';
 const SB_KEY  = 'sb_publishable_mADKoH6FeTWWwtyh07m3Dg_xISpDz6_';
 const EMAILJS_SERVICE  = 'service_6s252wi';
 const EMAILJS_TEMPLATE        = 'template_ry35h78';
+const EMAILJS_TEMPLATE_RECORDATORIO = 'template_zvxfa09';
 const EMAILJS_TEMPLATE_CANCEL = 'template_yvw7gcb';
 const EMAILJS_KEY      = '4qFUA9QnC1kQXqhI1';
 const APP_URL = window.location.origin + window.location.pathname;
@@ -118,6 +119,41 @@ async function loadAll(){
       db.from('liquidaciones').select('*').order('created_at',{ascending:false}),
     ]);
     set({ guias:g.data||[], eventos:e.data||[], invitaciones:i.data||[], historial:h.data||[], liquidaciones:l.data||[] });
+  }
+}
+
+// ── COLA DE EMAILS (recordatorios) ──────────────────────────────────────────
+async function procesarColaEmails(){
+  // only admin processes the queue
+  if(!isAdmin()) return;
+  
+  const {data: pendientes} = await db
+    .from('cola_emails')
+    .select('*')
+    .eq('enviado', false)
+    .eq('tipo', 'RECORDATORIO');
+  
+  if(!pendientes?.length) return;
+  
+  for(const item of pendientes){
+    const p = item.payload;
+    try {
+      await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE_RECORDATORIO, {
+        to_email:    p.to_email,
+        guia_nombre: p.guia_nombre,
+        tipo_evento: p.tipo_evento,
+        fecha:       new Date(p.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'}),
+        horario:     p.horario,
+        nro_file:    p.nro_file || '—',
+        descripcion: p.descripcion || '—',
+      }, EMAILJS_KEY);
+      
+      // mark as sent
+      await db.from('cola_emails').update({enviado:true, enviado_at:new Date().toISOString()}).eq('id', item.id);
+      console.log('Recordatorio enviado a', p.to_email);
+    } catch(e){
+      console.error('Error enviando recordatorio:', e);
+    }
   }
 }
 
