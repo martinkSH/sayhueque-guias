@@ -1194,8 +1194,28 @@ function buildLiquidacionesAdmin(){
 
 // ── MIS INVITACIONES (vista guía) ────────────────────────────────────────────
 function buildMisInvitaciones(){
-  const pendientes = S.invitaciones.filter(i=>i.estado==='PENDIENTE');
-  const pasadas    = S.invitaciones.filter(i=>i.estado!=='PENDIENTE');
+  // exclude pendientes where event is already confirmed (accepted via email)
+  const pendientes = S.invitaciones.filter(i=>{
+    if(i.estado!=='PENDIENTE') return false;
+    const ev = S.eventos.find(e=>e.id===i.evento_id);
+    // if event is confirmed with this guia, it means they already accepted via email
+    if(ev?.estado==='CONFIRMADO' && ev?.guia_id===i.guia_id) return false;
+    // if event is confirmed with someone else, show as TOMADA_POR_OTRO
+    return true;
+  });
+  // fix display: show accepted-via-email as ACEPTADA in historial
+  const pasadas = S.invitaciones.filter(i=>{
+    if(i.estado!=='PENDIENTE') return true;
+    const ev = S.eventos.find(e=>e.id===i.evento_id);
+    // confirmed with this guia = accepted via email, show in historial
+    return ev?.estado==='CONFIRMADO' && ev?.guia_id===i.guia_id;
+  }).map(i=>{
+    const ev = S.eventos.find(e=>e.id===i.evento_id);
+    if(i.estado==='PENDIENTE' && ev?.estado==='CONFIRMADO' && ev?.guia_id===i.guia_id){
+      return {...i, estado:'ACEPTADA'};
+    }
+    return i;
+  });
   return `
   <div style="padding:24px;display:flex;flex-direction:column;gap:20px;max-width:700px">
     ${pendientes.length===0?'':`
