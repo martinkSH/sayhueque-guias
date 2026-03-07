@@ -760,6 +760,8 @@ function buildTopBar(){
 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
 function buildDashboard(){
+  // process email queue every time dashboard is viewed
+  if(isAdmin()) setTimeout(procesarColaEmails, 1000);
   const aAsignar  = S.eventos.filter(e=>e.estado==='A_ASIGNAR').length;
   const confirmados=S.eventos.filter(e=>e.estado==='CONFIRMADO').length;
   const expirados = S.eventos.filter(e=>e.estado==='EXPIRADO').length;
