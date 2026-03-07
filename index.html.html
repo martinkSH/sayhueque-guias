@@ -833,6 +833,35 @@ function buildGuias(){
 }
 
 // ── EVENTOS ───────────────────────────────────────────────────────────────────
+function renderEventosTable(){
+  const tbody = document.getElementById('eventos-tbody');
+  if(!tbody) return;
+  const searchFile = (S.searchFile||'').toLowerCase().trim();
+  const filtered = S.eventos
+    .filter(e => !S.filterEstado || e.estado===S.filterEstado)
+    .filter(e => !searchFile || (e.nro_file||'').toLowerCase().includes(searchFile) || (e.tipo_evento||'').toLowerCase().includes(searchFile));
+  
+  // update counter
+  const counter = document.getElementById('eventos-counter');
+  if(counter) counter.textContent = filtered.length + ' evento(s)';
+  
+  // update clear button
+  const clearBtn = document.getElementById('btn-clear-search');
+  if(clearBtn) clearBtn.style.display = searchFile ? 'inline-block' : 'none';
+
+  if(filtered.length===0){
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:#9E9A93">Sin eventos</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filtered.map(e=>{
+    const open=S.expandedEventId===e.id;
+    const guia=S.guias.find(g=>g.id===e.guia_id);
+    const fecha=new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'});
+    return buildEventoRow(e, open, guia, fecha);
+  }).join('');
+  attachEventoRowEvents();
+}
+
 function buildEventos(){
   const searchFile = (S.searchFile||'').toLowerCase().trim();
   const filtered = S.eventos
@@ -845,8 +874,8 @@ function buildEventos(){
         <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#9E9A93;font-size:13px">🔍</span>
         <input id="search-file" value="${S.searchFile||''}" placeholder="Buscar Nro File o tipo..." style="padding:8px 12px 8px 30px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;width:220px"/>
       </div>
-      ${searchFile?`<button id="btn-clear-search" style="padding:6px 12px;border-radius:8px;border:1px solid #E8E4DD;background:white;font-size:12px;cursor:pointer;color:#9E9A93;font-family:'DM Sans',sans-serif">✕ Limpiar</button>`:''}
-      <span style="font-size:12px;color:#9E9A93;margin-left:auto">${filtered.length} evento(s)</span>
+      <button id="btn-clear-search" style="padding:6px 12px;border-radius:8px;border:1px solid #E8E4DD;background:white;font-size:12px;cursor:pointer;color:#9E9A93;font-family:'DM Sans',sans-serif;display:${searchFile?'inline-block':'none'}">✕ Limpiar</button>
+      <span id="eventos-counter" style="font-size:12px;color:#9E9A93;margin-left:auto">${filtered.length} evento(s)</span>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       ${['','A_ASIGNAR','CONFIRMADO','CANCELADO','EXPIRADO'].map(s=>
@@ -860,7 +889,7 @@ function buildEventos(){
             ${['','Tipo','Fecha','Horario','Prioridad','Estado','Guía asignado','Acciones'].map(h=>`<th style="padding:10px 14px;text-align:left;color:white;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;white-space:nowrap">${h}</th>`).join('')}
           </tr>
         </thead>
-        <tbody>
+        <tbody id="eventos-tbody">
           ${filtered.length===0?`<tr><td colspan="8" style="text-align:center;padding:40px;color:#9E9A93">Sin eventos</td></tr>`:
             filtered.map(e=>{
               const open=S.expandedEventId===e.id;
@@ -1816,8 +1845,23 @@ function attachEvents(){
   });
   document.getElementById('btn-cancel-reg')?.addEventListener('click',()=>set({modal:null}));
   document.getElementById('btn-logout')?.addEventListener('click',()=>{if(confirm('¿Cerrar sesión?'))logout();});
-  document.getElementById('search-file')?.addEventListener('input', e=>{ set({searchFile: e.target.value}); });
-  document.getElementById('btn-clear-search')?.addEventListener('click', ()=>{ set({searchFile:''}); });
+  const searchInput = document.getElementById('search-file');
+  if(searchInput){
+    let searchTimer;
+    searchInput.addEventListener('input', e=>{
+      const val = e.target.value;
+      S.searchFile = val; // update state directly without re-render
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(()=>{ 
+        // only re-render the table body, not the whole page
+        renderEventosTable();
+      }, 150);
+    });
+    searchInput.addEventListener('keydown', e=>e.stopPropagation());
+  }
+  document.getElementById('btn-clear-search')?.addEventListener('click', ()=>{ 
+    set({searchFile:''});
+  });
 
   // mobile drawer
   const openDrawer = ()=>{ document.getElementById('mobile-drawer')?.classList.add('open'); };
@@ -2178,5 +2222,3 @@ init();
 </script>
 </body>
 </html>
-
-
