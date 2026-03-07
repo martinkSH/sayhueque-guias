@@ -28,7 +28,8 @@ const SB_URL  = 'https://ewxbghnyjvaijpfiygqg.supabase.co';
 const SB_KEY  = 'sb_publishable_mADKoH6FeTWWwtyh07m3Dg_xISpDz6_';
 const EMAILJS_SERVICE  = 'service_6s252wi';
 const EMAILJS_TEMPLATE        = 'template_ry35h78';
-const EMAILJS_TEMPLATE_RECORDATORIO = 'template_zvxfa09';
+const EMAILJS_TEMPLATE_RECORDATORIO  = 'template_zvxfa09';
+const EMAILJS_TEMPLATE_CAMBIO        = 'template_j274z7o';
 const EMAILJS_TEMPLATE_CANCEL = 'template_yvw7gcb';
 const EMAILJS_KEY      = '4qFUA9QnC1kQXqhI1';
 const APP_URL = window.location.origin + window.location.pathname;
@@ -122,6 +123,25 @@ async function loadAll(){
   }
 }
 
+async function sendCambioEmail(guia, evento, cambios){
+  const fechaEvento = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const horario = evento.hora_inicio + (evento.hora_fin ? ' - '+evento.hora_fin : '');
+  try {
+    await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE_CAMBIO, {
+      to_email:     guia.email,
+      guia_nombre:  guia.nombre + ' ' + guia.apellido,
+      tipo_evento:  evento.tipo_evento,
+      nro_file:     evento.nro_file || '—',
+      fecha:        fechaEvento,
+      horario:      horario,
+      cambios:      cambios,
+      descripcion:  evento.descripcion || '—',
+      link_adjunto: evento.link_adjunto || '—',
+    }, EMAILJS_KEY);
+    console.log('Email cambio enviado a', guia.email);
+  } catch(e){ console.error('EmailJS cambio error:', e); }
+}
+
 // ── COLA DE EMAILS (recordatorios) ──────────────────────────────────────────
 async function procesarColaEmails(){
   // only admin processes the queue
@@ -167,8 +187,31 @@ async function saveGuia(data){
 
 async function saveEvento(data){
   let error, result;
-  if(data.id){ ({error}=await db.from('eventos').update(data).eq('id',data.id)); }
-  else        { ({data:result,error}=await db.from('eventos').insert(data).select().single()); }
+  if(data.id){
+    // detect changes before saving
+    const original = S.eventos.find(e=>e.id===data.id);
+    ({error}=await db.from('eventos').update(data).eq('id',data.id));
+    if(!error && original?.estado==='CONFIRMADO' && original?.guia_id){
+      // build list of changes
+      const cambiosList = [];
+      if(original.fecha !== data.fecha) cambiosList.push(`📅 Fecha: ${original.fecha} → ${data.fecha}`);
+      if(original.hora_inicio !== data.hora_inicio) cambiosList.push(`🕐 Hora inicio: ${original.hora_inicio} → ${data.hora_inicio}`);
+      if(original.hora_fin !== data.hora_fin) cambiosList.push(`🕑 Hora fin: ${original.hora_fin||'—'} → ${data.hora_fin||'—'}`);
+      if(original.descripcion !== data.descripcion) cambiosList.push(`📝 Descripción actualizada`);
+      if(original.link_adjunto !== data.link_adjunto) cambiosList.push(`🔗 Adjunto actualizado`);
+      if(original.tipo_evento !== data.tipo_evento) cambiosList.push(`📋 Tipo: ${original.tipo_evento} → ${data.tipo_evento}`);
+      if(cambiosList.length > 0){
+        const guia = S.guias.find(g=>g.id===original.guia_id);
+        if(guia?.email){
+          sendCambioEmail(guia, data, cambiosList.join('
+'));
+          toast('✉️ Guía notificado del cambio', T.tealMid);
+        }
+      }
+    }
+  } else {
+    ({data:result,error}=await db.from('eventos').insert(data).select().single());
+  }
   if(error){toast('Error: '+error.message,T.red);return null;}
   await loadAll();
   return data.id || result?.id;
