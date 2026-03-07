@@ -874,8 +874,8 @@ function buildEventos(){
         <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#9E9A93;font-size:13px">🔍</span>
         <input id="search-file" value="${S.searchFile||''}" placeholder="Buscar Nro File o tipo..." style="padding:8px 12px 8px 30px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;width:220px"/>
       </div>
-      <button id="btn-do-search" style="padding:6px 14px;border-radius:8px;border:none;background:${T.teal};color:white;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">🔍 Buscar</button>
-      <button id="btn-clear-search" style="padding:6px 12px;border-radius:8px;border:1px solid #E8E4DD;background:white;font-size:12px;cursor:pointer;color:#9E9A93;font-family:'DM Sans',sans-serif;display:${searchFile?'inline-block':'none'}">✕ Limpiar</button>
+      <button onclick="set({searchFile:document.getElementById('search-file').value})" style="padding:6px 14px;border-radius:8px;border:none;background:${T.teal};color:white;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">🔍 Buscar</button>
+      <button onclick="set({searchFile:''})" style="padding:6px 12px;border-radius:8px;border:1px solid #E8E4DD;background:white;font-size:12px;cursor:pointer;color:#9E9A93;font-family:'DM Sans',sans-serif;display:${searchFile?'inline-block':'none'}">✕ Limpiar</button>
       <span id="eventos-counter" style="font-size:12px;color:#9E9A93;margin-left:auto">${filtered.length} evento(s)</span>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -1850,7 +1850,7 @@ function attachEvents(){
   if(searchInput){
     searchInput.addEventListener('keydown', e=>{
       e.stopPropagation();
-      if(e.key==='Enter'){ set({searchFile: searchInput.value}); }
+      if(e.key==='Enter'){ set({searchFile: e.target.value}); }
     });
   }
   document.getElementById('btn-do-search')?.addEventListener('click', ()=>{
