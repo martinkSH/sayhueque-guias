@@ -194,17 +194,16 @@ async function saveEvento(data){
     if(!error && original?.estado==='CONFIRMADO' && original?.guia_id){
       // build list of changes
       const cambiosList = [];
-      if(original.fecha !== data.fecha) cambiosList.push(`📅 Fecha: ${original.fecha} → ${data.fecha}`);
-      if(original.hora_inicio !== data.hora_inicio) cambiosList.push(`🕐 Hora inicio: ${original.hora_inicio} → ${data.hora_inicio}`);
-      if(original.hora_fin !== data.hora_fin) cambiosList.push(`🕑 Hora fin: ${original.hora_fin||'—'} → ${data.hora_fin||'—'}`);
+      if(original.fecha !== data.fecha) cambiosList.push(`📅 Fecha: ${original.fecha} -> ${data.fecha}`);
+      if(original.hora_inicio !== data.hora_inicio) cambiosList.push(`🕐 Hora inicio: ${original.hora_inicio} -> ${data.hora_inicio}`);
+      if(original.hora_fin !== data.hora_fin) cambiosList.push(`🕑 Hora fin: ${original.hora_fin||'—'} -> ${data.hora_fin||'—'}`);
       if(original.descripcion !== data.descripcion) cambiosList.push(`📝 Descripción actualizada`);
       if(original.link_adjunto !== data.link_adjunto) cambiosList.push(`🔗 Adjunto actualizado`);
-      if(original.tipo_evento !== data.tipo_evento) cambiosList.push(`📋 Tipo: ${original.tipo_evento} → ${data.tipo_evento}`);
+      if(original.tipo_evento !== data.tipo_evento) cambiosList.push(`📋 Tipo: ${original.tipo_evento} -> ${data.tipo_evento}`);
       if(cambiosList.length > 0){
         const guia = S.guias.find(g=>g.id===original.guia_id);
         if(guia?.email){
-          sendCambioEmail(guia, data, cambiosList.join('
-'));
+          sendCambioEmail(guia, data, cambiosList.join('<br/>'));
           toast('✉️ Guía notificado del cambio', T.tealMid);
         }
       }
@@ -468,7 +467,7 @@ async function checkSLA(){
     await db.from('invitaciones').update({estado:'EXPIRADA'}).eq('id',inv.id);
     await db.from('historial').insert({evento_id:inv.evento_id,guia_id:inv.guia_id,invitacion_id:inv.id,accion:'EXPIRADA_SLA',actor:'SISTEMA'});
   }
-  // check events with all invitations expired/rejected → keep A_ASIGNAR (already is)
+  // check events with all invitations expired/rejected -> keep A_ASIGNAR (already is)
   await loadAll();
   if(expired.length) toast(`⚠️ ${expired.length} invitación(es) expirada(s) por SLA`,'#856404');
 }
@@ -595,7 +594,7 @@ function buildPasswordResetPage(){
           <label style="font-size:11px;font-weight:600;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Confirmar contraseña</label>
           <input id="new-pass-confirm" type="password" placeholder="Repetí la contraseña" style="${iStyle}"/>
         </div>
-        <button id="btn-update-pass" style="${btnP(T.teal)}width:100%;padding:12px;font-size:14px;margin-top:4px">Actualizar contraseña →</button>
+        <button id="btn-update-pass" style="${btnP(T.teal)}width:100%;padding:12px;font-size:14px;margin-top:4px">Actualizar contraseña -></button>
       </div>
     </div>
   </div>
@@ -624,7 +623,7 @@ function buildLogin(){
         <div style="display:flex;flex-direction:column;gap:14px">
           <div><label style="font-size:11px;font-weight:600;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Email</label><input id="login-email" type="email" placeholder="admin@sayhueque.com" style="${iStyle}"/></div>
           <div><label style="font-size:11px;font-weight:600;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Contraseña</label><input id="login-pass" type="password" placeholder="••••••••" style="${iStyle}"/></div>
-          <button id="btn-login" style="${btnP(T.teal)}width:100%;margin-top:6px;font-size:14px;padding:12px">Ingresar →</button>
+          <button id="btn-login" style="${btnP(T.teal)}width:100%;margin-top:6px;font-size:14px;padding:12px">Ingresar -></button>
           <div style="text-align:center;font-size:12px;color:#9E9A93">¿No tenés cuenta? <button id="btn-go-register" style="background:none;border:none;color:${T.tealMid};font-weight:600;cursor:pointer;font-size:12px">Crear cuenta</button></div>
         </div>
       </div>
@@ -1795,7 +1794,7 @@ function attachEvents(){
           <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:#1A1A1A;margin-bottom:8px">${result.ok?'¡Listo!':'Lo sentimos'}</div>
           <div style="font-size:14px;color:#9E9A93;line-height:1.6;margin-bottom:24px">${result.msg}</div>
           ${gcalBtn}
-          <a href="${APP_URL}" style="display:inline-block;padding:12px 24px;background:#1B6B74;color:white;border-radius:9px;font-weight:700;font-size:14px;text-decoration:none">Ir al panel →</a>`;
+          <a href="${APP_URL}" style="display:inline-block;padding:12px 24px;background:#1B6B74;color:white;border-radius:9px;font-weight:700;font-size:14px;text-decoration:none">Ir al panel -></a>`;
       }
     })();
     return;
@@ -1933,7 +1932,7 @@ function attachEvents(){
       if(!email||!pass){toast('Completá email y contraseña',T.red);return;}
       lb.textContent='⟳ Ingresando...'; lb.disabled=true;
       const ok=await login(email,pass);
-      if(!ok){lb.textContent='Ingresar →';lb.disabled=false;}
+      if(!ok){lb.textContent='Ingresar ->';lb.disabled=false;}
     };
     lb.addEventListener('click',doLogin);
     document.getElementById('login-pass')?.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
@@ -2035,7 +2034,7 @@ function attachEvents(){
     const btn = document.getElementById('btn-update-pass');
     btn.textContent = '⟳ Actualizando...'; btn.disabled = true;
     const {error} = await db.auth.updateUser({password: pass});
-    if(error){ toast('Error: '+error.message, T.red); btn.textContent='Actualizar contraseña →'; btn.disabled=false; return; }
+    if(error){ toast('Error: '+error.message, T.red); btn.textContent='Actualizar contraseña ->'; btn.disabled=false; return; }
     toast('✅ Contraseña actualizada correctamente');
     setTimeout(()=>{ window.location.href = APP_URL; }, 2000);
   });
@@ -2151,7 +2150,7 @@ async function importEventos(file){
       const [d,m,y] = val.split('/');
       r[key] = `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
     }
-    // already yyyy-mm-dd → keep as is
+    // already yyyy-mm-dd -> keep as is
   });
 
   set({modal:{type:'import-preview', entity:'eventos', rows, file: file.name}});
