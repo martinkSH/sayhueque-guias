@@ -30,6 +30,7 @@ const EMAILJS_SERVICE  = 'service_6s252wi';
 const EMAILJS_TEMPLATE        = 'template_ry35h78';
 const EMAILJS_TEMPLATE_RECORDATORIO  = 'template_zvxfa09';
 const EMAILJS_TEMPLATE_CAMBIO        = 'template_j274z7o';
+const EMAILJS_TEMPLATE_CALENDARIO_TR  = 'template_5tlf6ef';
 const EMAILJS_TEMPLATE_CANCEL = 'template_yvw7gcb';
 const EMAILJS_KEY      = '4qFUA9QnC1kQXqhI1';
 const APP_URL = window.location.origin + window.location.pathname;
@@ -75,6 +76,7 @@ let S = {
   calMonth: new Date(),
   expandedEventId: null,
   filterEstado:'ACTIVOS',  // ACTIVOS = hide cancelados by default
+  transportistas: [],
   selectedEventos: [],
 };
 function set(patch){ S={...S,...patch}; render(); }
@@ -107,6 +109,13 @@ async function deleteSelectedEventos(){
     await db.from('eventos').delete().eq('id', id);
   }
   set({selectedEventos:[]});
+  // check if transportista confirmation link
+  const urlParams = new URLSearchParams(window.location.search);
+  const calToken = urlParams.get('confirmar_calendario');
+  if(calToken){
+    await handleConfirmarCalendario(calToken);
+    return;
+  }
   await loadSLAConfig();
   await loadAll();
   toast(`🗑️ ${ids.length} evento(s) eliminado(s)`, T.red);
@@ -122,6 +131,61 @@ async function loadSLAConfig(){
       });
     }
   } catch(e){ /* config table may not exist yet */ }
+}
+
+async function handleConfirmarCalendario(token){
+  document.getElementById('root').innerHTML = `
+    <div style="min-height:100vh;background:#F5F3EF;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;padding:20px">
+      <div style="background:white;border-radius:16px;max-width:600px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,0.12);overflow:hidden">
+        <div style="background:linear-gradient(135deg,#1B6B74,#2A9D8F);padding:32px;text-align:center">
+          <div style="font-size:40px;margin-bottom:12px">🚐</div>
+          <h2 style="color:white;margin:0;font-size:22px;font-family:'Playfair Display',serif">Say Hueque · Operaciones</h2>
+          <p style="color:rgba(255,255,255,0.8);margin:8px 0 0;font-size:14px">Confirmación de calendario</p>
+        </div>
+        <div style="padding:32px;text-align:center" id="conf-body">
+          <div style="font-size:24px">⏳</div>
+          <p style="color:#666">Verificando...</p>
+        </div>
+      </div>
+    </div>`;
+
+  const {data:tok} = await db.from('calendario_tokens').select('*').eq('token',token).single();
+  const body = document.getElementById('conf-body');
+  if(!tok){ body.innerHTML='<div style="color:#E63946;font-size:18px">❌ Link inválido o expirado.</div>'; return; }
+  if(tok.confirmado){ body.innerHTML='<div style="font-size:40px">✅</div><h3 style="color:#2E7D32">¡Ya confirmado!</h3><p style="color:#666">Este calendario ya fue confirmado anteriormente el '+new Date(tok.confirmado_at).toLocaleDateString('es-AR')+'.</p>'; return; }
+
+  const {data:tr} = await db.from('transportistas').select('*').eq('id',tok.transportista_id).single();
+  const {data:eventos} = await db.from('eventos').select('*').gte('fecha',tok.fecha_desde).lte('fecha',tok.fecha_hasta).eq('transportista_id',tok.transportista_id).neq('estado','CANCELADO');
+  const {data:guias} = await db.from('guias').select('id,nombre,apellido');
+
+  const eventosHtml = (eventos||[]).map(e=>{
+    const g=guias?.find(x=>x.id===e.guia_id);
+    return `<tr><td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:13px">${new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'short'})}</td><td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:13px">${e.tipo_evento}</td><td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:13px">${e.hora_inicio}${e.hora_fin?' - '+e.hora_fin:''}</td><td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:13px">${g?g.nombre+' '+g.apellido:'—'}</td></tr>`;
+  }).join('');
+
+  body.innerHTML = `
+    <p style="color:#555;font-size:15px;margin-bottom:4px">Hola <strong>${tr?.contacto||tr?.nombre||''}</strong>,</p>
+    <p style="color:#555;font-size:14px">Estos son los eventos del período <strong>${tok.fecha_desde}</strong> al <strong>${tok.fecha_hasta}</strong>:</p>
+    <div style="overflow:auto;margin:16px 0;border:1px solid #E8E4DD;border-radius:8px">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:#f9f8f6"><th style="padding:10px 12px;text-align:left;font-size:11px;color:#9E9A93;text-transform:uppercase">Fecha</th><th style="padding:10px 12px;text-align:left;font-size:11px;color:#9E9A93;text-transform:uppercase">Tipo</th><th style="padding:10px 12px;text-align:left;font-size:11px;color:#9E9A93;text-transform:uppercase">Horario</th><th style="padding:10px 12px;text-align:left;font-size:11px;color:#9E9A93;text-transform:uppercase">Guía</th></tr></thead>
+        <tbody>${eventosHtml}</tbody>
+      </table>
+    </div>
+    <button id="btn-confirmar-cal" style="width:100%;padding:14px;border-radius:10px;border:none;background:linear-gradient(135deg,#1B6B74,#2A9D8F);color:white;font-size:16px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">✅ Confirmar todos los eventos</button>
+  `;
+
+  document.getElementById('btn-confirmar-cal').addEventListener('click', async()=>{
+    document.getElementById('btn-confirmar-cal').textContent='⏳ Confirmando...';
+    document.getElementById('btn-confirmar-cal').disabled=true;
+    // mark token as confirmed
+    await db.from('calendario_tokens').update({confirmado:true,confirmado_at:new Date().toISOString()}).eq('token',token);
+    // mark each evento as confirmed by transportista
+    for(const e of (eventos||[])){
+      await db.from('eventos').update({transportista_confirmado:true,transportista_confirmado_at:new Date().toISOString()}).eq('id',e.id);
+    }
+    body.innerHTML='<div style="font-size:60px;margin-bottom:16px">✅</div><h3 style="color:#2E7D32;font-size:22px">¡Confirmado!</h3><p style="color:#666;font-size:14px">Gracias '+( tr?.contacto||tr?.nombre||'')+', los '+( eventos?.length||0)+' eventos han sido confirmados.<br/>El equipo de Say Hueque fue notificado.</p>';
+  });
 }
 
 async function loadAll(){
@@ -142,14 +206,15 @@ async function loadAll(){
     set({ guias:[S.myGuia], eventos:e.data||[], invitaciones:invData||[], historial:h.data||[], liquidaciones:l.data||[] });
   } else {
     // admin sees everything
-    const [g,e,i,h,l] = await Promise.all([
+    const [g,e,i,h,l,tr] = await Promise.all([
       db.from('guias').select('*').order('nombre'),
       db.from('eventos').select('*').order('fecha',{ascending:false}),
       db.from('invitaciones').select('*').order('created_at',{ascending:false}),
       db.from('historial').select('*').order('created_at',{ascending:false}).limit(200),
       db.from('liquidaciones').select('*').order('created_at',{ascending:false}),
+      db.from('transportistas').select('*').order('nombre'),
     ]);
-    set({ guias:g.data||[], eventos:e.data||[], invitaciones:i.data||[], historial:h.data||[], liquidaciones:l.data||[] });
+    set({ guias:g.data||[], eventos:e.data||[], invitaciones:i.data||[], historial:h.data||[], liquidaciones:l.data||[], transportistas:tr.data||[] });
   }
 }
 
@@ -682,6 +747,7 @@ function buildRegModal(){
 function buildMain(){
   const pendInv = S.invitaciones.filter(i=>i.estado==='PENDIENTE').length;
   const pageContent = S.view==='dashboard'  ? buildDashboard()
+    : S.view==='transportistas' ? buildTransportistas()
     : S.view==='guias'        ? buildGuias()
     : S.view==='eventos'      ? buildEventos()
     : S.view==='calendario'   ? buildCalendario()
@@ -715,6 +781,7 @@ function buildSidebar(pendInv){
     {id:'invitaciones', icon:'📨', label:'Mis invitaciones', admin:false, badge: S.invitaciones.filter(i=>i.estado==='PENDIENTE').length},
     {id:'historial', icon:'📜', label:'Historial',  admin:false},
     {id:'liquidaciones', icon:'💰', label:'Liquidaciones', admin:false},
+    {id:'transportistas',icon:'🚐', label:'Transportistas', admin:true},
     {id:'usuarios',      icon:'🔑', label:'Usuarios',      admin:true},
   ];
   const items = allItems.filter(i => !i.admin || isAdmin());
@@ -913,6 +980,106 @@ function buildDashboard(){
 }
 
 // ── GUÍAS ─────────────────────────────────────────────────────────────────────
+
+// ── TRANSPORTISTAS ─────────────────────────────────────────────────────────────
+async function saveTransportista(data){
+  let error;
+  if(data.id){ const {id:_tid,...upd}=data; ({error}=await db.from('transportistas').update(upd).eq('id',data.id)); }
+  else        { ({error}=await db.from('transportistas').insert(data)); }
+  if(error){ toast('Error: '+error.message,T.red); return false; }
+  await loadAll(); return true;
+}
+
+async function deleteTransportista(id){
+  if(!confirm('¿Eliminar este transportista?')) return;
+  await db.from('transportistas').delete().eq('id',id);
+  await loadAll();
+  toast('Transportista eliminado');
+}
+
+function buildTransportistas(){
+  const btnS2=`padding:8px 16px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;color:#555;`;
+  return `
+  <div style="padding:24px;display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:20px;font-weight:700;color:${T.dark}">🚐 Transportistas</div>
+      <button data-open="transportista-form" data-entry="" style="${btnS2}background:${T.teal};color:white;border:none">+ Agregar</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
+      ${S.transportistas.length===0?`<div style="color:#9E9A93;font-size:14px">No hay transportistas cargados aún.</div>`:
+        S.transportistas.map(t=>`
+        <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:20px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+            <div>
+              <div style="font-size:16px;font-weight:700;color:${T.dark}">${esc(t.nombre)}</div>
+              ${t.contacto?`<div style="font-size:12px;color:#9E9A93;margin-top:2px">👤 ${esc(t.contacto)}</div>`:''}
+            </div>
+            <div style="display:flex;gap:6px">
+              <button data-open="transportista-form" data-entry="${t.id}" style="padding:4px 10px;border-radius:6px;border:1px solid #E8E4DD;background:white;font-size:11px;cursor:pointer;color:${T.teal};font-weight:600">✏️</button>
+              <button data-delete-transportista="${t.id}" style="padding:4px 10px;border-radius:6px;border:1px solid #fcd5d5;background:#fff5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600">🗑️</button>
+            </div>
+          </div>
+          ${t.email?`<div style="font-size:12px;color:#555;margin-bottom:6px">✉️ ${esc(t.email)}</div>`:''}
+          ${t.telefono?`<div style="font-size:12px;color:#555;margin-bottom:6px">📞 ${esc(t.telefono)}</div>`:''}
+          ${t.notas?`<div style="font-size:11px;color:#9E9A93;margin-top:8px;padding-top:8px;border-top:1px solid #F5F3EF">${esc(t.notas)}</div>`:''}
+          <button data-enviar-calendario="${t.id}" style="margin-top:12px;width:100%;padding:8px;border-radius:8px;border:none;background:${T.teal};color:white;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">📅 Enviar calendario</button>
+        </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function buildTransportistaModal(entry={}){
+  const isEdit=!!entry.id;
+  return `
+  <div id="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px">
+    <div style="background:white;border-radius:16px;width:100%;max-width:480px;box-shadow:0 24px 80px rgba(0,0,0,0.25);animation:slideIn 0.2s ease">
+      <div style="background:${T.teal};padding:20px 28px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center">
+        <div style="color:white;font-size:18px;font-weight:700;font-family:'Playfair Display',serif">🚐 ${isEdit?'Editar transportista':'Nuevo transportista'}</div>
+        <button id="btn-close-modal" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;color:white;font-size:20px;width:36px;height:36px;cursor:pointer">×</button>
+      </div>
+      <div style="padding:28px;display:flex;flex-direction:column;gap:16px">
+        ${fld('Nombre',`<input id="tr-nombre" value="${esc(entry.nombre||'')}" placeholder="Ej: Knar" style="${iStyle}"/>`,true)}
+        ${fld('Persona de contacto',`<input id="tr-contacto" value="${esc(entry.contacto||'')}" placeholder="Nombre del contacto" style="${iStyle}"/>`)}
+        ${fld('Email',`<input id="tr-email" type="email" value="${esc(entry.email||'')}" placeholder="contacto@transportista.com" style="${iStyle}"/>`)}
+        ${fld('Teléfono',`<input id="tr-telefono" value="${esc(entry.telefono||'')}" placeholder="+54911..." style="${iStyle}"/>`)}
+        ${fld('Notas',`<textarea id="tr-notas" rows="2" placeholder="Observaciones..." style="${iStyle}resize:vertical">${esc(entry.notas||'')}</textarea>`)}
+        <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:4px">
+          <button id="btn-close-modal2" style="padding:8px 20px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif">Cancelar</button>
+          <button id="btn-save-transportista" data-id="${entry.id||''}" style="padding:8px 20px;border-radius:8px;border:none;background:${T.teal};color:white;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">${isEdit?'💾 Guardar':'✅ Crear'}</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function buildEnviarCalendarioModal(transportistaId){
+  const t = S.transportistas.find(x=>x.id===transportistaId);
+  return `
+  <div id="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px">
+    <div style="background:white;border-radius:16px;width:100%;max-width:480px;box-shadow:0 24px 80px rgba(0,0,0,0.25);animation:slideIn 0.2s ease">
+      <div style="background:${T.teal};padding:20px 28px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="color:rgba(255,255,255,0.7);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em">Enviar calendario</div>
+          <div style="color:white;font-size:18px;font-weight:700;font-family:'Playfair Display',serif">📅 ${esc(t?.nombre||'')}</div>
+        </div>
+        <button id="btn-close-modal" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;color:white;font-size:20px;width:36px;height:36px;cursor:pointer">×</button>
+      </div>
+      <div style="padding:28px;display:flex;flex-direction:column;gap:16px">
+        <p style="font-size:13px;color:#666;margin:0">Se enviará un email con todos los eventos del período que tengan asignado a <strong>${esc(t?.nombre||'')}</strong> como transportista, junto con un link para confirmar.</p>
+        ${fld('Fecha desde',`<input id="cal-desde" type="date" style="${iStyle}"/>`,true)}
+        ${fld('Fecha hasta',`<input id="cal-hasta" type="date" style="${iStyle}"/>`,true)}
+        <div id="cal-preview" style="display:none;background:#f9f8f6;border-radius:8px;padding:12px;font-size:12px;color:#555;max-height:200px;overflow:auto"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button id="btn-close-modal2" style="padding:8px 20px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif">Cancelar</button>
+          <button id="btn-preview-cal" style="padding:8px 20px;border-radius:8px;border:1.5px solid ${T.teal};background:white;font-size:13px;font-weight:600;cursor:pointer;color:${T.teal};font-family:'DM Sans',sans-serif">👁 Ver eventos</button>
+          <button id="btn-send-calendario" data-tid="${transportistaId}" style="padding:8px 20px;border-radius:8px;border:none;background:${T.teal};color:white;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">📧 Enviar</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+
 function buildGuias(){
   return `
   <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
@@ -1034,6 +1201,7 @@ function buildEventos(){
                 <td style="padding:10px 14px"><span style="font-size:11px;font-weight:700;color:${e.prioridad==='URGENTE'?T.red:T.teal}">${e.prioridad}</span></td>
                 <td style="padding:10px 14px">${badge(e.estado,ESTADO_EVENT_COLOR)}</td>
                 <td style="padding:10px 14px;font-size:12px;color:${T.tealMid};font-weight:600">${guia?esc(guia.nombre+' '+guia.apellido):'<span style="color:#ccc">Sin asignar</span>'}</td>
+                
                 <td style="padding:10px 14px">
                   <div style="display:flex;gap:6px">
                     ${isAdmin()?`<button data-edit-evento="${e.id}" style="padding:4px 10px;border-radius:6px;border:1px solid #E8E4DD;background:white;font-size:11px;cursor:pointer;color:${T.teal};font-weight:600;font-family:'DM Sans',sans-serif">✏️</button>`:''}
@@ -1050,6 +1218,7 @@ function buildEventos(){
                       ${e.nro_file?`<div style="margin-bottom:14px"><div style="font-size:10px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">📁 Nro File / TourPlan</div><div style="font-size:13px;color:${T.dark};font-weight:600">${esc(e.nro_file)}</div></div>`:''}
                       ${e.descripcion?`<div style="margin-bottom:14px"><div style="font-size:10px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Descripción</div><div style="font-size:13px;color:${T.dark};line-height:1.5">${esc(e.descripcion)}</div></div>`:''}
                       ${e.link_adjunto?`<div><div style="font-size:10px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Adjunto</div><a href="${esc(e.link_adjunto)}" target="_blank" style="font-size:12px;color:${T.tealMid}">🔗 Ver adjunto</a></div>`:''}
+                      ${(()=>{const tr=S.transportistas.find(t=>t.id===e.transportista_id);return tr?`<div style="margin-top:8px"><div style="font-size:10px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">🚐 Transportista</div><div style="font-size:13px;color:${T.dark};font-weight:600">${esc(tr.nombre)}</div><div style="font-size:11px;margin-top:4px">${e.transportista_confirmado?'<span style="color:#2E7D32;font-weight:700">✅ Confirmado por transportista</span>':'<span style="color:#9E9A93">⏳ Pendiente de confirmación</span>'}</div></div>`:'';})()}
                       <div style="margin-top:8px">
                         <a href="${buildGCalUrl(e)}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;background:#4285F4;color:white;font-size:12px;font-weight:600;text-decoration:none;font-family:'DM Sans',sans-serif">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
@@ -1411,6 +1580,8 @@ function buildModal(){
   if(m.type==='nueva-liq')         return buildNuevaLiquidacionModal(m.eventoId);
   if(m.type==='ver-liq')           return buildVerLiquidacionModal(m.liqId);
   if(m.type==='config-sla')        return buildSLAModal();
+  if(m.type==='transportista-form') return buildTransportistaModal(m.entry||{});
+  if(m.type==='enviar-calendario')  return buildEnviarCalendarioModal(m.transportistaId);
   return '';
 }
 
@@ -1936,6 +2107,84 @@ function attachEvents(){
   });
 
   document.querySelectorAll('[data-filter-estado]').forEach(btn=>btn.addEventListener('click',()=>set({filterEstado:btn.dataset.filterEstado, selectedEventos:[]})));
+  // transportistas
+  document.querySelectorAll('[data-open="transportista-form"]').forEach(btn=>btn.addEventListener('click',()=>{
+    const id = parseInt(btn.dataset.entry)||null;
+    const entry = id ? S.transportistas.find(t=>t.id===id)||{} : {};
+    set({modal:{type:'transportista-form', entry}});
+  }));
+  document.querySelectorAll('[data-delete-transportista]').forEach(btn=>btn.addEventListener('click',()=>deleteTransportista(parseInt(btn.dataset.deleteTransportista))));
+  document.querySelectorAll('[data-enviar-calendario]').forEach(btn=>btn.addEventListener('click',()=>set({modal:{type:'enviar-calendario',transportistaId:parseInt(btn.dataset.enviarCalendario)}})));
+
+  // save transportista
+  document.getElementById('btn-save-transportista')?.addEventListener('click',async()=>{
+    const id = document.getElementById('btn-save-transportista').dataset.id;
+    const data = {
+      nombre:   document.getElementById('tr-nombre')?.value?.trim(),
+      contacto: document.getElementById('tr-contacto')?.value?.trim()||null,
+      email:    document.getElementById('tr-email')?.value?.trim()||null,
+      telefono: document.getElementById('tr-telefono')?.value?.trim()||null,
+      notas:    document.getElementById('tr-notas')?.value?.trim()||null,
+    };
+    if(!data.nombre){toast('El nombre es obligatorio',T.red);return;}
+    if(id) data.id=parseInt(id);
+    const ok=await saveTransportista(data);
+    if(ok){set({modal:null});toast(id?'✅ Transportista actualizado':'✅ Transportista creado');}
+  });
+
+  // preview and send calendario
+  document.getElementById('btn-preview-cal')?.addEventListener('click',()=>{
+    const desde = document.getElementById('cal-desde')?.value;
+    const hasta = document.getElementById('cal-hasta')?.value;
+    const tid = parseInt(document.getElementById('btn-send-calendario')?.dataset.tid);
+    if(!desde||!hasta){toast('Completá las fechas',T.red);return;}
+    const eventos = S.eventos.filter(e=>e.transportista_id===tid && e.fecha>=desde && e.fecha<=hasta && e.estado!=='CANCELADO');
+    const preview = document.getElementById('cal-preview');
+    if(!eventos.length){preview.style.display='block';preview.innerHTML='<em>Sin eventos en ese período para este transportista.</em>';return;}
+    preview.style.display='block';
+    preview.innerHTML = '<strong>'+eventos.length+' evento(s):</strong><br/>'+eventos.map(e=>{
+      const guia=S.guias.find(g=>g.id===e.guia_id);
+      return `• ${e.fecha} · ${e.tipo_evento} · ${e.hora_inicio}${e.hora_fin?' - '+e.hora_fin:''} · Guía: ${guia?guia.nombre+' '+guia.apellido:'Sin asignar'}`;
+    }).join('<br/>');
+  });
+
+  document.getElementById('btn-send-calendario')?.addEventListener('click',async()=>{
+    const desde = document.getElementById('cal-desde')?.value;
+    const hasta = document.getElementById('cal-hasta')?.value;
+    const tid = parseInt(document.getElementById('btn-send-calendario')?.dataset.tid);
+    if(!desde||!hasta){toast('Completá las fechas',T.red);return;}
+    const t = S.transportistas.find(x=>x.id===tid);
+    if(!t?.email){toast('El transportista no tiene email',T.red);return;}
+    const eventos = S.eventos.filter(e=>e.transportista_id===tid && e.fecha>=desde && e.fecha<=hasta && e.estado!=='CANCELADO');
+    if(!eventos.length){toast('Sin eventos en ese período',T.red);return;}
+    // create token
+    const {data:tokenData} = await db.from('calendario_tokens').insert({transportista_id:tid,fecha_desde:desde,fecha_hasta:hasta}).select().single();
+    if(!tokenData){toast('Error al crear token',T.red);return;}
+    const confirmUrl = window.location.origin+window.location.pathname+'?confirmar_calendario='+tokenData.token;
+    // build email body
+    const eventosHtml = eventos.map(e=>{
+      const guia=S.guias.find(g=>g.id===e.guia_id);
+      return `<tr><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0">${e.fecha}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0">${e.tipo_evento}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0">${e.hora_inicio}${e.hora_fin?' - '+e.hora_fin:''}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0">${guia?guia.nombre+' '+guia.apellido:'Sin asignar'}</td>${e.nro_file?'<td style="padding:8px 12px;border-bottom:1px solid #f0f0f0">'+e.nro_file+'</td>':''}</tr>`;
+    }).join('');
+    try {
+      await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE_CALENDARIO_TR, {
+        to_email: t.email,
+        transportista_nombre: t.contacto||t.nombre,
+        empresa: t.nombre,
+        fecha_desde: desde,
+        fecha_hasta: hasta,
+        eventos_count: eventos.length,
+        eventos_tabla: eventosHtml,
+        confirmar_url: confirmUrl,
+      }, EMAILJS_KEY);
+      toast('✅ Calendario enviado a '+t.email);
+      set({modal:null});
+    } catch(err){
+      console.error(err);
+      toast('Error enviando email: '+err.text,T.red);
+    }
+  });
+
   document.querySelectorAll('[data-select-evento]').forEach(cb=>cb.addEventListener('change',()=>{
     const id = parseInt(cb.dataset.selectEvento);
     const sel = [...(S.selectedEventos||[])];
@@ -2045,6 +2294,7 @@ function attachEvents(){
       prioridad:document.getElementById('e-prioridad')?.value,
       descripcion:document.getElementById('e-descripcion')?.value?.trim()||null,
       link_adjunto:document.getElementById('e-link_adjunto')?.value?.trim()||null,
+      transportista_id: document.getElementById('e-aplica-transportista')?.value==='si' ? (parseInt(document.getElementById('e-transportista-id')?.value)||null) : null,
       estado: id ? undefined : 'A_ASIGNAR',
     };
     if(!data.nro_file){toast('El Nro de File es obligatorio',T.red);return;}
