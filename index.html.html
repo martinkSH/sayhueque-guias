@@ -854,7 +854,7 @@ function buildDashboard(){
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button data-open="evento-form" style="padding:8px 16px;border-radius:8px;border:2px solid rgba(255,255,255,0.35);background:rgba(255,255,255,0.1);color:white;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">📋 Crear evento</button>
         <button data-open="guia-form" style="padding:8px 16px;border-radius:8px;border:2px solid rgba(255,255,255,0.35);background:rgba(255,255,255,0.1);color:white;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">👤 Agregar guía</button>
-        <button id="btn-config-sla" style="padding:8px 16px;border-radius:8px;border:2px solid rgba(255,255,255,0.35);background:rgba(255,255,255,0.1);color:white;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">⚙️ Config SLA · <span id="sla-label">U:${SLA.URGENTE}h R:${SLA.REGULAR}h</span></button>
+        <button onclick="set({modal:{type:'config-sla'}})" style="padding:8px 16px;border-radius:8px;border:2px solid rgba(255,255,255,0.35);background:rgba(255,255,255,0.1);color:white;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">⚙️ Config SLA · U:${SLA.URGENTE}h R:${SLA.REGULAR}h</button>
       </div>
     </div>
 
