@@ -111,6 +111,7 @@ async function deleteSelectedEventos(){
   set({selectedEventos:[]});
   await loadSLAConfig();
   await loadAll();
+  if(isAdmin()) checkAlertasAdmin();
   toast(`🗑️ ${ids.length} evento(s) eliminado(s)`, T.red);
 }
 
@@ -179,6 +180,54 @@ async function handleConfirmarCalendario(token){
     }
     body.innerHTML='<div style="font-size:60px;margin-bottom:16px">✅</div><h3 style="color:#2E7D32;font-size:22px">¡Confirmado!</h3><p style="color:#666;font-size:14px">Gracias '+( tr?.contacto||tr?.nombre||'')+', los '+( eventos?.length||0)+' eventos han sido confirmados.<br/>El equipo de Say Hueque fue notificado.</p>';
   });
+}
+
+async function checkAlertasAdmin(){
+  // Check for GUIA_SE_BAJO events in last 7 days that haven't been acknowledged
+  const hace7dias = new Date(Date.now() - 7*24*60*60*1000).toISOString();
+  const {data:alertas} = await db.from('historial')
+    .select('*')
+    .eq('accion','GUIA_SE_BAJO')
+    .gte('created_at', hace7dias)
+    .order('created_at',{ascending:false});
+
+  if(!alertas?.length) return;
+
+  // Build alert modal
+  const alertasHtml = alertas.map(a=>{
+    const evento = S.eventos.find(e=>e.id===a.evento_id);
+    const guia = S.guias.find(g=>g.id===a.guia_id);
+    const fecha = new Date(a.created_at).toLocaleString('es-AR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    return `<div style="background:white;border-radius:8px;padding:14px;margin-bottom:10px;border-left:4px solid #E63946">
+      <div style="font-size:13px;font-weight:700;color:#1A1A1A">${guia?guia.nombre+' '+guia.apellido:'Guía'} se bajó del evento</div>
+      <div style="font-size:12px;color:#555;margin-top:4px">${evento?evento.tipo_evento+' · '+new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'}):'Evento'}</div>
+      <div style="font-size:11px;color:#9E9A93;margin-top:2px">${a.detalle||''}</div>
+      <div style="font-size:10px;color:#9E9A93;margin-top:4px">📅 ${fecha}</div>
+    </div>`;
+  }).join('');
+
+  const overlay = document.createElement('div');
+  overlay.id = 'alerta-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML = `
+    <div style="background:#f9f8f6;border-radius:16px;width:100%;max-width:500px;box-shadow:0 24px 80px rgba(0,0,0,0.3);overflow:hidden;animation:slideIn 0.2s ease">
+      <div style="background:#E63946;padding:20px 24px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="color:white;font-size:18px;font-weight:700;font-family:'Playfair Display',serif">⚠️ Alertas pendientes</div>
+          <div style="color:rgba(255,255,255,0.8);font-size:12px;margin-top:2px">${alertas.length} guía(s) se bajaron de eventos recientemente</div>
+        </div>
+        <button id="btn-close-alerta" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;color:white;font-size:20px;width:36px;height:36px;cursor:pointer">×</button>
+      </div>
+      <div style="padding:20px;max-height:400px;overflow-y:auto">
+        ${alertasHtml}
+      </div>
+      <div style="padding:16px 20px;border-top:1px solid #E8E4DD;text-align:right">
+        <button id="btn-close-alerta2" style="padding:8px 24px;border-radius:8px;border:none;background:#E63946;color:white;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">Entendido</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('btn-close-alerta').onclick = ()=>overlay.remove();
+  document.getElementById('btn-close-alerta2').onclick = ()=>overlay.remove();
 }
 
 async function loadAll(){
@@ -539,6 +588,35 @@ async function cancelarEvento(eventoId){
   });
   await loadAll();
   toast('✅ Evento cancelado y guías notificados');
+}
+
+async function bajarseEvento(eventoId){
+  const evento = S.eventos.find(e=>e.id===eventoId);
+  if(!evento) return;
+  if(!confirm('¿Confirmas que querés bajarte de este evento?')) return;
+  const motivo = prompt('Motivo (opcional):') || '';
+  const guia = S.myGuia;
+
+  // Revert event to A_ASIGNAR and remove guia
+  await db.from('eventos').update({estado:'A_ASIGNAR', guia_id:null}).eq('id',eventoId);
+
+  // Mark invitation as RECHAZADA
+  const {data:invs} = await db.from('invitaciones').select('*').eq('evento_id',eventoId).eq('guia_id',guia.id);
+  if(invs?.length){
+    await db.from('invitaciones').update({estado:'RECHAZADA',respondido_at:new Date().toISOString()}).eq('id',invs[0].id);
+  }
+
+  // Log with special accion so admin sees alert
+  await db.from('historial').insert({
+    evento_id: eventoId,
+    guia_id: guia.id,
+    accion: 'GUIA_SE_BAJO',
+    actor: 'GUIA',
+    detalle: `${guia.nombre} ${guia.apellido} se bajó del evento${motivo?' · Motivo: '+motivo:''}`
+  });
+
+  await loadAll();
+  toast('✅ Te bajaste del evento.', T.coral);
 }
 
 async function cancelarInvitacion(invId){
@@ -1204,7 +1282,7 @@ function buildEventos(){
                   <div style="display:flex;gap:6px">
                     ${isAdmin()?`<button data-edit-evento="${e.id}" style="padding:4px 10px;border-radius:6px;border:1px solid #E8E4DD;background:white;font-size:11px;cursor:pointer;color:${T.teal};font-weight:600;font-family:'DM Sans',sans-serif">✏️</button>`:''}
                     ${(e.estado==='A_ASIGNAR'||e.estado==='ASIGNADO')&&isAdmin()?`<button data-invitar="${e.id}" style="padding:4px 10px;border-radius:6px;border:none;background:${T.teal};color:white;font-size:11px;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif">📧 Invitar</button>`:''}
-                    ${e.estado!=='CANCELADO'?`<button data-cancelar-evento="${e.id}" style="padding:4px 10px;border-radius:6px;border:1px solid #fcd5d5;background:#fff5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600;font-family:'DM Sans',sans-serif">✕ Cancelar</button>`:''}
+                    ${e.estado!=='CANCELADO'&&isAdmin()?`<button data-cancelar-evento="${e.id}" style="padding:4px 10px;border-radius:6px;border:1px solid #fcd5d5;background:#fff5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600;font-family:'DM Sans',sans-serif">✕ Cancelar</button>`:''}
                   </div>
                 </td>
               </tr>
@@ -1294,7 +1372,7 @@ function buildCalendario(){
 
 // ── HISTORIAL ─────────────────────────────────────────────────────────────────
 function buildHistorial(){
-  const ACCION_ICONS={'INVITACION_ENVIADA':'📧','ACEPTADA':'✅','RECHAZADA':'❌','EXPIRADA_SLA':'⏱','CANCELADA':'🚫','TOMADA_POR_OTRO':'👤'};
+  const ACCION_ICONS={'INVITACION_ENVIADA':'📧','ACEPTADA':'✅','RECHAZADA':'❌','EXPIRADA_SLA':'⏱','CANCELADA':'🚫','TOMADA_POR_OTRO':'👤','GUIA_SE_BAJO':'🚫','EVENTO_CANCELADO':'❌'};
   return `
   <div style="padding:24px">
     <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;overflow:hidden">
@@ -1511,11 +1589,12 @@ function buildMisInvitaciones(){
                 ${tr.contacto?`<div style="font-size:12px;color:#555;margin-top:2px">👤 ${esc(tr.contacto)}</div>`:''}
               </div>`:'';
             })()}
-            <div style="margin-bottom:14px">
+            <div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap">
               <a href="${buildGCalUrl(evento)}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;background:#4285F4;color:white;font-size:12px;font-weight:600;text-decoration:none;font-family:'DM Sans',sans-serif">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
                 Agregar a Google Calendar
               </a>
+              ${evento.estado==='CONFIRMADO'&&evento.guia_id===S.myGuia?.id?`<button data-bajar-evento="${evento.id}" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;background:#fff5f5;border:1.5px solid #fcd5d5;color:#E63946;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">🚫 Me bajo del evento</button>`:''}
             </div>
             ${vencida?`<div style="text-align:center;padding:10px;background:#F8D7DA;border-radius:8px;font-size:12px;color:#721c24;font-weight:600">⏱ Esta invitación venció</div>`:`
             <div style="display:flex;gap:10px">
@@ -2239,6 +2318,11 @@ function attachEvents(){
     toast(result.msg, result.ok ? T.green : T.red);
     await loadAll();
   }));
+  document.querySelectorAll('[data-bajar-evento]').forEach(btn=>btn.addEventListener('click',e=>{
+    e.stopPropagation();
+    bajarseEvento(parseInt(btn.dataset.bajarEvento));
+  }));
+
   document.querySelectorAll('[data-cancelar-evento]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();if(confirm('¿Cancelar este evento? Se cancelarán también las invitaciones pendientes.'))cancelarEvento(parseInt(btn.dataset.cancelarEvento));}));
 
   // calendario nav
