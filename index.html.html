@@ -1467,6 +1467,9 @@ function buildEventoModal(entry={}){
       <div style="padding:28px;display:flex;flex-direction:column;gap:18px">
         ${sec('📋','Datos del evento',T.coral)}
         ${g2(`${fld('Nro de File / TourPlan',inp('nro_file','nro_file','ej: TP-2026-001'),true)} ${fld('Tipo de evento',sel('tipo_evento','tipo_evento',TIPOS_EVENTO),true)}`)}
+        <div id="otro-tipo-field" style="display:${(entry.tipo_evento&&!TIPOS_EVENTO.includes(entry.tipo_evento))||entry.tipo_evento==='Otro'?'block':'none'}">
+          ${fld('Especificá el tipo de evento',`<input id="e-tipo_otro" type="text" value="${esc(entry.tipo_evento&&!TIPOS_EVENTO.includes(entry.tipo_evento)?entry.tipo_evento:'')}" placeholder="Ej: Cabalgata, Avistaje, Cultural..." style="${iStyle}"/>`,true)}
+        </div>
         ${g2(`${fld('Fecha',inp('fecha','fecha','',  'date'),true)} ${fld('Prioridad',sel('prioridad','prioridad',['REGULAR','URGENTE']))}`)}
         ${g2(`${fld('Hora inicio',inp('hora_inicio','hora_inicio','','time'),true)} ${fld('Hora fin',inp('hora_fin','hora_fin','','time'))}`)}
         ${fld('Descripción / Observaciones',`<textarea id="e-descripcion" placeholder="Detalles del evento, punto de encuentro, indicaciones especiales..." rows="3" style="${iStyle}resize:vertical">${esc(entry.descripcion||'')}</textarea>`)}
@@ -1926,6 +1929,12 @@ function attachEvents(){
   document.querySelectorAll('[data-toggle-evento]').forEach(el=>el.addEventListener('click',()=>{const id=parseInt(el.dataset.toggleEvento);set({expandedEventId:S.expandedEventId===id?null:id});}));
 
   // filter estado
+  // show/hide otro tipo field
+  document.getElementById('e-tipo_evento')?.addEventListener('change', function(){
+    const otroField = document.getElementById('otro-tipo-field');
+    if(otroField) otroField.style.display = this.value==='Otro' ? 'block' : 'none';
+  });
+
   document.querySelectorAll('[data-filter-estado]').forEach(btn=>btn.addEventListener('click',()=>set({filterEstado:btn.dataset.filterEstado, selectedEventos:[]})));
   document.querySelectorAll('[data-select-evento]').forEach(cb=>cb.addEventListener('change',()=>{
     const id = parseInt(cb.dataset.selectEvento);
@@ -2022,7 +2031,14 @@ function attachEvents(){
     const id=document.getElementById('btn-save-evento').dataset.id;
     const data={
       nro_file:   document.getElementById('e-nro_file')?.value?.trim()||null,
-      tipo_evento:document.getElementById('e-tipo_evento')?.value,
+      tipo_evento:(()=>{
+        const t = document.getElementById('e-tipo_evento')?.value;
+        if(t==='Otro'){
+          const otro = document.getElementById('e-tipo_otro')?.value?.trim();
+          return otro || 'Otro';
+        }
+        return t;
+      })(),
       fecha:document.getElementById('e-fecha')?.value,
       hora_inicio:document.getElementById('e-hora_inicio')?.value,
       hora_fin:document.getElementById('e-hora_fin')?.value||null,
