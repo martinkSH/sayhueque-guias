@@ -45,7 +45,7 @@ const T = {
 };
 
 const TIPOS_EVENTO = ['City Tour','Transfer','Full Day','Trekking','Multi Day','Ski','Náutico','Privado','Otro'];
-const SLA = { URGENTE: 5, REGULAR: 48 };
+let SLA = { URGENTE: 5, REGULAR: 48 }; // overridden by DB config on load
 
 const ESTADO_EVENT_COLOR = {
   'A_ASIGNAR': {bg:'#FFF3CD',fg:'#856404',label:'A Asignar'},
@@ -107,8 +107,21 @@ async function deleteSelectedEventos(){
     await db.from('eventos').delete().eq('id', id);
   }
   set({selectedEventos:[]});
+  await loadSLAConfig();
   await loadAll();
   toast(`🗑️ ${ids.length} evento(s) eliminado(s)`, T.red);
+}
+
+async function loadSLAConfig(){
+  try {
+    const {data} = await db.from('config').select('*').in('key',['sla_urgente','sla_regular']);
+    if(data?.length){
+      data.forEach(r=>{
+        if(r.key==='sla_urgente') SLA.URGENTE = parseInt(r.value)||SLA.URGENTE;
+        if(r.key==='sla_regular') SLA.REGULAR = parseInt(r.value)||SLA.REGULAR;
+      });
+    }
+  } catch(e){ /* config table may not exist yet */ }
 }
 
 async function loadAll(){
@@ -841,7 +854,7 @@ function buildDashboard(){
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button data-open="evento-form" style="padding:8px 16px;border-radius:8px;border:2px solid rgba(255,255,255,0.35);background:rgba(255,255,255,0.1);color:white;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">📋 Crear evento</button>
         <button data-open="guia-form" style="padding:8px 16px;border-radius:8px;border:2px solid rgba(255,255,255,0.35);background:rgba(255,255,255,0.1);color:white;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">👤 Agregar guía</button>
-        <button id="btn-check-sla" style="padding:8px 16px;border-radius:8px;border:2px solid rgba(255,255,255,0.35);background:rgba(255,255,255,0.1);color:white;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">⏱ Verificar SLA</button>
+        <button id="btn-config-sla" style="padding:8px 16px;border-radius:8px;border:2px solid rgba(255,255,255,0.35);background:rgba(255,255,255,0.1);color:white;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">⚙️ Config SLA · <span id="sla-label">U:${SLA.URGENTE}h R:${SLA.REGULAR}h</span></button>
       </div>
     </div>
 
@@ -1464,6 +1477,39 @@ function buildEventoModal(entry={}){
   </div>`;
 }
 
+function buildSLAModal(){
+  const iStyle2='padding:8px 12px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:\'DM Sans\',sans-serif;outline:none;width:100%;box-sizing:border-box;text-align:center;font-weight:700';
+  return `
+  <div id="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px">
+    <div style="background:white;border-radius:16px;width:100%;max-width:400px;box-shadow:0 24px 80px rgba(0,0,0,0.25);animation:slideIn 0.2s ease">
+      <div style="background:${T.teal};padding:20px 28px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center">
+        <div style="color:white;font-size:18px;font-weight:700;font-family:'Playfair Display',serif">⚙️ Configurar SLA</div>
+        <button id="btn-close-modal" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;color:white;font-size:20px;width:36px;height:36px;cursor:pointer">×</button>
+      </div>
+      <div style="padding:28px;display:flex;flex-direction:column;gap:20px">
+        <p style="font-size:13px;color:#666;margin:0">Definí cuántas horas tiene el guía para responder una invitación según la prioridad del evento.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div>
+            <label style="font-size:11px;font-weight:700;color:#E63946;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">🔴 URGENTE (hs)</label>
+            <input id="sla-urgente" type="number" min="1" max="72" value="${SLA.URGENTE}" style="${iStyle2}"/>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;color:${T.teal};text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">🔵 REGULAR (hs)</label>
+            <input id="sla-regular" type="number" min="1" max="168" value="${SLA.REGULAR}" style="${iStyle2}"/>
+          </div>
+        </div>
+        <div style="background:#FFF3CD;border-radius:8px;padding:12px;font-size:12px;color:#856404">
+          ⚠️ El cambio aplica a las nuevas invitaciones. Las invitaciones pendientes existentes conservan su tiempo original.
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button id="btn-close-modal2" style="padding:8px 20px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif">Cancelar</button>
+          <button id="btn-save-sla" style="padding:8px 20px;border-radius:8px;border:none;background:${T.teal};color:white;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">💾 Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
 function buildInvitarModal(eventoId){
   const evento=S.eventos.find(e=>e.id===eventoId);
   const guiasActivos=[...S.guias].filter(g=>g.estado==='ACTIVO').sort((a,b)=>a.nombre.localeCompare(b.nombre));
@@ -1910,8 +1956,8 @@ function attachEvents(){
   document.getElementById('cal-prev')?.addEventListener('click',()=>{ const d=new Date(S.calMonth); d.setMonth(d.getMonth()-1); set({calMonth:d}); });
   document.getElementById('cal-next')?.addEventListener('click',()=>{ const d=new Date(S.calMonth); d.setMonth(d.getMonth()+1); set({calMonth:d}); });
 
-  // check SLA
-  document.getElementById('btn-check-sla')?.addEventListener('click',async()=>{ await checkSLA(); });
+  // config SLA
+  document.getElementById('btn-config-sla')?.addEventListener('click',()=>{ set({modal:{type:'config-sla'}}); });
 
   // export CSV
   document.getElementById('btn-export')?.addEventListener('click',()=>{
@@ -1928,6 +1974,20 @@ function attachEvents(){
   // modal close
   ['btn-close-modal','btn-close-modal2'].forEach(id=>{document.getElementById(id)?.addEventListener('click',()=>set({modal:null}));});
   document.getElementById('modal-overlay')?.addEventListener('click',e=>{if(e.target.id==='modal-overlay')set({modal:null});});
+
+  // save SLA config
+  document.getElementById('btn-save-sla')?.addEventListener('click', async()=>{
+    const u = parseInt(document.getElementById('sla-urgente')?.value);
+    const r = parseInt(document.getElementById('sla-regular')?.value);
+    if(!u||!r||u<1||r<1){ toast('Valores inválidos', T.red); return; }
+    SLA.URGENTE = u;
+    SLA.REGULAR = r;
+    // persist in supabase config table
+    await db.from('config').upsert({key:'sla_urgente', value:String(u)},{onConflict:'key'});
+    await db.from('config').upsert({key:'sla_regular', value:String(r)},{onConflict:'key'});
+    set({modal:null});
+    toast(`✅ SLA actualizado · Urgente: ${u}h · Regular: ${r}h`);
+  });
 
   // save guia
   document.getElementById('btn-save-guia')?.addEventListener('click',async()=>{
