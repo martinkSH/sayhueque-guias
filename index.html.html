@@ -196,7 +196,7 @@ async function procesarColaEmails(){
 
 async function saveGuia(data){
   let error;
-  if(data.id){ ({error}=await db.from('guias').update(data).eq('id',data.id)); }
+  if(data.id){ const {id:_gid, ...guiaUpd} = data; ({error}=await db.from('guias').update(guiaUpd).eq('id',data.id)); }
   else        { ({error}=await db.from('guias').insert(data)); }
   if(error){toast('Error: '+error.message,T.red);return false;}
   await loadAll(); return true;
