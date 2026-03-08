@@ -1645,6 +1645,13 @@ function buildEventoModal(entry={}){
         ${g2(`${fld('Hora inicio',inp('hora_inicio','hora_inicio','','time'),true)} ${fld('Hora fin',inp('hora_fin','hora_fin','','time'))}`)}
         ${fld('Descripción / Observaciones',`<textarea id="e-descripcion" placeholder="Detalles del evento, punto de encuentro, indicaciones especiales..." rows="3" style="${iStyle}resize:vertical">${esc(entry.descripcion||'')}</textarea>`)}
         ${fld('Link adjunto (Drive, doc, etc.)',inp('link_adjunto','link_adjunto','https://drive.google.com/...'))}
+        <div style="border-top:1px solid #F0EDE8;margin:8px 0;padding-top:8px">
+          <div style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">🚐 Transportista</div>
+          ${fld('¿Aplica transportista?',`<select id="e-aplica-transportista" style="${iStyle}cursor:pointer"><option value="no" ${!entry.transportista_id?'selected':''}>No aplica</option><option value="si" ${entry.transportista_id?'selected':''}>Sí aplica</option></select>`)}
+          <div id="e-transportista-select" style="display:${entry.transportista_id?'block':'none'}">
+            ${fld('Transportista',`<select id="e-transportista-id" style="${iStyle}cursor:pointer"><option value="">— Seleccionar —</option>${S.transportistas.map(t=>`<option value="${t.id}" ${entry.transportista_id===t.id?'selected':''}>` + esc(t.nombre) + `</option>`).join('')}</select>`)}
+          </div>
+        </div>
         <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:4px">
           <button id="btn-close-modal2" style="${btnS}">Cancelar</button>
           <button id="btn-save-evento" data-id="${entry.id||''}" style="${btnP(T.coral)}box-shadow:0 4px 14px ${T.coral}50">${isEdit?'💾 Guardar':'✅ Crear evento'}</button>
@@ -2100,6 +2107,12 @@ function attachEvents(){
   document.querySelectorAll('[data-toggle-evento]').forEach(el=>el.addEventListener('click',()=>{const id=parseInt(el.dataset.toggleEvento);set({expandedEventId:S.expandedEventId===id?null:id});}));
 
   // filter estado
+  // show/hide transportista select
+  document.getElementById('e-aplica-transportista')?.addEventListener('change', function(){
+    const el = document.getElementById('e-transportista-select');
+    if(el) el.style.display = this.value==='si' ? 'block' : 'none';
+  });
+
   // show/hide otro tipo field
   document.getElementById('e-tipo_evento')?.addEventListener('change', function(){
     const otroField = document.getElementById('otro-tipo-field');
