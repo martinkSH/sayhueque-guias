@@ -417,12 +417,18 @@ async function responderInvitacion(token, accion){
     const {data:eventoData} = await db.from('eventos').select('*').eq('id',inv.evento_id).single();
     return {ok:true, msg:'¡Perfecto! Quedaste confirmado para este evento. Te esperamos.', evento: eventoData};
   } else {
-    await db.from('invitaciones').update({estado:'RECHAZADA',respondido_at:new Date().toISOString()}).eq('id',inv.id);
-    await db.from('historial').insert({evento_id:inv.evento_id,guia_id:inv.guia_id,invitacion_id:inv.id,accion:'RECHAZADA',actor:'GUIA'});
+    // RECHAZAR
+    const {error:errUpd} = await db.from('invitaciones').update({estado:'RECHAZADA',respondido_at:new Date().toISOString()}).eq('id',inv.id);
+    if(errUpd){ console.error('Error updating invitacion:', errUpd); return {ok:false, msg:'Error al registrar: '+errUpd.message}; }
+    
+    const {error:errHist} = await db.from('historial').insert({evento_id:inv.evento_id,guia_id:inv.guia_id,invitacion_id:inv.id,accion:'RECHAZADA',actor:'GUIA',detalle:'Guía rechazó desde app/mail'});
+    if(errHist){ console.error('Error inserting historial:', errHist); }
+    
     // revert to A_ASIGNAR if no more pending invitations
     const {data:pendAun} = await db.from('invitaciones').select('id').eq('evento_id',inv.evento_id).eq('estado','PENDIENTE');
     if(!pendAun?.length){
-      await db.from('eventos').update({estado:'A_ASIGNAR'}).eq('id',inv.evento_id);
+      const {error:errEv} = await db.from('eventos').update({estado:'A_ASIGNAR'}).eq('id',inv.evento_id);
+      if(errEv){ console.error('Error updating evento:', errEv); }
     }
     return {ok:true, msg:'Entendemos, quedó registrado. ¡Hasta la próxima!'};
   }
