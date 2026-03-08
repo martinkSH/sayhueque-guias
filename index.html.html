@@ -2157,7 +2157,8 @@ function attachEvents(){
     preview.style.display='block';
     preview.innerHTML = '<strong>'+eventos.length+' evento(s):</strong><br/>'+eventos.map(e=>{
       const guia=S.guias.find(g=>g.id===e.guia_id);
-      return `• ${e.fecha} · ${e.tipo_evento} · ${e.hora_inicio}${e.hora_fin?' - '+e.hora_fin:''} · Guía: ${guia?guia.nombre+' '+guia.apellido:'Sin asignar'}`;
+      const fecha = new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'short'});
+      return `• ${fecha} · ${e.tipo_evento} · ${e.hora_inicio}${e.hora_fin?' - '+e.hora_fin:''} · Guía: ${guia?guia.nombre+' '+guia.apellido:'Sin asignar'}`;
     }).join('<br/>');
   });
 
@@ -2175,10 +2176,14 @@ function attachEvents(){
     if(!tokenData){toast('Error al crear token',T.red);return;}
     const confirmUrl = window.location.origin+window.location.pathname+'?confirmar_calendario='+tokenData.token;
     // build email body
-    const eventosHtml = eventos.map(e=>{
+    // Build plain text list for email (avoids HTML escaping issues in EmailJS)
+    const eventosList = eventos.map((e,i)=>{
       const guia=S.guias.find(g=>g.id===e.guia_id);
-      return `<tr><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0">${e.fecha}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0">${e.tipo_evento}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0">${e.hora_inicio}${e.hora_fin?' - '+e.hora_fin:''}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0">${guia?guia.nombre+' '+guia.apellido:'Sin asignar'}</td>${e.nro_file?'<td style="padding:8px 12px;border-bottom:1px solid #f0f0f0">'+e.nro_file+'</td>':''}</tr>`;
-    }).join('');
+      const guiaNombre = guia?guia.nombre+' '+guia.apellido:'Sin asignar';
+      const horario = e.hora_inicio+(e.hora_fin?' - '+e.hora_fin:'');
+      const fecha = new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+      return (i+1)+'. '+fecha+' — '+e.tipo_evento+' — '+horario+' — Guia: '+guiaNombre+(e.nro_file?' — File: '+e.nro_file:'');
+    }).join(' | ');
     try {
       await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE_CALENDARIO_TR, {
         to_email: t.email,
@@ -2187,7 +2192,7 @@ function attachEvents(){
         fecha_desde: desde,
         fecha_hasta: hasta,
         eventos_count: eventos.length,
-        eventos_tabla: eventosHtml,
+        eventos_lista: eventosList,
         confirmar_url: confirmUrl,
       }, EMAILJS_KEY);
       toast('✅ Calendario enviado a '+t.email);
