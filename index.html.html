@@ -1203,7 +1203,7 @@ function buildEventos(){
                 <td style="padding:10px 14px">
                   <div style="display:flex;gap:6px">
                     ${isAdmin()?`<button data-edit-evento="${e.id}" style="padding:4px 10px;border-radius:6px;border:1px solid #E8E4DD;background:white;font-size:11px;cursor:pointer;color:${T.teal};font-weight:600;font-family:'DM Sans',sans-serif">✏️</button>`:''}
-                    ${e.estado==='A_ASIGNAR'&&isAdmin()?`<button data-invitar="${e.id}" style="padding:4px 10px;border-radius:6px;border:none;background:${T.teal};color:white;font-size:11px;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif">📧 Invitar</button>`:''}
+                    ${(e.estado==='A_ASIGNAR'||e.estado==='ASIGNADO')&&isAdmin()?`<button data-invitar="${e.id}" style="padding:4px 10px;border-radius:6px;border:none;background:${T.teal};color:white;font-size:11px;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif">📧 Invitar</button>`:''}
                     ${e.estado!=='CANCELADO'?`<button data-cancelar-evento="${e.id}" style="padding:4px 10px;border-radius:6px;border:1px solid #fcd5d5;background:#fff5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600;font-family:'DM Sans',sans-serif">✕ Cancelar</button>`:''}
                   </div>
                 </td>
@@ -2232,7 +2232,10 @@ function attachEvents(){
     const inv = S.invitaciones.find(i=>i.id===invId);
     if(!inv) return;
     btn.textContent='⟳'; btn.disabled=true;
-    const result = await responderInvitacion(inv.token, accion);
+    // fetch full invitation with token from DB to ensure we have it
+    const {data:fullInv} = await db.from('invitaciones').select('*').eq('id',invId).single();
+    if(!fullInv){ toast('Error: invitación no encontrada', T.red); return; }
+    const result = await responderInvitacion(fullInv.token, accion);
     toast(result.msg, result.ok ? T.green : T.red);
     await loadAll();
   }));
