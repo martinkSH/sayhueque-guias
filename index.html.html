@@ -2310,18 +2310,46 @@ function attachEvents(){
   // cancelar invitacion
   document.querySelectorAll('[data-cancelar-inv]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();if(confirm('¿Cancelar esta invitación?'))cancelarInvitacion(parseInt(btn.dataset.cancelarInv));}));
 
-  // guia responds from app
+  // guia responds from app - direct DB, no token needed
   document.querySelectorAll('[data-responder-inv]').forEach(btn=>btn.addEventListener('click', async()=>{
     const invId  = parseInt(btn.dataset.responderInv);
     const accion = btn.dataset.accion;
-    const inv = S.invitaciones.find(i=>i.id===invId);
-    if(!inv) return;
     btn.textContent='⟳'; btn.disabled=true;
-    // fetch full invitation with token from DB to ensure we have it
-    const {data:fullInv} = await db.from('invitaciones').select('*').eq('id',invId).single();
-    if(!fullInv){ toast('Error: invitación no encontrada', T.red); return; }
-    const result = await responderInvitacion(fullInv.token, accion);
-    toast(result.msg, result.ok ? T.green : T.red);
+
+    // fetch fresh from DB
+    const {data:inv, error:errFetch} = await db.from('invitaciones').select('*').eq('id',invId).single();
+    if(!inv || errFetch){ toast('Error al obtener invitación', T.red); return; }
+
+    if(accion==='aceptar'){
+      // check if already taken
+      const {data:evento} = await db.from('eventos').select('*').eq('id',inv.evento_id).single();
+      if(evento?.estado==='CONFIRMADO' && evento?.guia_id !== inv.guia_id){
+        await db.from('invitaciones').update({estado:'TOMADA_POR_OTRO',respondido_at:new Date().toISOString()}).eq('id',inv.id);
+        toast('Este evento ya fue tomado por otro guía', T.red);
+        await loadAll(); return;
+      }
+      // accept
+      await db.from('invitaciones').update({estado:'ACEPTADA',respondido_at:new Date().toISOString()}).eq('id',inv.id);
+      await db.from('eventos').update({estado:'CONFIRMADO',guia_id:inv.guia_id}).eq('id',inv.evento_id);
+      // cancel other pending
+      const {data:otras} = await db.from('invitaciones').select('*').eq('evento_id',inv.evento_id).eq('estado','PENDIENTE').neq('id',inv.id);
+      for(const otra of (otras||[])){
+        await db.from('invitaciones').update({estado:'TOMADA_POR_OTRO',respondido_at:new Date().toISOString()}).eq('id',otra.id);
+        await db.from('historial').insert({evento_id:inv.evento_id,guia_id:otra.guia_id,invitacion_id:otra.id,accion:'TOMADA_POR_OTRO',actor:'SISTEMA',detalle:'Evento confirmado por otro guía'});
+      }
+      await db.from('historial').insert({evento_id:inv.evento_id,guia_id:inv.guia_id,invitacion_id:inv.id,accion:'ACEPTADA',actor:'GUIA',detalle:'Aceptado desde la app'});
+      toast('✅ ¡Confirmado!', T.green);
+    } else {
+      // rechazar
+      await db.from('invitaciones').update({estado:'RECHAZADA',respondido_at:new Date().toISOString()}).eq('id',inv.id);
+      await db.from('historial').insert({evento_id:inv.evento_id,guia_id:inv.guia_id,invitacion_id:inv.id,accion:'RECHAZADA',actor:'GUIA',detalle:'Rechazado desde la app'});
+      // revert evento if no more pending
+      const {data:pendAun} = await db.from('invitaciones').select('id').eq('evento_id',inv.evento_id).eq('estado','PENDIENTE');
+      if(!pendAun?.length){
+        await db.from('eventos').update({estado:'A_ASIGNAR'}).eq('id',inv.evento_id);
+      }
+      toast('Quedó registrado', T.coral);
+    }
     await loadAll();
   }));
   document.querySelectorAll('[data-bajar-evento]').forEach(btn=>btn.addEventListener('click',e=>{
