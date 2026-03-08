@@ -109,13 +109,6 @@ async function deleteSelectedEventos(){
     await db.from('eventos').delete().eq('id', id);
   }
   set({selectedEventos:[]});
-  // check if transportista confirmation link
-  const urlParams = new URLSearchParams(window.location.search);
-  const calToken = urlParams.get('confirmar_calendario');
-  if(calToken){
-    await handleConfirmarCalendario(calToken);
-    return;
-  }
   await loadSLAConfig();
   await loadAll();
   toast(`🗑️ ${ids.length} evento(s) eliminado(s)`, T.red);
@@ -2715,8 +2708,15 @@ async function init(){
   }
 
   render();
-  // check response token
+  // check confirmar_calendario BEFORE auth - no login needed
   const params=new URLSearchParams(window.location.search);
+  const calToken=params.get('confirmar_calendario');
+  if(calToken){
+    set({loading:false});
+    await handleConfirmarCalendario(calToken);
+    return;
+  }
+  // check response token
   if(params.get('token')){ set({loading:false}); return; }
 
   const {data:{session}}=await db.auth.getSession();
