@@ -889,6 +889,8 @@ function buildDashboard(){
             <div style="flex:1"><div style="font-size:13px;font-weight:600;color:${T.dark}">${esc(g.nombre)} ${esc(g.apellido)}</div>
             ${isAdmin()?`<div style="font-size:11px;color:#9E9A93">${g.tipo} · $${g.valor_hora}/h</div>`:''}</div>
             ${isAdmin()?`<span style="font-size:10px;background:${g.tipo==='SENIOR'?T.teal+'20':'#E9C46A30'};color:${g.tipo==='SENIOR'?T.teal:'#856404'};padding:2px 8px;border-radius:10px;font-weight:600">${g.tipo}</span>`:''} 
+            ${isAdmin()&&g.categoria?`<span style="font-size:10px;background:#f0f0f0;color:#555;padding:2px 8px;border-radius:10px;font-weight:600">${g.categoria}</span>`:''} 
+            ${isAdmin()&&g.idiomas?.length?`<span style="font-size:10px;color:#888">${g.idiomas.join(' · ')}</span>`:''} 
           </div>`).join('')}
       </div>
     </div>
@@ -1411,9 +1413,21 @@ function buildGuiaModal(entry={}){
         ${sec('👤','Datos personales')}
         ${g2(`${fld('Nombre',inp('nombre','nombre','Carlos'),true)} ${fld('Apellido',inp('apellido','apellido','Fernández'),true)}`)}
         ${fld('Email',inp('email','email','carlos@email.com','email'),true)}
-        ${g2(`${fld('Teléfono',inp('telefono','telefono','+54911234567'))} ${fld('Valor hora ($)',inp('valor_hora','valor_hora','2500','number'))}`)}
-        ${g2(`${fld('Tipo',sel('tipo','tipo',['JUNIOR','SENIOR']))} ${fld('Estado',sel('estado','estado',['ACTIVO','INACTIVO']))}`)}
-        ${fld('Notas internas',`<textarea id="g-notas" placeholder="Idiomas, especialidades, observaciones..." rows="2" style="${iStyle}resize:vertical">${esc(entry.notas||'')}</textarea>`)}
+        ${g2(`${fld('Celular',inp('telefono','telefono','+54911234567'))} ${fld('Valor hora ($)',inp('valor_hora','valor_hora','2500','number'))}`)}
+        ${g2(`${fld('Categoría',sel('categoria','categoria',['','GOLD','SILVER','BRONZE','Nuevos Talentos','Jewish','Viventura','Just in case','Idiomas poco frecuentes','No usamos']))} ${fld('Guía',sel('tipo','tipo',['JUNIOR','SENIOR']))}`)}
+        ${g2(`${fld('Estado',sel('estado','estado',['ACTIVO','INACTIVO']))} ${fld('Prioridad',sel('prioridad_guia','prioridad_guia',['','Aliwen - Say','Aliwen','Say - Aliwen','Say','Jewish','Aliwen; Say - Francés','Say; Grupos','B2C - GRUPOS','B2C','Say Alemán']))}`)}
+        ${sec('🌐','Idiomas')}
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          ${['ING','ALE','ITA','FRA','POR','JUDIO'].map(lang=>`
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif">
+              <input type="checkbox" id="g-lang-${lang}" ${(entry.idiomas||[]).includes(lang)?'checked':''} style="width:15px;height:15px;cursor:pointer"/>
+              ${lang}
+            </label>`).join('')}
+        </div>
+        ${sec('📋','Información profesional')}
+        ${fld('Formación',inp('formacion','formacion','Lic. en Turismo, UADE...'))}
+        ${fld('Registrado en el ENTE',`<select id="g-ente" style="${iStyle}cursor:pointer"><option value="" ${!entry.ente?'selected':''}>Sin especificar</option><option value="SI" ${entry.ente==='SI'?'selected':''}>Sí</option><option value="NO" ${entry.ente==='NO'?'selected':''}>No</option></select>`)}
+        ${fld('Comentarios',`<textarea id="g-notas" placeholder="Observaciones, notas internas..." rows="3" style="${iStyle}resize:vertical">${esc(entry.notas||'')}</textarea>`)}
         <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:4px">
           <button id="btn-close-modal2" style="${btnS}">Cancelar</button>
           <button id="btn-save-guia" data-id="${entry.id||''}" style="${btnP(T.teal)}box-shadow:0 4px 14px ${T.teal}50">${isEdit?'💾 Guardar':'✅ Crear guía'}</button>
@@ -1910,6 +1924,7 @@ function attachEvents(){
   // save guia
   document.getElementById('btn-save-guia')?.addEventListener('click',async()=>{
     const id=document.getElementById('btn-save-guia').dataset.id;
+    const idiomasSelec = ['ING','ALE','ITA','FRA','POR','JUDIO'].filter(l=>document.getElementById('g-lang-'+l)?.checked);
     const data={
       nombre:document.getElementById('g-nombre')?.value?.trim(),
       apellido:document.getElementById('g-apellido')?.value?.trim(),
@@ -1919,6 +1934,11 @@ function attachEvents(){
       tipo:document.getElementById('g-tipo')?.value,
       estado:document.getElementById('g-estado')?.value,
       notas:document.getElementById('g-notas')?.value?.trim()||null,
+      categoria:document.getElementById('g-categoria')?.value||null,
+      prioridad_guia:document.getElementById('g-prioridad_guia')?.value||null,
+      idiomas: idiomasSelec,
+      formacion:document.getElementById('g-formacion')?.value?.trim()||null,
+      ente:document.getElementById('g-ente')?.value||null,
     };
     if(!data.nombre||!data.apellido||!data.email){toast('Nombre, apellido y email son obligatorios',T.red);return;}
     if(id) data.id=parseInt(id);
@@ -2129,8 +2149,8 @@ function attachEvents(){
 
 // ── EXPORT ───────────────────────────────────────────────────────────────────
 function exportGuias(){
-  const rows = [['nombre','apellido','email','telefono','valor_hora','tipo','estado','notas']];
-  S.guias.forEach(g => rows.push([g.nombre,g.apellido,g.email,g.telefono||'',g.valor_hora||'',g.tipo,g.estado,g.notas||'']));
+  const rows = [['nombre','apellido','email','telefono','valor_hora','tipo','estado','categoria','prioridad_guia','idiomas','formacion','ente','notas']];
+  S.guias.forEach(g => rows.push([g.nombre,g.apellido,g.email,g.telefono||'',g.valor_hora||'',g.tipo,g.estado,g.categoria||'',g.prioridad_guia||'',(g.idiomas||[]).join('|'),g.formacion||'',g.ente||'',g.notas||'']));
   const ws = XLSX.utils.aoa_to_sheet(rows);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Guías');
@@ -2194,15 +2214,21 @@ async function importEventos(file){
 async function doImportGuias(rows){
   let ok=0, errors=[];
   for(const r of rows){
+    const idiomasRaw = String(r.idiomas||r.Idiomas||'').trim();
     const guia = {
-      nombre:    String(r.nombre||r.Nombre||'').trim(),
-      apellido:  String(r.apellido||r.Apellido||'').trim(),
-      email:     String(r.email||r.Email||'').trim().toLowerCase(),
-      telefono:  String(r.telefono||r.Telefono||'').trim()||null,
-      valor_hora:parseFloat(r.valor_hora||r['Valor hora']||r.ValorHora||0)||null,
-      tipo:      String(r.tipo||r.Tipo||'JUNIOR').toUpperCase().trim(),
-      estado:    String(r.estado||r.Estado||'ACTIVO').toUpperCase().trim(),
-      notas:     String(r.notas||r.Notas||'').trim()||null,
+      nombre:       String(r.nombre||r.Nombre||'').trim(),
+      apellido:     String(r.apellido||r.Apellido||'').trim(),
+      email:        String(r.email||r.Email||'').trim().toLowerCase(),
+      telefono:     String(r.telefono||r.Telefono||'').trim()||null,
+      valor_hora:   parseFloat(r.valor_hora||r['Valor hora']||r.ValorHora||0)||null,
+      tipo:         String(r.tipo||r.Tipo||'JUNIOR').toUpperCase().trim(),
+      estado:       String(r.estado||r.Estado||'ACTIVO').toUpperCase().trim(),
+      categoria:    String(r.categoria||r.Categoria||'').trim()||null,
+      prioridad_guia: String(r.prioridad_guia||r['Prioridad']||'').trim()||null,
+      idiomas:      idiomasRaw ? idiomasRaw.split('|').map(s=>s.trim()).filter(Boolean) : [],
+      formacion:    String(r.formacion||r.Formacion||'').trim()||null,
+      ente:         String(r.ente||r.Ente||'').trim()||null,
+      notas:        String(r.notas||r.Notas||'').trim()||null,
     };
     if(!guia.nombre||!guia.apellido||!guia.email){ errors.push(`Fila sin nombre/apellido/email`); continue; }
     if(!['SENIOR','JUNIOR'].includes(guia.tipo)) guia.tipo='JUNIOR';
