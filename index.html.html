@@ -188,15 +188,16 @@ async function loadAll(){
     const {data:invData} = await db.from('invitaciones').select('*').eq('guia_id',S.myGuia.id).order('created_at',{ascending:false});
     const invEventoIds = [...new Set((invData||[]).map(i=>i.evento_id))];
     
-    const [e,h,l] = await Promise.all([
+    const [e,h,l,tr] = await Promise.all([
       // load all eventos where guia is assigned OR has an invitation
       db.from('eventos').select('*').or(
         `guia_id.eq.${S.myGuia.id}${invEventoIds.length?',id.in.('+invEventoIds.join(',')+')'  :''}`
       ).order('fecha',{ascending:false}),
       db.from('historial').select('*').eq('guia_id',S.myGuia.id).order('created_at',{ascending:false}).limit(100),
       db.from('liquidaciones').select('*').eq('guia_id',S.myGuia.id).order('created_at',{ascending:false}),
+      db.from('transportistas').select('*').order('nombre'),
     ]);
-    set({ guias:[S.myGuia], eventos:e.data||[], invitaciones:invData||[], historial:h.data||[], liquidaciones:l.data||[] });
+    set({ guias:[S.myGuia], eventos:e.data||[], invitaciones:invData||[], historial:h.data||[], liquidaciones:l.data||[], transportistas:tr.data||[] });
   } else {
     // admin sees everything
     const [g,e,i,h,l,tr] = await Promise.all([
