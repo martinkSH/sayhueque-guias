@@ -74,7 +74,8 @@ let S = {
   toast:null,
   calMonth: new Date(),
   expandedEventId: null,
-  filterEstado:'',
+  filterEstado:'ACTIVOS',  // ACTIVOS = hide cancelados by default
+  selectedEventos: [],
 };
 function set(patch){ S={...S,...patch}; render(); }
 function isAdmin(){ return S.role==='admin'; }
@@ -92,6 +93,22 @@ async function loadRole(){
     myGuia = g;
   }
   set({role, myGuia});
+}
+
+async function deleteSelectedEventos(){
+  const ids = S.selectedEventos || [];
+  if(!ids.length) return;
+  if(!confirm(`¿Eliminar ${ids.length} evento(s)? Esta acción no se puede deshacer.`)) return;
+  for(const id of ids){
+    await db.from('historial').delete().eq('evento_id', id);
+    await db.from('invitaciones').delete().eq('evento_id', id);
+    await db.from('liquidaciones').delete().eq('evento_id', id);
+    await db.from('cola_emails').delete().eq('evento_id', id);
+    await db.from('eventos').delete().eq('id', id);
+  }
+  set({selectedEventos:[]});
+  await loadAll();
+  toast(`🗑️ ${ids.length} evento(s) eliminado(s)`, T.red);
 }
 
 async function loadAll(){
@@ -919,7 +936,10 @@ function renderEventosTable(){
   if(!tbody) return;
   const searchFile = (S.searchFile||'').toLowerCase().trim();
   const filtered = S.eventos
-    .filter(e => !S.filterEstado || e.estado===S.filterEstado)
+    .filter(e => {
+      if(!S.filterEstado || S.filterEstado==='ACTIVOS') return e.estado !== 'CANCELADO';
+      return e.estado === S.filterEstado;
+    })
     .filter(e => !searchFile || (e.nro_file||'').toLowerCase().includes(searchFile) || (e.tipo_evento||'').toLowerCase().includes(searchFile));
   
   // update counter
@@ -946,7 +966,10 @@ function renderEventosTable(){
 function buildEventos(){
   const searchFile = (S.searchFile||'').toLowerCase().trim();
   const filtered = S.eventos
-    .filter(e => !S.filterEstado || e.estado===S.filterEstado)
+    .filter(e => {
+      if(!S.filterEstado || S.filterEstado==='ACTIVOS') return e.estado !== 'CANCELADO';
+      return e.estado === S.filterEstado;
+    })
     .filter(e => !searchFile || (e.nro_file||'').toLowerCase().includes(searchFile) || (e.tipo_evento||'').toLowerCase().includes(searchFile));
   return `
   <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
@@ -960,9 +983,10 @@ function buildEventos(){
       <span id="eventos-counter" style="font-size:12px;color:#9E9A93;margin-left:auto">${filtered.length} evento(s)</span>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      ${['','A_ASIGNAR','CONFIRMADO','CANCELADO','EXPIRADO'].map(s=>
-        `<button data-filter-estado="${s}" style="padding:6px 14px;border-radius:20px;border:1.5px solid ${S.filterEstado===s?T.teal:'#E8E4DD'};background:${S.filterEstado===s?T.teal:'white'};color:${S.filterEstado===s?'white':'#9E9A93'};font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">${s||'Todos'}</button>`
+      ${[['ACTIVOS','Activos'],['','Todos'],['A_ASIGNAR','A asignar'],['CONFIRMADO','Confirmado'],['CANCELADO','Cancelado'],['EXPIRADO','Expirado']].map(([s,label])=>
+        `<button data-filter-estado="${s}" style="padding:6px 14px;border-radius:20px;border:1.5px solid ${S.filterEstado===s?T.teal:'#E8E4DD'};background:${S.filterEstado===s?T.teal:'white'};color:${S.filterEstado===s?'white':'#9E9A93'};font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">${label}</button>`
       ).join('')}
+      ${isAdmin() && S.selectedEventos?.length>0 ? `<button id="btn-delete-selected" style="padding:6px 14px;border-radius:20px;border:none;background:#E63946;color:white;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;margin-left:auto">🗑️ Eliminar seleccionados (${S.selectedEventos.length})</button>` : ''}
     </div>
     <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;overflow:hidden">
       <table style="width:100%;border-collapse:collapse">
@@ -980,7 +1004,9 @@ function buildEventos(){
               const invs=S.invitaciones.filter(i=>i.evento_id===e.id);
               return `
               <tr data-toggle-evento="${e.id}" style="border-bottom:1px solid #F5F3EF;cursor:pointer" onmouseenter="this.style.background='#F9F8F6'" onmouseleave="this.style.background='white'">
-                <td style="padding:10px 14px;width:28px"><span style="font-size:10px;color:#9E9A93">${open?'▼':'▶'}</span></td>
+                <td style="padding:10px 14px;width:28px" onclick="event.stopPropagation()">
+                  ${isAdmin()?`<input type="checkbox" data-select-evento="${e.id}" ${(S.selectedEventos||[]).includes(e.id)?'checked':''} style="cursor:pointer;width:14px;height:14px" onclick="event.stopPropagation()" />`:'<span style="font-size:10px;color:#9E9A93">${open?\'▼\':\'▶\'}</span>'}
+                </td>
                 <td style="padding:10px 14px;font-size:13px">
                   <div style="font-weight:600;color:${T.dark}">${esc(e.tipo_evento)}</div>
                   ${e.nro_file?`<div style="font-size:10px;color:#9E9A93;margin-top:2px">📁 ${esc(e.nro_file)}</div>`:''}
@@ -1829,7 +1855,15 @@ function attachEvents(){
   document.querySelectorAll('[data-toggle-evento]').forEach(el=>el.addEventListener('click',()=>{const id=parseInt(el.dataset.toggleEvento);set({expandedEventId:S.expandedEventId===id?null:id});}));
 
   // filter estado
-  document.querySelectorAll('[data-filter-estado]').forEach(btn=>btn.addEventListener('click',()=>set({filterEstado:btn.dataset.filterEstado})));
+  document.querySelectorAll('[data-filter-estado]').forEach(btn=>btn.addEventListener('click',()=>set({filterEstado:btn.dataset.filterEstado, selectedEventos:[]})));
+  document.querySelectorAll('[data-select-evento]').forEach(cb=>cb.addEventListener('change',()=>{
+    const id = parseInt(cb.dataset.selectEvento);
+    const sel = [...(S.selectedEventos||[])];
+    if(cb.checked){ if(!sel.includes(id)) sel.push(id); }
+    else { const i=sel.indexOf(id); if(i>-1) sel.splice(i,1); }
+    set({selectedEventos:sel});
+  }));
+  document.getElementById('btn-delete-selected')?.addEventListener('click', deleteSelectedEventos);
 
   // invitar
   document.querySelectorAll('[data-invitar]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();set({modal:{type:'invitar',eventoId:parseInt(btn.dataset.invitar)}});}));
