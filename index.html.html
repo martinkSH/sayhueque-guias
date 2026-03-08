@@ -130,7 +130,7 @@ async function loadAll(){
   } else {
     // admin sees everything
     const [g,e,i,h,l] = await Promise.all([
-      db.from('guias').select('*').order('apellido'),
+      db.from('guias').select('*').order('nombre'),
       db.from('eventos').select('*').order('fecha',{ascending:false}),
       db.from('invitaciones').select('*').order('created_at',{ascending:false}),
       db.from('historial').select('*').order('created_at',{ascending:false}).limit(200),
@@ -902,7 +902,7 @@ function buildGuias(){
   return `
   <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
-      ${S.guias.map(g=>{
+      ${[...S.guias].sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(g=>{
         const eventosGuia=S.eventos.filter(e=>e.guia_id===g.id&&e.estado==='CONFIRMADO').length;
         return `
         <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:20px;border-left:4px solid ${g.estado==='ACTIVO'?T.tealMid:'#ccc'}">
@@ -1466,7 +1466,7 @@ function buildEventoModal(entry={}){
 
 function buildInvitarModal(eventoId){
   const evento=S.eventos.find(e=>e.id===eventoId);
-  const guiasActivos=S.guias.filter(g=>g.estado==='ACTIVO');
+  const guiasActivos=[...S.guias].filter(g=>g.estado==='ACTIVO').sort((a,b)=>a.nombre.localeCompare(b.nombre));
   const invExistentes=S.invitaciones.filter(i=>i.evento_id===eventoId&&['PENDIENTE','ACEPTADA'].includes(i.estado)).map(i=>i.guia_id);
   return `
   <div id="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px">
@@ -1486,16 +1486,24 @@ function buildInvitarModal(eventoId){
         <div style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow:auto">
           ${guiasActivos.map(g=>{
             const yaInvitado=invExistentes.includes(g.id);
-            return `
-            <label style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;border:1.5px solid ${yaInvitado?'#E8E4DD':'#E8E4DD'};cursor:${yaInvitado?'not-allowed':'pointer'};opacity:${yaInvitado?0.5:1};background:white" ${yaInvitado?'':'onmouseenter="this.style.borderColor=\'#2A9D8F\'" onmouseleave="this.style.borderColor=\'#E8E4DD\'"'}>
-              <input type="checkbox" value="${g.id}" ${yaInvitado?'disabled checked':''} style="width:16px;height:16px;accent-color:${T.tealMid};cursor:pointer"/>
-              <div style="width:34px;height:34px;border-radius:50%;background:${T.teal}20;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:${T.teal};flex-shrink:0">${esc(g.nombre[0])}</div>
-              <div style="flex:1">
-                <div style="font-size:13px;font-weight:600;color:${T.dark}">${esc(g.nombre)} ${esc(g.apellido)}</div>
-                <div style="font-size:11px;color:#9E9A93">${isAdmin()?g.tipo+' · $'+g.valor_hora+'/h · ':''} ${esc(g.email)}</div>
-              </div>
-              ${yaInvitado?`<span style="font-size:10px;background:#D4EDDA;color:#155724;padding:2px 8px;border-radius:10px;font-weight:600">Ya invitado</span>`:''}
-            </label>`;
+            const eventosEseDia=S.eventos.filter(e=>e.guia_id===g.id&&e.fecha===evento?.fecha&&e.id!==eventoId&&['CONFIRMADO','ASIGNADO'].includes(e.estado));
+            const noDisponible=eventosEseDia.length>0;
+            const noDispLabel=eventosEseDia.map(e=>e.hora_inicio+(e.hora_fin?' - '+e.hora_fin:'')).join(', ');
+            const disabled=yaInvitado||noDisponible;
+            const borderColor=noDisponible?'#fcd5d5':'#E8E4DD';
+            const bgColor=noDisponible?'#fff8f8':'white';
+            const avatarBg=noDisponible?'#fcd5d520':T.teal+'20';
+            const avatarFg=noDisponible?'#E63946':T.teal;
+            return '<label style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;border:1.5px solid '+borderColor+';cursor:'+(disabled?'not-allowed':'pointer')+';opacity:'+(disabled?0.6:1)+';background:'+bgColor+'" '+(disabled?'':' onmouseenter="this.style.borderColor=\'#2A9D8F\'" onmouseleave="this.style.borderColor=\'#E8E4DD\'"')+'>'
+              +'<input type="checkbox" value="'+g.id+'" '+(disabled?'disabled ':'')+' '+(yaInvitado?'checked':'')+' style="width:16px;height:16px;accent-color:'+T.tealMid+';cursor:pointer"/>'
+              +'<div style="width:34px;height:34px;border-radius:50%;background:'+avatarBg+';display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:'+avatarFg+';flex-shrink:0">'+esc(g.nombre[0])+'</div>'
+              +'<div style="flex:1">'
+                +'<div style="font-size:13px;font-weight:600;color:'+T.dark+'">'+esc(g.nombre)+' '+esc(g.apellido)+'</div>'
+                +'<div style="font-size:11px;color:#9E9A93">'+(isAdmin()?g.tipo+' · $'+g.valor_hora+'/h · ':'')+esc(g.email)+'</div>'
+                +(noDisponible?'<div style="font-size:11px;color:#E63946;font-weight:600;margin-top:2px">⛔ No disponible · '+noDispLabel+'</div>':'')
+              +'</div>'
+              +(yaInvitado?'<span style="font-size:10px;background:#D4EDDA;color:#155724;padding:2px 8px;border-radius:10px;font-weight:600">Ya invitado</span>':'')
+              +'</label>';
           }).join('')}
         </div>
         <div style="display:flex;gap:10px;justify-content:flex-end">
