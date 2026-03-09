@@ -1168,6 +1168,36 @@ function buildEnviarCalendarioModal(transportistaId){
 }
 
 
+
+function buildWPAgendaModal(guiaId){
+  const g = S.guias.find(x=>x.id===guiaId);
+  if(!g) return '';
+  const today = new Date().toISOString().split('T')[0];
+  return `
+  <div id="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px">
+    <div style="background:white;border-radius:16px;width:100%;max-width:480px;box-shadow:0 24px 80px rgba(0,0,0,0.25);animation:slideIn 0.2s ease">
+      <div style="background:#25D366;padding:20px 28px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="color:rgba(255,255,255,0.8);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em">Agenda por WhatsApp</div>
+          <div style="color:white;font-size:18px;font-weight:700;font-family:'Playfair Display',serif">📲 ${esc(g.nombre+' '+g.apellido)}</div>
+        </div>
+        <button id="btn-close-modal" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;color:white;font-size:20px;width:36px;height:36px;cursor:pointer">×</button>
+      </div>
+      <div style="padding:28px;display:flex;flex-direction:column;gap:16px">
+        <p style="font-size:13px;color:#666;margin:0">Seleccioná el período y se abrirá WhatsApp con el mensaje listo para enviar a <strong>${esc(g.telefono||'')}</strong>.</p>
+        ${fld('Fecha desde',`<input id="wp-desde" type="date" value="${today}" style="${iStyle}"/>`,true)}
+        ${fld('Fecha hasta',`<input id="wp-hasta" type="date" value="${today}" style="${iStyle}"/>`,true)}
+        <div id="wp-preview" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;font-size:12px;color:#166534;max-height:200px;overflow:auto;white-space:pre-wrap;font-family:monospace"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button id="btn-close-modal2" style="padding:8px 20px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif">Cancelar</button>
+          <button id="btn-preview-wp" style="padding:8px 20px;border-radius:8px;border:1.5px solid #25D366;background:white;color:#25D366;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">👁 Ver mensaje</button>
+          <button id="btn-send-wp" data-guia-id="${guiaId}" style="padding:8px 20px;border-radius:8px;border:none;background:#25D366;color:white;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">📲 Abrir WP</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
 function buildGuias(){
   return `
   <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
@@ -1191,10 +1221,11 @@ function buildGuias(){
             ${g.telefono?`<div style="font-size:12px;color:#9E9A93">📱 ${esc(g.telefono)}</div>`:''}
             ${isAdmin()?`<div style="font-size:12px;color:#9E9A93">💰 $${g.valor_hora}/hora · ${eventosGuia} evento(s) confirmado(s)</div>`:`<div style="font-size:12px;color:#9E9A93">${eventosGuia} evento(s) confirmado(s)</div>`}
           </div>
-          <div style="display:flex;gap:8px">
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button data-ver-calendario="${g.id}" style="flex:1;padding:7px;border-radius:7px;border:1px solid #E8E4DD;background:white;font-size:12px;cursor:pointer;color:#555;font-weight:600;font-family:'DM Sans',sans-serif">📅 Calendario</button>
             <button data-edit-guia="${g.id}" style="flex:1;${btnP(T.teal)}padding:7px;font-size:12px">✏️ Editar</button>
             <button data-toggle-guia="${g.id}" style="flex:1;${btnS}padding:7px;font-size:12px">${g.estado==='ACTIVO'?'⏸ Desactivar':'▶ Activar'}</button>
+            ${g.telefono?`<button data-wp-agenda="${g.id}" style="width:100%;margin-top:4px;padding:7px;border-radius:7px;border:none;background:#25D366;color:white;font-size:12px;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif">📲 Enviar agenda por WhatsApp</button>`:''}
           </div>
         </div>`;
       }).join('')}
@@ -1734,6 +1765,7 @@ function buildModal(){
   if(m.type==='nueva-liq')         return buildNuevaLiquidacionModal(m.eventoId);
   if(m.type==='ver-liq')           return buildVerLiquidacionModal(m.liqId);
   if(m.type==='config-sla')        return buildSLAModal();
+  if(m.type==='wp-agenda')          return buildWPAgendaModal(m.guiaId);
   if(m.type==='transportista-form') return buildTransportistaModal(m.entry||{});
   if(m.type==='enviar-calendario')  return buildEnviarCalendarioModal(m.transportistaId);
   return '';
@@ -2245,6 +2277,12 @@ function attachEvents(){
 
   // edit guia
   document.querySelectorAll('[data-edit-guia]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();const g=S.guias.find(x=>x.id===parseInt(btn.dataset.editGuia));if(g)set({modal:{type:'guia-form',entry:g}});}));
+  // WP Agenda
+  document.querySelectorAll('[data-wp-agenda]').forEach(btn=>btn.addEventListener('click',e=>{
+    e.stopPropagation();
+    set({modal:{type:'wp-agenda', guiaId:parseInt(btn.dataset.wpAgenda)}});
+  }));
+
   document.querySelectorAll('[data-ver-calendario]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();set({modal:{type:'calendario-guia',guiaId:parseInt(btn.dataset.verCalendario)}});}));
 
   // toggle guia status
@@ -2452,6 +2490,75 @@ function attachEvents(){
 
   // modal close
   ['btn-close-modal','btn-close-modal2'].forEach(id=>{document.getElementById(id)?.addEventListener('click',()=>set({modal:null}));});
+
+  // WP Agenda modal logic
+  const btnPreviewWP = document.getElementById('btn-preview-wp');
+  const btnSendWP    = document.getElementById('btn-send-wp');
+
+  function buildWPText(){
+    const guiaId = btnSendWP ? parseInt(btnSendWP.dataset.guiaId) : null;
+    const g = S.guias.find(x=>x.id===guiaId);
+    const desde = document.getElementById('wp-desde')?.value;
+    const hasta  = document.getElementById('wp-hasta')?.value;
+    if(!g||!desde||!hasta) return null;
+
+    const evs = S.eventos
+      .filter(e=>e.guia_id===g.id && e.estado==='CONFIRMADO' && e.fecha>=desde && e.fecha<=hasta)
+      .sort((a,b)=>a.fecha.localeCompare(b.fecha));
+
+    const fmtFecha = f => new Date(f+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long'});
+
+    let msg = 'Hola '+g.nombre+'! 👋 Acá va tu agenda de eventos';
+    if(desde===hasta) msg += ' para el '+fmtFecha(desde);
+    else msg += ' del '+fmtFecha(desde)+' al '+fmtFecha(hasta);
+    msg += ':
+
+';
+
+    if(!evs.length){
+      msg += 'No tenés eventos confirmados en ese período.';
+    } else {
+      evs.forEach((e,i)=>{
+        msg += (i+1)+'. 📅 '+fmtFecha(e.fecha);
+        msg += '
+   🗂 '+e.tipo_evento;
+        if(e.nro_file)    msg += ' / '+e.nro_file;
+        if(e.hora_inicio) msg += '
+   🕐 '+e.hora_inicio+(e.hora_fin?' - '+e.hora_fin:'');
+        if(e.descripcion) msg += '
+   📝 '+e.descripcion;
+        msg += '
+
+';
+      });
+    }
+    msg += 'Cualquier consulta escribinos. ¡Gracias! 🙌
+— Say Hueque';
+    return {msg, g, evs};
+  }
+
+  if(btnPreviewWP){
+    btnPreviewWP.addEventListener('click',()=>{
+      const res = buildWPText();
+      const preview = document.getElementById('wp-preview');
+      if(!res||!preview) return;
+      preview.style.display='block';
+      preview.textContent = res.msg;
+    });
+  }
+
+  if(btnSendWP){
+    btnSendWP.addEventListener('click',()=>{
+      const res = buildWPText();
+      if(!res) return;
+      const {msg, g} = res;
+      let tel = (g.telefono||'').replace(/[\s\-\(\)]/g,'');
+      if(tel.startsWith('0')) tel = '54'+tel.slice(1);
+      if(!tel.startsWith('54')) tel = '549'+tel;
+      const url = 'https://wa.me/'+tel+'?text='+encodeURIComponent(msg);
+      window.open(url,'_blank');
+    });
+  }
   document.getElementById('modal-overlay')?.addEventListener('click',e=>{if(e.target.id==='modal-overlay')set({modal:null});});
 
   // save SLA config
