@@ -2517,10 +2517,10 @@ function attachEvents(){
       msg += 'No tenes eventos confirmados en ese periodo.';
     } else {
       evs.forEach((e,i)=>{
-        msg += (i+1)+'. \uD83D\uDCC5 '+fmtFecha(e.fecha);
-        msg += '\n   '+e.tipo_evento;
+        msg += (i+1)+'. '+fmtFecha(e.fecha)+'\n';
+        msg += '   Tipo: '+e.tipo_evento;
         if(e.nro_file)    msg += ' / '+e.nro_file;
-        if(e.hora_inicio) msg += '\n   '+e.hora_inicio+(e.hora_fin?' - '+e.hora_fin:'');
+        if(e.hora_inicio) msg += '\n   Horario: '+e.hora_inicio.slice(0,5)+(e.hora_fin?' - '+e.hora_fin.slice(0,5):'');
         if(e.descripcion) msg += '\n   '+e.descripcion;
         msg += '\n\n';
       });
