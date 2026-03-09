@@ -1377,7 +1377,10 @@ function buildCalendario(){
             <div style="font-size:12px;font-weight:${isToday?700:500};color:${isToday?T.teal:T.dark};margin-bottom:4px">${d}</div>
             ${dayEvents.slice(0,3).map(e=>{
               const color=e.estado==='CONFIRMADO'?T.green:e.prioridad==='URGENTE'?T.red:T.amber;
-              return `<div style="font-size:10px;background:${color};color:white;border-radius:4px;padding:2px 5px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer" data-toggle-evento="${e.id}" onclick="event.stopPropagation()">${esc(e.tipo_evento)}</div>`;
+              const label = isAdmin()
+                ? esc(e.tipo_evento)+(e.nro_file?' / '+esc(e.nro_file):'')
+                : esc(e.tipo_evento)+(e.nro_file?' / '+esc(e.nro_file):'')+(e.hora_inicio?' · '+e.hora_inicio:'');
+              return `<div style="font-size:10px;background:${color};color:white;border-radius:4px;padding:2px 5px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer" data-toggle-evento="${e.id}" onclick="event.stopPropagation()" title="${label}">${label}</div>`;
             }).join('')}
             ${dayEvents.length>3?`<div style="font-size:9px;color:#9E9A93">+${dayEvents.length-3} más</div>`:''}
           </div>`;
