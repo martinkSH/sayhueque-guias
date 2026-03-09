@@ -2508,13 +2508,13 @@ function attachEvents(){
 
     const fmtFecha = f => new Date(f+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long'});
 
-    let msg = 'Hola '+g.nombre+'! 👋 Acá va tu agenda de eventos';
+    let msg = 'Hola '+g.nombre+'! Aca va tu agenda de eventos';
     if(desde===hasta) msg += ' para el '+fmtFecha(desde);
     else msg += ' del '+fmtFecha(desde)+' al '+fmtFecha(hasta);
     msg += ':\n\n';
 
     if(!evs.length){
-      msg += 'No tenés eventos confirmados en ese período.';
+      msg += 'No tenes eventos confirmados en ese periodo.';
     } else {
       evs.forEach((e,i)=>{
         msg += (i+1)+'. \uD83D\uDCC5 '+fmtFecha(e.fecha);
@@ -2525,7 +2525,7 @@ function attachEvents(){
         msg += '\n\n';
       });
     }
-    msg += 'Cualquier consulta escribinos. Gracias!\n— Say Hueque';
+    msg += 'Cualquier consulta escribinos. Gracias!\n- Say Hueque';
     return {msg, g, evs};
   }
 
