@@ -862,13 +862,13 @@ function buildSidebar(pendInv){
     {id:'eventos',   icon:'📋', label:'Eventos',    admin:false, badge: S.eventos.filter(e=>e.estado==='A_ASIGNAR').length},
     {id:'calendario',icon:'📅', label:'Calendario', admin:false},
     {id:'guias',     icon:'👤', label:'Guías',      admin:true},
-    {id:'invitaciones', icon:'📨', label:'Mis invitaciones', admin:false, badge: S.invitaciones.filter(i=>i.estado==='PENDIENTE').length},
+    {id:'invitaciones', icon:'📨', label:'Mis invitaciones', admin:false, guiaOnly:true, badge: S.invitaciones.filter(i=>i.estado==='PENDIENTE').length},
     {id:'historial', icon:'📜', label:'Historial',  admin:false},
     {id:'liquidaciones', icon:'💰', label:'Liquidaciones', admin:false},
     {id:'transportistas',icon:'🚐', label:'Transportistas', admin:true},
     {id:'usuarios',      icon:'🔑', label:'Usuarios',      admin:true},
   ];
-  const items = allItems.filter(i => !i.admin || isAdmin());
+  const items = allItems.filter(i => (!i.admin || isAdmin()) && (!i.guiaOnly || !isAdmin()));
   return `
   <div style="width:220px;background:${T.teal};display:flex;flex-direction:column;flex-shrink:0">
     <div style="padding:22px 18px 16px;border-bottom:1px solid rgba(255,255,255,0.1)">
@@ -902,12 +902,12 @@ function buildMobileDrawer(pendInv){
     {id:'eventos',      icon:'📋', label:'Eventos',         admin:false, badge: S.eventos.filter(e=>e.estado==='A_ASIGNAR').length},
     {id:'calendario',   icon:'📅', label:'Calendario',      admin:false},
     {id:'guias',        icon:'👤', label:'Guías',           admin:true},
-    {id:'invitaciones', icon:'📨', label:'Mis invitaciones',admin:false, badge: S.invitaciones.filter(i=>i.estado==='PENDIENTE').length},
+    {id:'invitaciones', icon:'📨', label:'Mis invitaciones',admin:false, guiaOnly:true, badge: S.invitaciones.filter(i=>i.estado==='PENDIENTE').length},
     {id:'historial',    icon:'📜', label:'Historial',       admin:false},
     {id:'liquidaciones',icon:'💰', label:'Liquidaciones',   admin:false},
     {id:'usuarios',     icon:'🔑', label:'Usuarios',        admin:true},
   ];
-  const items = allItems.filter(i => !i.admin || isAdmin());
+  const items = allItems.filter(i => (!i.admin || isAdmin()) && (!i.guiaOnly || !isAdmin()));
   return `
   <div id="mobile-drawer" class="mobile-drawer" style="position:fixed;inset:0;z-index:500;flex-direction:row;display:none">
     <div style="width:280px;background:${T.teal};display:flex;flex-direction:column;height:100%;overflow:auto">
@@ -941,7 +941,7 @@ function buildBottomNav(pendInv){
   const mainItems = [
     {id:'dashboard',    icon:'📊', label:'Inicio',    admin:false},
     {id:'eventos',      icon:'📋', label:'Eventos',   admin:false, badge: S.eventos.filter(e=>e.estado==='A_ASIGNAR').length},
-    {id:'invitaciones', icon:'📨', label:'Invit.',    admin:false, badge: S.invitaciones.filter(i=>i.estado==='PENDIENTE').length},
+    {id:'invitaciones', icon:'📨', label:'Invit.',    admin:false, guiaOnly:true, badge: S.invitaciones.filter(i=>i.estado==='PENDIENTE').length},
     {id:'liquidaciones',icon:'💰', label:'Liquid.',   admin:false},
   ].filter(i => !i.admin || isAdmin());
   return `
