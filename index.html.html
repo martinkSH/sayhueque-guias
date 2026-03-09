@@ -1185,8 +1185,8 @@ function buildWPAgendaModal(guiaId){
       </div>
       <div style="padding:28px;display:flex;flex-direction:column;gap:16px">
         <p style="font-size:13px;color:#666;margin:0">Seleccioná el período y se abrirá WhatsApp con el mensaje listo para enviar a <strong>${esc(g.telefono||'')}</strong>.</p>
-        ${fld('Fecha desde',`<input id="wp-desde" type="date" value="${today}" style="${iStyle}"/>`,true)}
-        ${fld('Fecha hasta',`<input id="wp-hasta" type="date" value="${today}" style="${iStyle}"/>`,true)}
+        <div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:12px;font-weight:600;color:#555">Fecha desde</label><input id="wp-desde" type="date" value="${today}" style="${iStyle}"/></div>
+        <div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:12px;font-weight:600;color:#555">Fecha hasta</label><input id="wp-hasta" type="date" value="${today}" style="${iStyle}"/></div>
         <div id="wp-preview" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;font-size:12px;color:#166534;max-height:200px;overflow:auto;white-space:pre-wrap;font-family:monospace"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end">
           <button id="btn-close-modal2" style="padding:8px 20px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif">Cancelar</button>
@@ -2511,29 +2511,21 @@ function attachEvents(){
     let msg = 'Hola '+g.nombre+'! 👋 Acá va tu agenda de eventos';
     if(desde===hasta) msg += ' para el '+fmtFecha(desde);
     else msg += ' del '+fmtFecha(desde)+' al '+fmtFecha(hasta);
-    msg += ':
-
-';
+    msg += ':\n\n';
 
     if(!evs.length){
       msg += 'No tenés eventos confirmados en ese período.';
     } else {
       evs.forEach((e,i)=>{
-        msg += (i+1)+'. 📅 '+fmtFecha(e.fecha);
-        msg += '
-   🗂 '+e.tipo_evento;
+        msg += (i+1)+'. \uD83D\uDCC5 '+fmtFecha(e.fecha);
+        msg += '\n   '+e.tipo_evento;
         if(e.nro_file)    msg += ' / '+e.nro_file;
-        if(e.hora_inicio) msg += '
-   🕐 '+e.hora_inicio+(e.hora_fin?' - '+e.hora_fin:'');
-        if(e.descripcion) msg += '
-   📝 '+e.descripcion;
-        msg += '
-
-';
+        if(e.hora_inicio) msg += '\n   '+e.hora_inicio+(e.hora_fin?' - '+e.hora_fin:'');
+        if(e.descripcion) msg += '\n   '+e.descripcion;
+        msg += '\n\n';
       });
     }
-    msg += 'Cualquier consulta escribinos. ¡Gracias! 🙌
-— Say Hueque';
+    msg += 'Cualquier consulta escribinos. Gracias!\n— Say Hueque';
     return {msg, g, evs};
   }
 
@@ -2552,7 +2544,7 @@ function attachEvents(){
       const res = buildWPText();
       if(!res) return;
       const {msg, g} = res;
-      let tel = (g.telefono||'').replace(/[\s\-\(\)]/g,'');
+      let tel = (g.telefono||'').replace(/[^0-9]/g,'');
       if(tel.startsWith('0')) tel = '54'+tel.slice(1);
       if(!tel.startsWith('54')) tel = '549'+tel;
       const url = 'https://wa.me/'+tel+'?text='+encodeURIComponent(msg);
