@@ -1365,7 +1365,12 @@ function buildCalendario(){
         ${cells.map(d=>{
           if(!d) return `<div></div>`;
           const dateStr=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-          const dayEvents=S.eventos.filter(e=>e.fecha===dateStr&&e.estado!=='CANCELADO');
+          const dayEvents=S.eventos.filter(e=>{
+            if(e.fecha!==dateStr||e.estado==='CANCELADO') return false;
+            // guia only sees confirmed events where they are assigned
+            if(!isAdmin()) return e.estado==='CONFIRMADO' && e.guia_id===S.myGuia?.id;
+            return true;
+          });
           const isToday=new Date(year,month,d).toDateString()===today;
           return `
           <div style="min-height:72px;border-radius:8px;padding:6px;background:${isToday?T.teal+'15':'#F9F8F6'};border:1.5px solid ${isToday?T.teal:'transparent'}">
