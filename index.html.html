@@ -1339,30 +1339,40 @@ function buildEventos(){
 
 // ── CALENDARIO ────────────────────────────────────────────────────────────────
 
-function showCalTooltip(el, html){
+function showCalTooltip(el, rect){
   let tip = document.getElementById('cal-tooltip');
   if(!tip){
     tip = document.createElement('div');
     tip.id = 'cal-tooltip';
-    tip.style.cssText = `position:fixed;z-index:9999;background:#1A1A1A;color:white;padding:10px 14px;border-radius:10px;font-size:12px;font-family:'DM Sans',sans-serif;line-height:1.7;pointer-events:none;box-shadow:0 8px 32px rgba(0,0,0,0.35);max-width:240px;transition:opacity 0.15s`;
+    tip.style.cssText = 'position:fixed;z-index:9999;background:#1A1A1A;color:white;padding:10px 14px;border-radius:10px;font-size:12px;font-family:DM Sans,sans-serif;line-height:1.8;pointer-events:none;box-shadow:0 8px 32px rgba(0,0,0,0.35);max-width:260px';
     document.body.appendChild(tip);
   }
-  tip.innerHTML = html;
-  tip.style.opacity = '1';
-  const rect = el.getBoundingClientRect();
-  const tipW = 240;
+  try {
+    const d = JSON.parse(el.dataset.calTip.replace(/&quot;/g,'"'));
+    const lines = [
+      '<strong style="font-size:13px">'+d.tipo+'</strong>',
+      d.file ? '📁 '+d.file : '',
+      d.horario ? '🕐 '+d.horario : '',
+      d.guia ? '👤 '+d.guia : '',
+      d.transportista ? '🚐 '+d.transportista : '',
+      d.descripcion ? '📝 '+d.descripcion : '',
+      '<span style="font-size:10px;opacity:0.65;text-transform:uppercase;letter-spacing:0.05em">'+d.estado+'</span>',
+    ].filter(Boolean).join('<br/>');
+    tip.innerHTML = lines;
+  } catch(e){ return; }
+  tip.style.display = 'block';
+  const tipW = 260;
   let left = rect.left + rect.width/2 - tipW/2;
   if(left < 8) left = 8;
   if(left + tipW > window.innerWidth - 8) left = window.innerWidth - tipW - 8;
-  let top = rect.top - 8;
   tip.style.left = left+'px';
-  tip.style.top = top+'px';
+  tip.style.top = (rect.top - 8 + window.scrollY)+'px';
   tip.style.transform = 'translateY(-100%)';
 }
 
 function hideCalTooltip(){
   const tip = document.getElementById('cal-tooltip');
-  if(tip) tip.style.opacity = '0';
+  if(tip) tip.style.display = 'none';
 }
 
 function buildCalendario(){
@@ -1409,19 +1419,16 @@ function buildCalendario(){
                 : esc(e.tipo_evento)+(e.nro_file?' / '+esc(e.nro_file):'')+(e.hora_inicio?' · '+e.hora_inicio:'');
               const guia = S.guias.find(g=>g.id===e.guia_id);
               const tr = S.transportistas?.find(t=>t.id===e.transportista_id);
-              const tooltipLines = [
-                `<strong>${esc(e.tipo_evento)}</strong>`,
-                e.nro_file ? '📁 '+esc(e.nro_file) : '',
-                e.hora_inicio ? '🕐 '+e.hora_inicio+(e.hora_fin?' → '+e.hora_fin:'') : '',
-                isAdmin() && guia ? '👤 '+esc(guia.nombre+' '+guia.apellido) : '',
-                tr ? '🚐 '+esc(tr.nombre) : '',
-                e.descripcion ? '📝 '+esc(e.descripcion).slice(0,60)+(e.descripcion.length>60?'…':'') : '',
-                `<span style="font-size:10px;opacity:0.8">${e.estado}</span>`,
-              ].filter(Boolean).join('<br/>');
-              return `<div style="position:relative;font-size:10px;background:${color};color:white;border-radius:4px;padding:2px 5px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer" data-toggle-evento="${e.id}" onclick="event.stopPropagation()"
-                onmouseenter="showCalTooltip(this, \`${tooltipLines}\`)"
-                onmouseleave="hideCalTooltip()"
-              >${label}</div>`;
+              const tipData = JSON.stringify({
+                tipo: e.tipo_evento,
+                file: e.nro_file||'',
+                horario: e.hora_inicio?(e.hora_inicio+(e.hora_fin?' → '+e.hora_fin:'')):'',
+                guia: (isAdmin()&&guia)?(guia.nombre+' '+guia.apellido):'',
+                transportista: tr?tr.nombre:'',
+                descripcion: e.descripcion?e.descripcion.slice(0,80):'',
+                estado: e.estado,
+              }).replace(/"/g,'&quot;');
+              return `<div style="font-size:10px;background:${color};color:white;border-radius:4px;padding:2px 5px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer" data-toggle-evento="${e.id}" data-cal-tip="${tipData}" onclick="event.stopPropagation()">${label}</div>`;
             }).join('')}
             ${dayEvents.length>3?`<div style="font-size:9px;color:#9E9A93">+${dayEvents.length-3} más</div>`:''}
           </div>`;
@@ -2413,6 +2420,16 @@ function attachEvents(){
   }));
 
   document.querySelectorAll('[data-cancelar-evento]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();if(confirm('¿Cancelar este evento? Se cancelarán también las invitaciones pendientes.'))cancelarEvento(parseInt(btn.dataset.cancelarEvento));}));
+
+  // calendario tooltip via delegation
+  document.addEventListener('mouseover', e=>{
+    const el = e.target.closest('[data-cal-tip]');
+    if(el) showCalTooltip(el, el.getBoundingClientRect());
+  });
+  document.addEventListener('mouseout', e=>{
+    const el = e.target.closest('[data-cal-tip]');
+    if(el) hideCalTooltip();
+  });
 
   // calendario nav
   document.getElementById('cal-prev')?.addEventListener('click',()=>{ const d=new Date(S.calMonth); d.setMonth(d.getMonth()-1); set({calMonth:d}); });
