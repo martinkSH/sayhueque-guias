@@ -112,6 +112,12 @@ async function deleteSelectedEventos(){
   await loadSLAConfig();
   await loadAll();
   if(isAdmin()) checkAlertasAdmin();
+
+  // Auto-refresh every 2 minutes
+  setInterval(async()=>{
+    await loadAll();
+    if(isAdmin()) checkAlertasAdmin();
+  }, 2 * 60 * 1000);
   toast(`🗑️ ${ids.length} evento(s) eliminado(s)`, T.red);
 }
 
