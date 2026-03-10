@@ -78,6 +78,7 @@ let S = {
   filterEstado:'ACTIVOS',  // ACTIVOS = hide cancelados by default
   transportistas: [],
   selectedEventos: [],
+  bloqueos: [],
 };
 function set(patch){ S={...S,...patch}; render(); }
 function isAdmin(){ return S.role==='admin'; }
@@ -252,7 +253,8 @@ async function loadAll(){
       db.from('liquidaciones').select('*').eq('guia_id',S.myGuia.id).order('created_at',{ascending:false}),
       db.from('transportistas').select('*').order('nombre'),
     ]);
-    set({ guias:[S.myGuia], eventos:e.data||[], invitaciones:invData||[], historial:h.data||[], liquidaciones:l.data||[], transportistas:tr.data||[] });
+    const {data:blqData} = await db.from('bloqueos_disponibilidad').select('*').eq('guia_id',S.myGuia.id);
+    set({ guias:[S.myGuia], eventos:e.data||[], invitaciones:invData||[], historial:h.data||[], liquidaciones:l.data||[], transportistas:tr.data||[], bloqueos:blqData||[] });
   } else {
     // admin sees everything
     const [g,e,i,h,l,tr] = await Promise.all([
@@ -263,7 +265,8 @@ async function loadAll(){
       db.from('liquidaciones').select('*').order('created_at',{ascending:false}),
       db.from('transportistas').select('*').order('nombre'),
     ]);
-    set({ guias:g.data||[], eventos:e.data||[], invitaciones:i.data||[], historial:h.data||[], liquidaciones:l.data||[], transportistas:tr.data||[] });
+    const {data:blqAll} = await db.from('bloqueos_disponibilidad').select('*');
+    set({ guias:g.data||[], eventos:e.data||[], invitaciones:i.data||[], historial:h.data||[], liquidaciones:l.data||[], transportistas:tr.data||[], bloqueos:blqAll||[] });
   }
 }
 
@@ -836,6 +839,7 @@ function buildMain(){
     : S.view==='eventos'      ? buildEventos()
     : S.view==='calendario'   ? buildCalendario()
     : S.view==='historial'    ? buildHistorial()
+    : S.view==='disponibilidad' ? buildDisponibilidad()
     : S.view==='invitaciones' ? buildMisInvitaciones()
     : S.view==='liquidaciones'? buildLiquidaciones()
     : S.view==='usuarios'     ? buildUsuarios()
@@ -862,6 +866,7 @@ function buildSidebar(pendInv){
     {id:'eventos',   icon:'📋', label:'Eventos',    admin:false, badge: S.eventos.filter(e=>e.estado==='A_ASIGNAR').length},
     {id:'calendario',icon:'📅', label:'Calendario', admin:false},
     {id:'guias',     icon:'👤', label:'Guías',      admin:true},
+    {id:'disponibilidad', icon:'📆', label:'Mi disponibilidad', admin:false, guiaOnly:true},
     {id:'invitaciones', icon:'📨', label:'Mis invitaciones', admin:false, guiaOnly:true, badge: S.invitaciones.filter(i=>i.estado==='PENDIENTE').length},
     {id:'historial', icon:'📜', label:'Historial',  admin:false},
     {id:'liquidaciones', icon:'💰', label:'Liquidaciones', admin:false},
@@ -902,6 +907,7 @@ function buildMobileDrawer(pendInv){
     {id:'eventos',      icon:'📋', label:'Eventos',         admin:false, badge: S.eventos.filter(e=>e.estado==='A_ASIGNAR').length},
     {id:'calendario',   icon:'📅', label:'Calendario',      admin:false},
     {id:'guias',        icon:'👤', label:'Guías',           admin:true},
+    {id:'disponibilidad', icon:'📆', label:'Mi disponibilidad', admin:false, guiaOnly:true},
     {id:'invitaciones', icon:'📨', label:'Mis invitaciones',admin:false, guiaOnly:true, badge: S.invitaciones.filter(i=>i.estado==='PENDIENTE').length},
     {id:'historial',    icon:'📜', label:'Historial',       admin:false},
     {id:'liquidaciones',icon:'💰', label:'Liquidaciones',   admin:false},
@@ -941,6 +947,7 @@ function buildBottomNav(pendInv){
   const mainItems = [
     {id:'dashboard',    icon:'📊', label:'Inicio',    admin:false},
     {id:'eventos',      icon:'📋', label:'Eventos',   admin:false, badge: S.eventos.filter(e=>e.estado==='A_ASIGNAR').length},
+    {id:'disponibilidad', icon:'📆', label:'Dispo.',   admin:false, guiaOnly:true},
     {id:'invitaciones', icon:'📨', label:'Invit.',    admin:false, guiaOnly:true, badge: S.invitaciones.filter(i=>i.estado==='PENDIENTE').length},
     {id:'liquidaciones',icon:'💰', label:'Liquid.',   admin:false},
   ].filter(i => !i.admin || isAdmin());
@@ -1469,6 +1476,82 @@ function buildCalendario(){
   </div>`;
 }
 
+
+// ── DISPONIBILIDAD ────────────────────────────────────────────────────────────
+function buildDisponibilidad(){
+  const guia = S.myGuia;
+  if(!guia) return '';
+  const year = S.calMonth.getFullYear(), month = S.calMonth.getMonth();
+  const firstDay = new Date(year,month,1).getDay();
+  const daysInMonth = new Date(year,month+1,0).getDate();
+  const monthName = new Date(year,month,1).toLocaleDateString('es-AR',{month:'long',year:'numeric'});
+  const today = new Date().toDateString();
+  const offset = (firstDay+6)%7;
+  const cells = [];
+  for(let i=0;i<offset;i++) cells.push(null);
+  for(let d=1;d<=daysInMonth;d++) cells.push(d);
+
+  const bloqueosMes = S.bloqueos.filter(b=>b.guia_id===guia.id);
+
+  return `
+  <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
+    <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:20px">
+      <div style="margin-bottom:16px">
+        <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:#1A1A1A">Mi disponibilidad</div>
+        <div style="font-size:13px;color:#9E9A93;margin-top:4px">Tocá un día para bloquearlo. Los días bloqueados no recibirán invitaciones.</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <button id="cal-prev" style="padding:6px 14px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;cursor:pointer;font-family:'DM Sans',sans-serif">‹</button>
+        <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:#1A1A1A;text-transform:capitalize">${monthName}</div>
+        <button id="cal-next" style="padding:6px 14px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;cursor:pointer;font-family:'DM Sans',sans-serif">›</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:8px">
+        ${['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(d=>`<div style="text-align:center;font-size:11px;font-weight:700;color:#9E9A93;padding:6px 0">${d}</div>`).join('')}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">
+        ${cells.map(d=>{
+          if(!d) return '<div></div>';
+          const dateStr = year+'-'+String(month+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+          const bloqueo = bloqueosMes.find(b=>b.fecha===dateStr);
+          const isToday = new Date(year,month,d).toDateString()===today;
+          const isPast = new Date(year,month,d) < new Date(new Date().toDateString());
+          const bgColor = bloqueo ? '#fcd5d5' : isToday ? '#1B6B7415' : '#F9F8F6';
+          const borderColor = bloqueo ? '#E63946' : isToday ? '#1B6B74' : 'transparent';
+          const textColor = bloqueo ? '#E63946' : isToday ? '#1B6B74' : '#1A1A1A';
+          const hoverAttrs = isPast ? '' : ' onmouseenter="if(!this.dataset.bloqueado)this.style.background=\'#F0F9F9\'" onmouseleave="if(!this.dataset.bloqueado)this.style.background=\'#F9F8F6\'"';
+          return '<div data-toggle-bloqueo="'+dateStr+'" style="min-height:64px;border-radius:8px;padding:8px 6px;background:'+bgColor+';border:1.5px solid '+borderColor+';cursor:'+(isPast?'default':'pointer')+';opacity:'+(isPast?0.4:1)+';text-align:center;transition:all 0.15s"'+hoverAttrs+' '+(bloqueo?'data-bloqueado="1"':'')+' data-bloqueo-id="'+(bloqueo?bloqueo.id:'')+'" data-bloqueo-motivo="'+(bloqueo?esc(bloqueo.motivo||''):'')+'">'
+            + '<div style="font-size:13px;font-weight:'+(isToday?700:500)+';color:'+textColor+'">'+(isPast?'':d)+'</div>'
+            + (bloqueo ? '<div style="font-size:9px;color:#E63946;font-weight:700;margin-top:2px">BLOQ.</div>' : '')
+            + (bloqueo && bloqueo.motivo ? '<div style="font-size:9px;color:#E63946;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(bloqueo.motivo)+'</div>' : '')
+            + '</div>';
+        }).join('')}
+      </div>
+      <div style="display:flex;gap:16px;margin-top:16px;font-size:12px;color:#9E9A93">
+        <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:3px;background:#fcd5d5;border:1px solid #E63946"></div> Día bloqueado</div>
+        <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:3px;background:#F9F8F6;border:1px solid #E8E4DD"></div> Disponible</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function toggleBloqueo(dateStr, bloqueoId, motivo){
+  const guia = S.myGuia;
+  if(!guia) return;
+  if(bloqueoId){
+    // already blocked - unblock
+    if(!confirm('Quitar el bloqueo de este dia?')) return;
+    await db.from('bloqueos_disponibilidad').delete().eq('id', bloqueoId);
+    toast('Dia desbloqueado', '#52B788');
+  } else {
+    // block - ask for optional motivo
+    const mot = prompt('Motivo (opcional, ej: vacaciones):') || '';
+    const {error} = await db.from('bloqueos_disponibilidad').insert({guia_id: guia.id, fecha: dateStr, motivo: mot||null});
+    if(error){ toast('Error: '+error.message, '#E63946'); return; }
+    toast('Dia bloqueado', '#E63946');
+  }
+  await loadAll();
+}
+
 // ── HISTORIAL ─────────────────────────────────────────────────────────────────
 function buildHistorial(){
   const ACCION_ICONS={'INVITACION_ENVIADA':'📧','ACEPTADA':'✅','RECHAZADA':'❌','EXPIRADA_SLA':'⏱','CANCELADA':'🚫','TOMADA_POR_OTRO':'👤','GUIA_SE_BAJO':'🚫','EVENTO_CANCELADO':'❌'};
@@ -1903,8 +1986,9 @@ function buildInvitarModal(eventoId){
           ${guiasActivos.map(g=>{
             const yaInvitado=invExistentes.includes(g.id);
             const eventosEseDia=S.eventos.filter(e=>e.guia_id===g.id&&e.fecha===evento?.fecha&&e.id!==eventoId&&['CONFIRMADO','ASIGNADO'].includes(e.estado));
-            const noDisponible=eventosEseDia.length>0;
-            const noDispLabel=eventosEseDia.map(e=>e.hora_inicio+(e.hora_fin?' - '+e.hora_fin:'')).join(', ');
+            const bloqueo=S.bloqueos.find(b=>b.guia_id===g.id&&b.fecha===evento?.fecha);
+            const noDisponible=eventosEseDia.length>0||!!bloqueo;
+            const noDispLabel=bloqueo?('Bloqueado'+(bloqueo.motivo?' · '+bloqueo.motivo:'')):eventosEseDia.map(e=>e.hora_inicio+(e.hora_fin?' - '+e.hora_fin:'')).join(', ');
             const disabled=yaInvitado||noDisponible;
             const borderColor=noDisponible?'#fcd5d5':'#E8E4DD';
             const bgColor=noDisponible?'#fff8f8':'white';
@@ -2467,6 +2551,18 @@ function attachEvents(){
   document.addEventListener('mouseout', e=>{
     const el = e.target.closest('[data-cal-tip]');
     if(el) hideCalTooltip();
+  });
+
+  // disponibilidad - toggle bloqueo
+  document.querySelectorAll('[data-toggle-bloqueo]').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const dateStr = el.dataset.toggleBloqueo;
+      const isPast = new Date(dateStr+'T12:00:00') < new Date(new Date().toDateString());
+      if(isPast) return;
+      const bloqueoId = el.dataset.bloqueoId ? parseInt(el.dataset.bloqueoId) : null;
+      const motivo = el.dataset.bloqueoMotivo || '';
+      toggleBloqueo(dateStr, bloqueoId, motivo);
+    });
   });
 
   // calendario nav
