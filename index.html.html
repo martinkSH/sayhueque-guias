@@ -1478,6 +1478,8 @@ function buildCalendario(){
 
 
 // ── DISPONIBILIDAD ────────────────────────────────────────────────────────────
+let dispoSeleccion = new Set(); // dates selected but not yet confirmed
+
 function buildDisponibilidad(){
   const guia = S.myGuia;
   if(!guia) return '';
@@ -1491,14 +1493,23 @@ function buildDisponibilidad(){
   for(let i=0;i<offset;i++) cells.push(null);
   for(let d=1;d<=daysInMonth;d++) cells.push(d);
 
-  const bloqueosMes = S.bloqueos.filter(b=>b.guia_id===guia.id);
+  const todosBloqueos = S.bloqueos.filter(b=>b.guia_id===guia.id);
+  const haySeleccion = dispoSeleccion.size > 0;
 
   return `
   <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
     <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:20px">
-      <div style="margin-bottom:16px">
-        <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:#1A1A1A">Mi disponibilidad</div>
-        <div style="font-size:13px;color:#9E9A93;margin-top:4px">Tocá un día para bloquearlo. Los días bloqueados no recibirán invitaciones.</div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap">
+        <div>
+          <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:#1A1A1A">Mi disponibilidad</div>
+          <div style="font-size:13px;color:#9E9A93;margin-top:4px">Toca uno o varios dias para bloquearlos. Confirma al final.</div>
+        </div>
+        ${haySeleccion ? `
+        <div style="display:flex;gap:8px;align-items:center">
+          <div style="font-size:13px;font-weight:600;color:#E76F51">${dispoSeleccion.size} dia(s) seleccionado(s)</div>
+          <button id="btn-confirmar-bloqueos" style="padding:7px 16px;border-radius:8px;border:none;background:#E63946;color:white;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">Bloquear</button>
+          <button id="btn-cancelar-seleccion" style="padding:7px 14px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif">Cancelar</button>
+        </div>` : ''}
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
         <button id="cal-prev" style="padding:6px 14px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;cursor:pointer;font-family:'DM Sans',sans-serif">‹</button>
@@ -1512,23 +1523,36 @@ function buildDisponibilidad(){
         ${cells.map(d=>{
           if(!d) return '<div></div>';
           const dateStr = year+'-'+String(month+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
-          const bloqueo = bloqueosMes.find(b=>b.fecha===dateStr);
+          const bloqueo = todosBloqueos.find(b=>b.fecha===dateStr);
+          const enSeleccion = dispoSeleccion.has(dateStr);
           const isToday = new Date(year,month,d).toDateString()===today;
           const isPast = new Date(year,month,d) < new Date(new Date().toDateString());
-          const bgColor = bloqueo ? '#fcd5d5' : isToday ? '#1B6B7415' : '#F9F8F6';
-          const borderColor = bloqueo ? '#E63946' : isToday ? '#1B6B74' : 'transparent';
-          const textColor = bloqueo ? '#E63946' : isToday ? '#1B6B74' : '#1A1A1A';
-          const hoverAttrs = isPast ? '' : ' onmouseenter="if(!this.dataset.bloqueado)this.style.background=\'#F0F9F9\'" onmouseleave="if(!this.dataset.bloqueado)this.style.background=\'#F9F8F6\'"';
-          return '<div data-toggle-bloqueo="'+dateStr+'" style="min-height:64px;border-radius:8px;padding:8px 6px;background:'+bgColor+';border:1.5px solid '+borderColor+';cursor:'+(isPast?'default':'pointer')+';opacity:'+(isPast?0.4:1)+';text-align:center;transition:all 0.15s"'+hoverAttrs+' '+(bloqueo?'data-bloqueado="1"':'')+' data-bloqueo-id="'+(bloqueo?bloqueo.id:'')+'" data-bloqueo-motivo="'+(bloqueo?esc(bloqueo.motivo||''):'')+'">'
-            + '<div style="font-size:13px;font-weight:'+(isToday?700:500)+';color:'+textColor+'">'+(isPast?'':d)+'</div>'
-            + (bloqueo ? '<div style="font-size:9px;color:#E63946;font-weight:700;margin-top:2px">BLOQ.</div>' : '')
-            + (bloqueo && bloqueo.motivo ? '<div style="font-size:9px;color:#E63946;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(bloqueo.motivo)+'</div>' : '')
-            + '</div>';
+          let bgColor, borderColor, textColor, label2='';
+          if(bloqueo){
+            bgColor='#fcd5d5'; borderColor='#E63946'; textColor='#E63946';
+            label2='<div style="font-size:9px;color:#E63946;font-weight:700;margin-top:2px">BLOQ.</div>';
+            if(bloqueo.motivo) label2+='<div style="font-size:9px;color:#E63946;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(bloqueo.motivo)+'</div>';
+          } else if(enSeleccion){
+            bgColor='#fff3cd'; borderColor='#E9C46A'; textColor='#856404';
+            label2='<div style="font-size:9px;color:#856404;font-weight:700;margin-top:2px">SEL.</div>';
+          } else if(isToday){
+            bgColor='#1B6B7415'; borderColor='#1B6B74'; textColor='#1B6B74';
+          } else {
+            bgColor='#F9F8F6'; borderColor='transparent'; textColor='#1A1A1A';
+          }
+          const cursor = isPast ? 'default' : 'pointer';
+          const opacity = isPast ? 0.4 : 1;
+          const bloqueoId = bloqueo ? bloqueo.id : '';
+          return '<div data-dispo-day="'+dateStr+'" data-bloqueado="'+(bloqueo?'1':'')+'" data-bloqueo-id="'+bloqueoId+'" style="min-height:64px;border-radius:8px;padding:8px 6px;background:'+bgColor+';border:1.5px solid '+borderColor+';cursor:'+cursor+';opacity:'+opacity+';text-align:center;transition:all 0.12s;user-select:none">'
+            +'<div style="font-size:13px;font-weight:'+(isToday?700:500)+';color:'+textColor+'">'+(isPast?'':d)+'</div>'
+            +label2
+            +'</div>';
         }).join('')}
       </div>
-      <div style="display:flex;gap:16px;margin-top:16px;font-size:12px;color:#9E9A93">
-        <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:3px;background:#fcd5d5;border:1px solid #E63946"></div> Día bloqueado</div>
-        <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:3px;background:#F9F8F6;border:1px solid #E8E4DD"></div> Disponible</div>
+      <div style="display:flex;gap:16px;margin-top:16px;font-size:12px;color:#9E9A93;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:3px;background:#fcd5d5;border:1px solid #E63946"></div>Bloqueado</div>
+        <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:3px;background:#fff3cd;border:1px solid #E9C46A"></div>Seleccionado</div>
+        <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:3px;background:#F9F8F6;border:1px solid #E8E4DD"></div>Disponible</div>
       </div>
     </div>
   </div>`;
@@ -2553,16 +2577,41 @@ function attachEvents(){
     if(el) hideCalTooltip();
   });
 
-  // disponibilidad - toggle bloqueo
-  document.querySelectorAll('[data-toggle-bloqueo]').forEach(el=>{
+  // disponibilidad - multi select days
+  document.querySelectorAll('[data-dispo-day]').forEach(el=>{
     el.addEventListener('click',()=>{
-      const dateStr = el.dataset.toggleBloqueo;
+      const dateStr = el.dataset.dispoDay;
       const isPast = new Date(dateStr+'T12:00:00') < new Date(new Date().toDateString());
       if(isPast) return;
-      const bloqueoId = el.dataset.bloqueoId ? parseInt(el.dataset.bloqueoId) : null;
-      const motivo = el.dataset.bloqueoMotivo || '';
-      toggleBloqueo(dateStr, bloqueoId, motivo);
+      const yaBloqueado = el.dataset.bloqueado === '1';
+      if(yaBloqueado){
+        // click on already blocked = unblock directly
+        const bloqueoId = parseInt(el.dataset.bloqueoId);
+        toggleBloqueo(dateStr, bloqueoId, '');
+        return;
+      }
+      // toggle selection
+      if(dispoSeleccion.has(dateStr)) dispoSeleccion.delete(dateStr);
+      else dispoSeleccion.add(dateStr);
+      render(); // re-render to show selection
     });
+  });
+
+  document.getElementById('btn-confirmar-bloqueos')?.addEventListener('click', async ()=>{
+    if(!dispoSeleccion.size) return;
+    const motivo = prompt('Motivo para todos estos dias (opcional, ej: vacaciones):') || '';
+    const guia = S.myGuia;
+    const rows = [...dispoSeleccion].map(fecha=>({guia_id: guia.id, fecha, motivo: motivo||null}));
+    const {error} = await db.from('bloqueos_disponibilidad').upsert(rows, {onConflict:'guia_id,fecha'});
+    if(error){ toast('Error: '+error.message, '#E63946'); return; }
+    toast(rows.length+' dia(s) bloqueado(s)', '#E63946');
+    dispoSeleccion = new Set();
+    await loadAll();
+  });
+
+  document.getElementById('btn-cancelar-seleccion')?.addEventListener('click',()=>{
+    dispoSeleccion = new Set();
+    render();
   });
 
   // calendario nav
