@@ -739,6 +739,8 @@ function full(c){ return `<div style="grid-column:1/-1">${c}</div>`; }
 // ── RENDER ────────────────────────────────────────────────────────────────────
 function render(){ document.getElementById('root').innerHTML=buildApp(); attachEvents(); }
 
+const isMobile = () => window.innerWidth < 768;
+
 function buildApp(){
   // check for password reset view
   if(S.view==='password-reset') return buildPasswordResetPage();
@@ -747,6 +749,7 @@ function buildApp(){
   if(params.get('token')) return buildResponsePage(params.get('token'), params.get('accion'));
   if(S.loading) return buildLoading();
   if(!S.user) return buildLogin();
+  if(isMobile() && S.role==='guia') return buildMobileApp();
   return buildMain();
 }
 
@@ -1576,6 +1579,441 @@ async function toggleBloqueo(dateStr, bloqueoId, motivo){
   await loadAll();
 }
 
+
+// ═══════════════════════════════════════════════════════════════════
+// MOBILE APP (guia only, screen < 768px)
+// ═══════════════════════════════════════════════════════════════════
+let mobileView = 'inicio';
+let mobileEventoDetalle = null;
+
+function buildMobileApp(){
+  const views = {
+    inicio:        buildMobileInicio,
+    calendario:    buildMobileCalendario,
+    invitaciones:  buildMobileInvitaciones,
+    disponibilidad:buildMobileDisponibilidad,
+    feedback:      buildMobileFeedback,
+    liquidaciones: buildMobileLiquidaciones,
+    detalle:       buildMobileDetalle,
+  };
+  const tabs = [
+    {id:'inicio',        icon:'🏠', label:'Inicio'},
+    {id:'calendario',    icon:'📅', label:'Agenda'},
+    {id:'invitaciones',  icon:'📨', label:'Invitaciones', badge: S.invitaciones.filter(i=>i.estado==='PENDIENTE').length},
+    {id:'disponibilidad',icon:'📆', label:'Disponib.'},
+    {id:'liquidaciones', icon:'💰', label:'Liquid.'},
+  ];
+
+  const content = (views[mobileView] || buildMobileInicio)();
+
+  return `
+  <div style="height:100vh;display:flex;flex-direction:column;background:#F5F3EF;font-family:'DM Sans',sans-serif;overflow:hidden">
+    <!-- HEADER -->
+    <div style="background:linear-gradient(135deg,#1B6B74,#2A9D8F);padding:16px 20px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <div>
+        <div style="color:rgba(255,255,255,0.7);font-size:11px;font-weight:600;letter-spacing:0.08em">SAY HUEQUE</div>
+        <div style="color:white;font-size:17px;font-weight:700;font-family:'Playfair Display',serif">${esc(S.myGuia?.nombre||'')} ${esc(S.myGuia?.apellido||'')}</div>
+      </div>
+      <button id="btn-mobile-logout" style="background:rgba(255,255,255,0.15);border:none;border-radius:8px;color:white;font-size:11px;font-weight:600;padding:6px 12px;cursor:pointer">Salir</button>
+    </div>
+
+    <!-- CONTENT -->
+    <div style="flex:1;overflow-y:auto;overflow-x:hidden">
+      ${content}
+    </div>
+
+    <!-- BOTTOM NAV -->
+    <div style="background:white;border-top:1.5px solid #E8E4DD;display:flex;flex-shrink:0;padding-bottom:env(safe-area-inset-bottom)">
+      ${tabs.map(t=>{
+        const active = mobileView===t.id || (mobileView==='detalle'&&t.id==='calendario') || (mobileView==='feedback'&&t.id==='calendario');
+        return `<button data-mobile-tab="${t.id}" style="flex:1;padding:10px 4px 8px;border:none;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative">
+          <div style="font-size:20px;line-height:1">${t.icon}</div>
+          <div style="font-size:10px;font-weight:${active?700:500};color:${active?T.teal:'#9E9A93'}">${t.label}</div>
+          ${t.badge?`<div style="position:absolute;top:6px;right:calc(50% - 18px);background:#E63946;color:white;border-radius:10px;font-size:9px;font-weight:700;padding:1px 5px;min-width:16px;text-align:center">${t.badge}</div>`:''}
+          ${active?`<div style="position:absolute;top:0;left:20%;right:20%;height:2px;background:${T.teal};border-radius:0 0 2px 2px"></div>`:''}
+        </button>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+function buildMobileInicio(){
+  const guia = S.myGuia;
+  const proxEventos = S.eventos.filter(e=>e.estado==='CONFIRMADO'&&e.guia_id===guia.id&&e.fecha>=new Date().toISOString().split('T')[0]).sort((a,b)=>a.fecha.localeCompare(b.fecha)).slice(0,3);
+  const pendInv = S.invitaciones.filter(i=>i.estado==='PENDIENTE');
+  const today = new Date().toISOString().split('T')[0];
+  const hoy = proxEventos.filter(e=>e.fecha===today);
+
+  return `
+  <div style="padding:16px;display:flex;flex-direction:column;gap:14px">
+    ${hoy.length ? `
+    <div style="background:linear-gradient(135deg,#1B6B74,#2A9D8F);border-radius:14px;padding:18px;color:white">
+      <div style="font-size:11px;font-weight:600;opacity:0.7;letter-spacing:0.08em;margin-bottom:6px">HOY</div>
+      ${hoy.map(e=>`
+      <div style="margin-bottom:8px">
+        <div style="font-size:17px;font-weight:700;font-family:'Playfair Display',serif">${esc(e.tipo_evento)}</div>
+        ${e.nro_file?`<div style="font-size:12px;opacity:0.8">${esc(e.nro_file)}</div>`:''}
+        ${e.hora_inicio?`<div style="font-size:14px;font-weight:600;margin-top:4px">${e.hora_inicio.slice(0,5)}${e.hora_fin?' → '+e.hora_fin.slice(0,5):''}</div>`:''}
+      </div>`).join('')}
+    </div>` : ''}
+
+    ${pendInv.length ? `
+    <div style="background:#FFF3CD;border-radius:14px;padding:16px;border:1.5px solid #E9C46A">
+      <div style="font-size:13px;font-weight:700;color:#856404;margin-bottom:4px">Tenes ${pendInv.length} invitacion(es) pendiente(s)</div>
+      <button data-mobile-tab="invitaciones" style="margin-top:6px;padding:8px 16px;border-radius:8px;border:none;background:#E9C46A;color:#1A1A1A;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">Ver ahora</button>
+    </div>` : ''}
+
+    <div style="background:white;border-radius:14px;padding:16px;border:1.5px solid #E8E4DD">
+      <div style="font-size:13px;font-weight:700;color:#1A1A1A;margin-bottom:12px">Proximos eventos</div>
+      ${proxEventos.length ? proxEventos.map(e=>{
+        const fecha = new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'short'});
+        return `<div data-mobile-detalle="${e.id}" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #F5F3EF;cursor:pointer">
+          <div style="width:42px;height:42px;border-radius:10px;background:${T.teal}15;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">
+            <div style="font-size:16px;font-weight:700;color:${T.teal};line-height:1">${new Date(e.fecha+'T12:00:00').getDate()}</div>
+            <div style="font-size:9px;color:${T.teal};font-weight:600;text-transform:uppercase">${new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{month:'short'})}</div>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:600;color:#1A1A1A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.tipo_evento)}${e.nro_file?' · '+esc(e.nro_file):''}</div>
+            <div style="font-size:12px;color:#9E9A93;margin-top:2px">${fecha}${e.hora_inicio?' · '+e.hora_inicio.slice(0,5):''}</div>
+          </div>
+          <div style="color:#9E9A93;font-size:16px">›</div>
+        </div>`;
+      }).join('') : '<div style="font-size:13px;color:#9E9A93;text-align:center;padding:16px 0">No hay eventos proximos</div>'}
+    </div>
+  </div>`;
+}
+
+function buildMobileCalendario(){
+  const guia = S.myGuia;
+  const year = S.calMonth.getFullYear(), month = S.calMonth.getMonth();
+  const firstDay = new Date(year,month,1).getDay();
+  const daysInMonth = new Date(year,month+1,0).getDate();
+  const monthName = new Date(year,month,1).toLocaleDateString('es-AR',{month:'long',year:'numeric'});
+  const today = new Date().toDateString();
+  const offset = (firstDay+6)%7;
+  const cells = [];
+  for(let i=0;i<offset;i++) cells.push(null);
+  for(let d=1;d<=daysInMonth;d++) cells.push(d);
+
+  // events for this month
+  const monthStr = year+'-'+String(month+1).padStart(2,'0');
+  const monthEvs = S.eventos.filter(e=>e.guia_id===guia.id&&e.estado==='CONFIRMADO'&&e.fecha.startsWith(monthStr));
+
+  return `
+  <div style="padding:16px;display:flex;flex-direction:column;gap:14px">
+    <div style="background:white;border-radius:14px;padding:16px;border:1.5px solid #E8E4DD">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <button id="cal-prev" style="width:36px;height:36px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;cursor:pointer;font-size:18px">‹</button>
+        <div style="font-family:'Playfair Display',serif;font-size:16px;font-weight:700;text-transform:capitalize">${monthName}</div>
+        <button id="cal-next" style="width:36px;height:36px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;cursor:pointer;font-size:18px">›</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:6px">
+        ${['L','M','X','J','V','S','D'].map(d=>`<div style="text-align:center;font-size:10px;font-weight:700;color:#9E9A93;padding:4px 0">${d}</div>`).join('')}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">
+        ${cells.map(d=>{
+          if(!d) return '<div></div>';
+          const dateStr = year+'-'+String(month+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+          const dayEvs = monthEvs.filter(e=>e.fecha===dateStr);
+          const isToday = new Date(year,month,d).toDateString()===today;
+          return `<div style="aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${dayEvs.length?T.teal:isToday?T.teal+'15':'transparent'};cursor:${dayEvs.length?'pointer':'default'}" ${dayEvs.length?`data-mobile-cal-day="${dateStr}"`:''}>
+            <div style="font-size:13px;font-weight:${isToday||dayEvs.length?700:400};color:${dayEvs.length?'white':isToday?T.teal:'#1A1A1A'}">${d}</div>
+            ${dayEvs.length>0?`<div style="width:4px;height:4px;border-radius:50%;background:white;margin-top:1px"></div>`:''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- Event list for month -->
+    <div style="background:white;border-radius:14px;padding:16px;border:1.5px solid #E8E4DD">
+      <div style="font-size:13px;font-weight:700;color:#1A1A1A;margin-bottom:12px">Eventos del mes (${monthEvs.length})</div>
+      ${monthEvs.length ? [...monthEvs].sort((a,b)=>a.fecha.localeCompare(b.fecha)).map(e=>{
+        const fecha = new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long'});
+        return `<div data-mobile-detalle="${e.id}" style="padding:12px 0;border-bottom:1px solid #F5F3EF;cursor:pointer;display:flex;align-items:center;gap:12px">
+          <div style="width:4px;height:40px;border-radius:2px;background:${T.teal};flex-shrink:0"></div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:600;color:#1A1A1A">${esc(e.tipo_evento)}${e.nro_file?' · '+esc(e.nro_file):''}</div>
+            <div style="font-size:12px;color:#9E9A93;margin-top:2px;text-transform:capitalize">${fecha}${e.hora_inicio?' · '+e.hora_inicio.slice(0,5):''}</div>
+          </div>
+          <div style="color:#9E9A93">›</div>
+        </div>`;
+      }).join('') : '<div style="font-size:13px;color:#9E9A93;text-align:center;padding:16px 0">Sin eventos este mes</div>'}
+    </div>
+  </div>`;
+}
+
+function buildMobileInvitaciones(){
+  const pendientes = S.invitaciones.filter(i=>i.estado==='PENDIENTE');
+  const resto = S.invitaciones.filter(i=>i.estado!=='PENDIENTE').slice(0,10);
+
+  const cardInv = (inv, isPend) => {
+    const evento = S.eventos.find(e=>e.id===inv.evento_id);
+    if(!evento) return '';
+    const fecha = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+    const estadoColor = {ACEPTADA:'#52B788',RECHAZADA:'#E63946',EXPIRADA:'#9E9A93',TOMADA_POR_OTRO:'#9E9A93',CANCELADA:'#9E9A93'}[inv.estado]||'#E9C46A';
+    return `<div style="background:white;border-radius:14px;padding:16px;border:1.5px solid ${isPend?'#E9C46A':'#E8E4DD'};margin-bottom:10px">
+      ${isPend?`<div style="font-size:10px;font-weight:700;color:#856404;background:#FFF3CD;border-radius:6px;padding:3px 8px;display:inline-block;margin-bottom:10px">PENDIENTE · Expira en ${Math.max(0,Math.ceil((new Date(inv.expira_at)-new Date())/3600000))}hs</div>`:`<div style="font-size:10px;font-weight:700;color:${estadoColor};background:${estadoColor}20;border-radius:6px;padding:3px 8px;display:inline-block;margin-bottom:10px">${inv.estado}</div>`}
+      <div style="font-size:16px;font-weight:700;font-family:'Playfair Display',serif;color:#1A1A1A;margin-bottom:4px">${esc(evento.tipo_evento)}</div>
+      ${evento.nro_file?`<div style="font-size:12px;color:#9E9A93;margin-bottom:4px">File: ${esc(evento.nro_file)}</div>`:''}
+      <div style="font-size:13px;color:#555;text-transform:capitalize;margin-bottom:4px">${fecha}</div>
+      ${evento.hora_inicio?`<div style="font-size:13px;color:#555;margin-bottom:4px">${evento.hora_inicio.slice(0,5)}${evento.hora_fin?' → '+evento.hora_fin.slice(0,5):''}</div>`:''}
+      ${evento.descripcion?`<div style="font-size:12px;color:#9E9A93;margin-top:6px">${esc(evento.descripcion)}</div>`:''}
+      ${isPend?`
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button data-mobile-inv-rechazar="${inv.id}" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid #fcd5d5;background:#fff5f5;color:#E63946;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">No puedo</button>
+        <button data-mobile-inv-aceptar="${inv.id}" style="flex:1;padding:12px;border-radius:10px;border:none;background:${T.teal};color:white;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">Acepto!</button>
+      </div>`:''}
+    </div>`;
+  };
+
+  return `
+  <div style="padding:16px">
+    ${pendientes.length ? `
+    <div style="font-size:12px;font-weight:700;color:#856404;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Esperando respuesta (${pendientes.length})</div>
+    ${pendientes.map(i=>cardInv(i,true)).join('')}` : `
+    <div style="background:white;border-radius:14px;padding:24px;text-align:center;border:1.5px solid #E8E4DD;margin-bottom:14px">
+      <div style="font-size:32px;margin-bottom:8px">✅</div>
+      <div style="font-size:14px;font-weight:600;color:#1A1A1A">Sin invitaciones pendientes</div>
+    </div>`}
+    ${resto.length ? `
+    <div style="font-size:12px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;margin-top:6px">Historial</div>
+    ${resto.map(i=>cardInv(i,false)).join('')}` : ''}
+  </div>`;
+}
+
+function buildMobileDisponibilidad(){
+  const guia = S.myGuia;
+  const year = S.calMonth.getFullYear(), month = S.calMonth.getMonth();
+  const firstDay = new Date(year,month,1).getDay();
+  const daysInMonth = new Date(year,month+1,0).getDate();
+  const monthName = new Date(year,month,1).toLocaleDateString('es-AR',{month:'long',year:'numeric'});
+  const offset = (firstDay+6)%7;
+  const cells = [];
+  for(let i=0;i<offset;i++) cells.push(null);
+  for(let d=1;d<=daysInMonth;d++) cells.push(d);
+  const todosBloqueos = S.bloqueos.filter(b=>b.guia_id===guia.id);
+  const haySeleccion = dispoSeleccion.size > 0;
+
+  return `
+  <div style="padding:16px;display:flex;flex-direction:column;gap:14px">
+    <div style="background:white;border-radius:14px;padding:16px;border:1.5px solid #E8E4DD">
+      <div style="font-size:15px;font-weight:700;color:#1A1A1A;margin-bottom:4px">Mi disponibilidad</div>
+      <div style="font-size:12px;color:#9E9A93;margin-bottom:14px">Toca los dias que no podes trabajar para bloquearlos.</div>
+
+      ${haySeleccion?`
+      <div style="background:#FFF3CD;border-radius:10px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div style="font-size:13px;font-weight:600;color:#856404">${dispoSeleccion.size} dia(s) seleccionado(s)</div>
+        <div style="display:flex;gap:8px">
+          <button id="btn-confirmar-bloqueos" style="padding:8px 16px;border-radius:8px;border:none;background:#E63946;color:white;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">Bloquear</button>
+          <button id="btn-cancelar-seleccion" style="padding:8px 12px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif">X</button>
+        </div>
+      </div>`:''}
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <button id="cal-prev" style="width:36px;height:36px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;cursor:pointer;font-size:18px">‹</button>
+        <div style="font-family:'Playfair Display',serif;font-size:15px;font-weight:700;text-transform:capitalize">${monthName}</div>
+        <button id="cal-next" style="width:36px;height:36px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;cursor:pointer;font-size:18px">›</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:6px">
+        ${['L','M','X','J','V','S','D'].map(d=>`<div style="text-align:center;font-size:10px;font-weight:700;color:#9E9A93;padding:3px 0">${d}</div>`).join('')}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">
+        ${cells.map(d=>{
+          if(!d) return '<div></div>';
+          const dateStr = year+'-'+String(month+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+          const bloqueo = todosBloqueos.find(b=>b.fecha===dateStr);
+          const enSel = dispoSeleccion.has(dateStr);
+          const isPast = new Date(year,month,d) < new Date(new Date().toDateString());
+          let bg='#F9F8F6', border='transparent', fg='#1A1A1A', sub='';
+          if(bloqueo){ bg='#fcd5d5'; border='#E63946'; fg='#E63946'; sub='<div style="font-size:8px;color:#E63946;font-weight:700">BLQ</div>'; }
+          else if(enSel){ bg='#fff3cd'; border='#E9C46A'; fg='#856404'; sub='<div style="font-size:8px;color:#856404;font-weight:700">SEL</div>'; }
+          return `<div data-dispo-day="${dateStr}" data-bloqueado="${bloqueo?'1':''}" data-bloqueo-id="${bloqueo?bloqueo.id:''}" style="aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${bg};border:1.5px solid ${border};cursor:${isPast?'default':'pointer'};opacity:${isPast?0.3:1}">
+            <div style="font-size:12px;font-weight:500;color:${fg}">${isPast?'':d}</div>
+            ${sub}
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="display:flex;gap:12px;margin-top:12px;font-size:11px;color:#9E9A93">
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:2px;background:#fcd5d5;border:1px solid #E63946"></div>Bloqueado</div>
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:2px;background:#fff3cd;border:1px solid #E9C46A"></div>Seleccionado</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function buildMobileFeedback(){
+  const guia = S.myGuia;
+  // eventos confirmados sin feedback
+  const sinFeedback = S.eventos.filter(e=>e.guia_id===guia.id&&e.estado==='CONFIRMADO'&&!e.feedback_texto&&e.fecha<new Date().toISOString().split('T')[0]);
+  const conFeedback = S.eventos.filter(e=>e.guia_id===guia.id&&e.estado==='CONFIRMADO'&&e.feedback_texto);
+  const eventoActual = mobileEventoDetalle ? S.eventos.find(e=>e.id===mobileEventoDetalle) : null;
+
+  if(eventoActual){
+    return buildMobileDetalleFeedback(eventoActual);
+  }
+
+  return `
+  <div style="padding:16px;display:flex;flex-direction:column;gap:14px">
+    ${sinFeedback.length?`
+    <div style="background:white;border-radius:14px;padding:16px;border:1.5px solid #E8E4DD">
+      <div style="font-size:13px;font-weight:700;color:#1A1A1A;margin-bottom:12px">Pendientes de feedback (${sinFeedback.length})</div>
+      ${sinFeedback.sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(e=>{
+        const fecha = new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'});
+        return `<div data-mobile-detalle="${e.id}" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #F5F3EF;cursor:pointer">
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:600;color:#1A1A1A">${esc(e.tipo_evento)}${e.nro_file?' · '+esc(e.nro_file):''}</div>
+            <div style="font-size:12px;color:#9E9A93;margin-top:2px">${fecha}</div>
+          </div>
+          <div style="padding:4px 10px;border-radius:6px;background:#FFF3CD;color:#856404;font-size:11px;font-weight:700">Pendiente</div>
+        </div>`;
+      }).join('')}
+    </div>`:
+    `<div style="background:white;border-radius:14px;padding:24px;text-align:center;border:1.5px solid #E8E4DD">
+      <div style="font-size:32px;margin-bottom:8px">✅</div>
+      <div style="font-size:14px;font-weight:600;color:#1A1A1A">Todos los feedbacks al dia</div>
+    </div>`}
+    ${conFeedback.length?`
+    <div style="background:white;border-radius:14px;padding:16px;border:1.5px solid #E8E4DD">
+      <div style="font-size:13px;font-weight:700;color:#9E9A93;margin-bottom:10px">Enviados (${conFeedback.length})</div>
+      ${conFeedback.sort((a,b)=>b.fecha.localeCompare(a.fecha)).slice(0,5).map(e=>{
+        const fecha = new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short'});
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F5F3EF">
+          <div style="width:8px;height:8px;border-radius:50%;background:#52B788;flex-shrink:0"></div>
+          <div style="flex:1;font-size:13px;color:#555">${esc(e.tipo_evento)}${e.nro_file?' · '+esc(e.nro_file):''}</div>
+          <div style="font-size:11px;color:#9E9A93">${fecha}</div>
+        </div>`;
+      }).join('')}
+    </div>`:''}
+  </div>`;
+}
+
+function buildMobileLiquidaciones(){
+  const guia = S.myGuia;
+  const liq = S.liquidaciones.filter(l=>l.guia_id===guia.id);
+  const eventosSinLiq = S.eventos.filter(e=>e.guia_id===guia.id&&e.estado==='CONFIRMADO'&&e.fecha<new Date().toISOString().split('T')[0]&&!liq.find(l=>l.evento_id===e.id));
+
+  return `
+  <div style="padding:16px;display:flex;flex-direction:column;gap:14px">
+    ${eventosSinLiq.length?`
+    <div style="background:white;border-radius:14px;padding:16px;border:1.5px solid #E8E4DD">
+      <div style="font-size:13px;font-weight:700;color:#1A1A1A;margin-bottom:12px">Sin liquidar (${eventosSinLiq.length})</div>
+      ${eventosSinLiq.sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(e=>{
+        const fecha = new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'});
+        return `<div data-mobile-detalle="${e.id}" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #F5F3EF;cursor:pointer">
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:600;color:#1A1A1A">${esc(e.tipo_evento)}${e.nro_file?' · '+esc(e.nro_file):''}</div>
+            <div style="font-size:12px;color:#9E9A93;margin-top:2px">${fecha}</div>
+          </div>
+          <div style="padding:4px 10px;border-radius:6px;background:#fcd5d5;color:#E63946;font-size:11px;font-weight:700">Pendiente</div>
+        </div>`;
+      }).join('')}
+    </div>`:''}
+    ${liq.length?`
+    <div style="background:white;border-radius:14px;padding:16px;border:1.5px solid #E8E4DD">
+      <div style="font-size:13px;font-weight:700;color:#9E9A93;margin-bottom:10px">Enviadas (${liq.length})</div>
+      ${liq.sort((a,b)=>b.created_at.localeCompare(a.created_at)).slice(0,10).map(l=>{
+        const ev = S.eventos.find(e=>e.id===l.evento_id);
+        const estadoColor = l.estado==='PAGADA'?'#52B788':l.estado==='APROBADA'?'#2A9D8F':'#E9C46A';
+        return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #F5F3EF">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:#1A1A1A">${ev?esc(ev.tipo_evento):'Evento'}</div>
+            <div style="font-size:12px;color:#9E9A93">$${l.total?.toLocaleString('es-AR')||'—'}</div>
+          </div>
+          <div style="padding:3px 8px;border-radius:6px;background:${estadoColor}20;color:${estadoColor};font-size:11px;font-weight:700">${l.estado}</div>
+        </div>`;
+      }).join('')}
+    </div>`:`
+    <div style="background:white;border-radius:14px;padding:24px;text-align:center;border:1.5px solid #E8E4DD">
+      <div style="font-size:32px;margin-bottom:8px">💰</div>
+      <div style="font-size:14px;font-weight:600;color:#1A1A1A">Sin liquidaciones aun</div>
+      <div style="font-size:12px;color:#9E9A93;margin-top:4px">Toca un evento pasado para liquidarlo</div>
+    </div>`}
+  </div>`;
+}
+
+function buildMobileDetalle(){
+  const evento = S.eventos.find(e=>e.id===mobileEventoDetalle);
+  if(!evento) return buildMobileCalendario();
+  const fecha = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  const liq = S.liquidaciones.find(l=>l.evento_id===evento.id&&l.guia_id===S.myGuia.id);
+  const yaLiquidado = !!liq;
+  const yaFeedback = !!evento.feedback_texto;
+  const esPasado = evento.fecha < new Date().toISOString().split('T')[0];
+  const tr = S.transportistas?.find(t=>t.id===evento.transportista_id);
+  const guia = S.myGuia;
+
+  return `
+  <div style="padding:16px;display:flex;flex-direction:column;gap:14px">
+    <button id="btn-mobile-back" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;color:#555;width:fit-content">‹ Volver</button>
+
+    <div style="background:linear-gradient(135deg,#1B6B74,#2A9D8F);border-radius:14px;padding:20px;color:white">
+      <div style="font-size:11px;opacity:0.7;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px">${evento.estado}</div>
+      <div style="font-size:22px;font-weight:700;font-family:'Playfair Display',serif;margin-bottom:4px">${esc(evento.tipo_evento)}</div>
+      ${evento.nro_file?`<div style="font-size:13px;opacity:0.8">File: ${esc(evento.nro_file)}</div>`:''}
+      <div style="margin-top:12px;font-size:14px;text-transform:capitalize">${fecha}</div>
+      ${evento.hora_inicio?`<div style="font-size:16px;font-weight:700;margin-top:4px">${evento.hora_inicio.slice(0,5)}${evento.hora_fin?' → '+evento.hora_fin.slice(0,5):''}</div>`:''}
+    </div>
+
+    ${evento.descripcion?`
+    <div style="background:white;border-radius:14px;padding:16px;border:1.5px solid #E8E4DD">
+      <div style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Descripcion</div>
+      <div style="font-size:14px;color:#1A1A1A;line-height:1.5">${esc(evento.descripcion)}</div>
+    </div>`:''}
+
+    ${tr?`
+    <div style="background:white;border-radius:14px;padding:16px;border:1.5px solid #E8E4DD">
+      <div style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Transportista</div>
+      <div style="font-size:14px;font-weight:600;color:#1A1A1A">${esc(tr.nombre)}</div>
+      ${tr.telefono?`<div style="font-size:13px;color:#555;margin-top:4px">${esc(tr.telefono)}</div>`:''}
+      ${tr.contacto?`<div style="font-size:12px;color:#9E9A93">${esc(tr.contacto)}</div>`:''}
+    </div>`:''}
+
+    ${evento.link_adjunto?`
+    <a href="${esc(evento.link_adjunto)}" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px;border-radius:14px;background:white;border:1.5px solid #E8E4DD;color:${T.teal};font-size:14px;font-weight:600;text-decoration:none">
+      Ver adjunto
+    </a>`:''}
+
+    <!-- GCAL -->
+    <a href="${buildGCalUrl(evento)}" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px;border-radius:14px;background:#4285F420;border:1.5px solid #4285F440;color:#4285F4;font-size:14px;font-weight:600;text-decoration:none">
+      Agregar a Google Calendar
+    </a>
+
+    <!-- FEEDBACK -->
+    ${esPasado?`
+    <div style="background:white;border-radius:14px;padding:16px;border:1.5px solid #E8E4DD">
+      <div style="font-size:13px;font-weight:700;color:#1A1A1A;margin-bottom:12px">Feedback ${yaFeedback?'✅':''}</div>
+      ${yaFeedback?`<div style="font-size:13px;color:#555;font-style:italic">"${esc(evento.feedback_texto)}"</div>`:`
+      <textarea id="mobile-feedback-txt" placeholder="Como salio el evento?" style="width:100%;border:1.5px solid #E8E4DD;border-radius:8px;padding:10px;font-size:14px;font-family:'DM Sans',sans-serif;resize:none;min-height:80px;margin-bottom:10px"></textarea>
+      <button data-mobile-guardar-feedback="${evento.id}" style="width:100%;padding:12px;border-radius:10px;border:none;background:${T.tealMid};color:white;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">Guardar feedback</button>`}
+    </div>`:''}
+
+    <!-- LIQUIDACION -->
+    ${esPasado?`
+    <div style="background:white;border-radius:14px;padding:16px;border:1.5px solid #E8E4DD">
+      <div style="font-size:13px;font-weight:700;color:#1A1A1A;margin-bottom:12px">Liquidacion ${yaLiquidado?'('+liq.estado+')':''}</div>
+      ${yaLiquidado?`
+      <div style="font-size:13px;color:#555">
+        <div>Horas: ${liq.horas} · Valor/h: $${liq.valor_hora}</div>
+        ${liq.gastos_extras?`<div>Gastos extras: $${liq.gastos_extras}</div>`:''}
+        <div style="font-size:16px;font-weight:700;color:${T.teal};margin-top:8px">Total: $${liq.total?.toLocaleString('es-AR')}</div>
+      </div>`:`
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:10px">
+          <div style="flex:1"><label style="font-size:11px;font-weight:600;color:#9E9A93;display:block;margin-bottom:4px">Horas</label><input id="mobile-liq-horas" type="number" min="0" step="0.5" placeholder="0" style="width:100%;border:1.5px solid #E8E4DD;border-radius:8px;padding:10px;font-size:14px;font-family:'DM Sans',sans-serif"/></div>
+          <div style="flex:1"><label style="font-size:11px;font-weight:600;color:#9E9A93;display:block;margin-bottom:4px">Valor/hora</label><input id="mobile-liq-valor" type="number" value="${guia.valor_hora||0}" placeholder="0" style="width:100%;border:1.5px solid #E8E4DD;border-radius:8px;padding:10px;font-size:14px;font-family:'DM Sans',sans-serif"/></div>
+        </div>
+        <div><label style="font-size:11px;font-weight:600;color:#9E9A93;display:block;margin-bottom:4px">Gastos extras ($)</label><input id="mobile-liq-gastos" type="number" min="0" placeholder="0" style="width:100%;border:1.5px solid #E8E4DD;border-radius:8px;padding:10px;font-size:14px;font-family:'DM Sans',sans-serif"/></div>
+        <div><label style="font-size:11px;font-weight:600;color:#9E9A93;display:block;margin-bottom:4px">Observaciones</label><textarea id="mobile-liq-obs" placeholder="Detalle..." style="width:100%;border:1.5px solid #E8E4DD;border-radius:8px;padding:10px;font-size:14px;font-family:'DM Sans',sans-serif;resize:none;min-height:60px"></textarea></div>
+        <button data-mobile-guardar-liq="${evento.id}" style="width:100%;padding:12px;border-radius:10px;border:none;background:${T.tealMid};color:white;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">Enviar liquidacion</button>
+      </div>`}
+    </div>`:''}
+
+    <!-- BAJAR DEL EVENTO -->
+    ${evento.estado==='CONFIRMADO'&&evento.guia_id===guia.id&&!esPasado?`
+    <button data-bajar-evento="${evento.id}" style="width:100%;padding:12px;border-radius:10px;border:1.5px solid #fcd5d5;background:#fff5f5;color:#E63946;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:8px">Me bajo del evento</button>`:''}
+  </div>`;
+}
+
 // ── HISTORIAL ─────────────────────────────────────────────────────────────────
 function buildHistorial(){
   const ACCION_ICONS={'INVITACION_ENVIADA':'📧','ACEPTADA':'✅','RECHAZADA':'❌','EXPIRADA_SLA':'⏱','CANCELADA':'🚫','TOMADA_POR_OTRO':'👤','GUIA_SE_BAJO':'🚫','EVENTO_CANCELADO':'❌'};
@@ -2348,6 +2786,113 @@ function buildToast(){
 
 // ── EVENTS ────────────────────────────────────────────────────────────────────
 function attachEvents(){
+  // ── MOBILE EVENTS ─────────────────────────────────────────────────────────
+  if(isMobile() && S.role==='guia'){
+    // bottom nav tabs
+    document.querySelectorAll('[data-mobile-tab]').forEach(btn=>btn.addEventListener('click',()=>{
+      mobileView = btn.dataset.mobileTab;
+      mobileEventoDetalle = null;
+      render();
+    }));
+    // detalle from any list
+    document.querySelectorAll('[data-mobile-detalle]').forEach(el=>el.addEventListener('click',()=>{
+      mobileEventoDetalle = parseInt(el.dataset.mobileDetalle);
+      mobileView = 'detalle';
+      render();
+    }));
+    // back button
+    document.getElementById('btn-mobile-back')?.addEventListener('click',()=>{
+      mobileView = 'calendario';
+      mobileEventoDetalle = null;
+      render();
+    });
+    // logout
+    document.getElementById('btn-mobile-logout')?.addEventListener('click',async()=>{
+      await db.auth.signOut(); set({user:null,role:null,myGuia:null});
+    });
+    // invitaciones aceptar/rechazar
+    document.querySelectorAll('[data-mobile-inv-aceptar]').forEach(btn=>btn.addEventListener('click', async()=>{
+      const invId = parseInt(btn.dataset.mobileInvAceptar);
+      btn.textContent='...'; btn.disabled=true;
+      const {data:inv} = await db.from('invitaciones').select('*').eq('id',invId).single();
+      if(!inv){toast('Error',T.red);return;}
+      const {data:evento} = await db.from('eventos').select('*').eq('id',inv.evento_id).single();
+      if(evento?.estado==='CONFIRMADO'&&evento?.guia_id!==inv.guia_id){
+        await db.from('invitaciones').update({estado:'TOMADA_POR_OTRO',respondido_at:new Date().toISOString()}).eq('id',inv.id);
+        toast('Este evento ya fue tomado',T.red); await loadAll(); return;
+      }
+      await db.from('invitaciones').update({estado:'ACEPTADA',respondido_at:new Date().toISOString()}).eq('id',inv.id);
+      await db.from('eventos').update({estado:'CONFIRMADO',guia_id:inv.guia_id}).eq('id',inv.evento_id);
+      const {data:otras} = await db.from('invitaciones').select('*').eq('evento_id',inv.evento_id).eq('estado','PENDIENTE').neq('id',inv.id);
+      for(const otra of (otras||[])){
+        await db.from('invitaciones').update({estado:'TOMADA_POR_OTRO',respondido_at:new Date().toISOString()}).eq('id',otra.id);
+      }
+      await db.from('historial').insert({evento_id:inv.evento_id,guia_id:inv.guia_id,invitacion_id:inv.id,accion:'ACEPTADA',actor:'GUIA',detalle:'Aceptado desde app movil'});
+      toast('Confirmado!',T.green); await loadAll();
+    }));
+    document.querySelectorAll('[data-mobile-inv-rechazar]').forEach(btn=>btn.addEventListener('click', async()=>{
+      const invId = parseInt(btn.dataset.mobileInvRechazar);
+      btn.textContent='...'; btn.disabled=true;
+      const {data:inv} = await db.from('invitaciones').select('*').eq('id',invId).single();
+      if(!inv){toast('Error',T.red);return;}
+      await db.from('invitaciones').update({estado:'RECHAZADA',respondido_at:new Date().toISOString()}).eq('id',inv.id);
+      await db.from('historial').insert({evento_id:inv.evento_id,guia_id:inv.guia_id,invitacion_id:inv.id,accion:'RECHAZADA',actor:'GUIA',detalle:'Rechazado desde app movil'});
+      const {data:pendAun} = await db.from('invitaciones').select('id').eq('evento_id',inv.evento_id).eq('estado','PENDIENTE');
+      if(!pendAun?.length) await db.from('eventos').update({estado:'A_ASIGNAR'}).eq('id',inv.evento_id);
+      toast('Registrado',T.coral); await loadAll();
+    }));
+    // guardar feedback
+    document.querySelectorAll('[data-mobile-guardar-feedback]').forEach(btn=>btn.addEventListener('click', async()=>{
+      const eventoId = parseInt(btn.dataset.mobileGuardarFeedback);
+      const txt = document.getElementById('mobile-feedback-txt')?.value?.trim();
+      if(!txt){toast('Escribi algo primero',T.red);return;}
+      btn.textContent='Guardando...'; btn.disabled=true;
+      await db.from('eventos').update({feedback_texto:txt,feedback_at:new Date().toISOString()}).eq('id',eventoId);
+      toast('Feedback guardado!',T.green); await loadAll();
+    }));
+    // guardar liquidacion
+    document.querySelectorAll('[data-mobile-guardar-liq]').forEach(btn=>btn.addEventListener('click', async()=>{
+      const eventoId = parseInt(btn.dataset.mobileGuardarLiq);
+      const horas = parseFloat(document.getElementById('mobile-liq-horas')?.value||0);
+      const valor = parseFloat(document.getElementById('mobile-liq-valor')?.value||0);
+      const gastos = parseFloat(document.getElementById('mobile-liq-gastos')?.value||0);
+      const obs = document.getElementById('mobile-liq-obs')?.value?.trim()||'';
+      if(!horas){toast('Ingresa las horas',T.red);return;}
+      const total = (horas*valor)+gastos;
+      btn.textContent='Enviando...'; btn.disabled=true;
+      await db.from('liquidaciones').insert({evento_id:eventoId,guia_id:S.myGuia.id,horas,valor_hora:valor,gastos_extras:gastos||null,observaciones:obs||null,total,estado:'PENDIENTE'});
+      toast('Liquidacion enviada!',T.green); await loadAll();
+    }));
+    // calendario nav
+    document.getElementById('cal-prev')?.addEventListener('click',()=>{const d=new Date(S.calMonth);d.setMonth(d.getMonth()-1);set({calMonth:d});});
+    document.getElementById('cal-next')?.addEventListener('click',()=>{const d=new Date(S.calMonth);d.setMonth(d.getMonth()+1);set({calMonth:d});});
+    // disponibilidad toggle
+    document.querySelectorAll('[data-dispo-day]').forEach(el=>{
+      el.addEventListener('click',()=>{
+        const dateStr=el.dataset.dispoDay;
+        if(new Date(dateStr+'T12:00:00')<new Date(new Date().toDateString())) return;
+        if(el.dataset.bloqueado==='1'){toggleBloqueo(dateStr,parseInt(el.dataset.bloqueoId),'');return;}
+        if(dispoSeleccion.has(dateStr)) dispoSeleccion.delete(dateStr);
+        else dispoSeleccion.add(dateStr);
+        render();
+      });
+    });
+    document.getElementById('btn-confirmar-bloqueos')?.addEventListener('click',async()=>{
+      if(!dispoSeleccion.size) return;
+      const motivo=prompt('Motivo opcional (ej: vacaciones):')||'';
+      const rows=[...dispoSeleccion].map(fecha=>({guia_id:S.myGuia.id,fecha,motivo:motivo||null}));
+      await db.from('bloqueos_disponibilidad').upsert(rows,{onConflict:'guia_id,fecha'});
+      toast(rows.length+' dia(s) bloqueado(s)','#E63946');
+      dispoSeleccion=new Set(); await loadAll();
+    });
+    document.getElementById('btn-cancelar-seleccion')?.addEventListener('click',()=>{dispoSeleccion=new Set();render();});
+    // bajar del evento
+    document.querySelectorAll('[data-bajar-evento]').forEach(btn=>btn.addEventListener('click',e=>{
+      e.stopPropagation(); bajarseEvento(parseInt(btn.dataset.bajarEvento));
+    }));
+    return; // skip desktop events
+  }
+
   // Response page
   const params=new URLSearchParams(window.location.search);
   if(params.get('token')){
