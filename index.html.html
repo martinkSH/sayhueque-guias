@@ -7,7 +7,6 @@
 <title>Say Hueque · Guías</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -26,17 +25,48 @@
 <script>
 const SB_URL  = 'https://ewxbghnyjvaijpfiygqg.supabase.co';
 const SB_KEY  = 'sb_publishable_mADKoH6FeTWWwtyh07m3Dg_xISpDz6_';
-const EMAILJS_SERVICE  = 'service_6s252wi';
-const EMAILJS_TEMPLATE        = 'template_ry35h78';
-const EMAILJS_TEMPLATE_RECORDATORIO  = 'template_zvxfa09';
-const EMAILJS_TEMPLATE_CAMBIO        = 'template_j274z7o';
-const EMAILJS_TEMPLATE_CALENDARIO_TR  = 'template_5tlf6ef';
-const EMAILJS_TEMPLATE_CANCEL = 'template_yvw7gcb';
-const EMAILJS_KEY      = '4qFUA9QnC1kQXqhI1';
 const APP_URL = window.location.origin + window.location.pathname;
 
 const { createClient } = supabase;
 const db = createClient(SB_URL, SB_KEY);
+
+// ══════════════════════════════════════════════════════════════════════════
+// EMAIL HELPERS - SUPABASE GMAIL
+// ══════════════════════════════════════════════════════════════════════════
+
+async function sendEmail(templateId, variables) {
+  try {
+    const { data, error } = await db.functions.invoke('send-email', {
+      body: { 
+        templateId,
+        variables,
+        to: variables.to_email
+      }
+    });
+    
+    if (error) throw error;
+    console.log('✅ Email enviado:', templateId, 'a', variables.to_email);
+    return { success: true };
+  } catch(e) {
+    console.error('❌ Error enviando email:', e);
+    return { success: false, error: e };
+  }
+}
+
+async function generarTokenReconfirmacion(eventoId, guiaId) {
+  const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 días
+  
+  await db.from('tokens_reconfirmacion').insert({
+    token,
+    evento_id: eventoId,
+    guia_id: guiaId,
+    tipo: 'reconfirmar',
+    expires_at: expiresAt.toISOString()
+  });
+  
+  return token;
+}
 
 // ── PALETTE ──────────────────────────────────────────────────────────────────
 const T = {
@@ -273,20 +303,25 @@ async function loadAll(){
 async function sendCambioEmail(guia, evento, cambios){
   const fechaEvento = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const horario = evento.hora_inicio + (evento.hora_fin ? ' - '+evento.hora_fin : '');
-  try {
-    await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE_CAMBIO, {
-      to_email:     guia.email,
-      guia_nombre:  guia.nombre + ' ' + guia.apellido,
-      tipo_evento:  evento.tipo_evento,
-      nro_file:     evento.nro_file || '—',
-      fecha:        fechaEvento,
-      horario:      horario,
-      cambios:      cambios,
-      descripcion:  evento.descripcion || '—',
-      link_adjunto: evento.link_adjunto || '—',
-    }, EMAILJS_KEY);
-    console.log('Email cambio enviado a', guia.email);
-  } catch(e){ console.error('EmailJS cambio error:', e); }
+  
+  // Generar token de reconfirmación
+  const tokenReconfirmar = await generarTokenReconfirmacion(evento.id, guia.id);
+  const reconfirmarUrl = `${APP_URL}?token=${tokenReconfirmar}&accion=reconfirmar`;
+  const cancelarUrl = `${APP_URL}?token=${tokenReconfirmar}&accion=cancelar_cambio`;
+  
+  return await sendEmail('cambios_evento', {
+    to_email:        guia.email,
+    guia_nombre:     guia.nombre + ' ' + guia.apellido,
+    tipo_evento:     evento.tipo_evento,
+    nro_file:        evento.nro_file || '—',
+    fecha:           fechaEvento,
+    horario:         horario,
+    cambios:         cambios,
+    descripcion:     evento.descripcion || '—',
+    link_adjunto:    evento.link_adjunto || '—',
+    url_reconfirmar: reconfirmarUrl,
+    url_cancelar:    cancelarUrl,
+  });
 }
 
 // ── COLA DE EMAILS (recordatorios) ──────────────────────────────────────────
@@ -304,22 +339,24 @@ async function procesarColaEmails(){
   
   for(const item of pendientes){
     const p = item.payload;
-    try {
-      await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE_RECORDATORIO, {
-        to_email:    p.to_email,
-        guia_nombre: p.guia_nombre,
-        tipo_evento: p.tipo_evento,
-        fecha:       new Date(p.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'}),
-        horario:     p.horario,
-        nro_file:    p.nro_file || '—',
-        descripcion: p.descripcion || '—',
-      }, EMAILJS_KEY);
-      
+    const fechaEvento = new Date(p.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+    
+    const result = await sendEmail('recordatorio_invitacion', {
+      to_email:    p.to_email,
+      guia_nombre: p.guia_nombre,
+      tipo_evento: p.tipo_evento,
+      fecha:       fechaEvento,
+      horario:     p.horario,
+      nro_file:    p.nro_file || '—',
+      descripcion: p.descripcion || '—',
+    });
+    
+    if (result.success) {
       // mark as sent
       await db.from('cola_emails').update({enviado:true, enviado_at:new Date().toISOString()}).eq('id', item.id);
-      console.log('Recordatorio enviado a', p.to_email);
-    } catch(e){
-      console.error('Error enviando recordatorio:', e);
+      console.log('✅ Recordatorio enviado a', p.to_email);
+    } else {
+      console.error('❌ Error enviando recordatorio a', p.to_email);
     }
   }
 }
@@ -440,6 +477,91 @@ async function responderInvitacion(token, accion){
       if(errEv){ console.error('Error updating evento:', errEv); }
     }
     return {ok:true, msg:'Entendemos, quedó registrado. ¡Hasta la próxima!'};
+  }
+}
+
+// ── RECONFIRMACIÓN DE CAMBIOS ─────────────────────────────────────────────
+async function procesarReconfirmacionToken(token, accion){
+  try {
+    // Buscar token
+    const { data: tokenData } = await db
+      .from('tokens_reconfirmacion')
+      .select('*')
+      .eq('token', token)
+      .eq('usado', false)
+      .single();
+    
+    if (!tokenData) {
+      return {ok:false, msg:'Token inválido o ya utilizado'};
+    }
+    
+    // Verificar expiración
+    if (new Date(tokenData.expires_at) < new Date()) {
+      return {ok:false, msg:'Este link ha expirado'};
+    }
+    
+    const {data:evento} = await db.from('eventos').select('*').eq('id',tokenData.evento_id).single();
+    const {data:guia} = await db.from('guias').select('*').eq('id',tokenData.guia_id).single();
+    
+    if (!evento || !guia) {
+      return {ok:false, msg:'Evento o guía no encontrado'};
+    }
+    
+    if (accion === 'reconfirmar') {
+      // Marcar token como usado
+      await db.from('tokens_reconfirmacion')
+        .update({ usado: true })
+        .eq('id', tokenData.id);
+      
+      // Registrar en historial
+      await db.from('historial').insert({
+        evento_id: evento.id,
+        guia_id: guia.id,
+        accion: 'EVENTO_RECONFIRMADO',
+        detalle: 'Guía reconfirmó evento tras cambios',
+        actor: guia.nombre + ' ' + guia.apellido
+      });
+      
+      return {ok:true, msg:'¡Evento reconfirmado correctamente! Gracias por confirmar tu disponibilidad.'};
+      
+    } else if (accion === 'cancelar_cambio') {
+      // Marcar token como usado
+      await db.from('tokens_reconfirmacion')
+        .update({ usado: true })
+        .eq('id', tokenData.id);
+      
+      // Cancelar evento (volver a A_ASIGNAR)
+      await db.from('eventos')
+        .update({ 
+          estado: 'A_ASIGNAR',
+          guia_id: null,
+          alerta_guia_bajo: true
+        })
+        .eq('id', evento.id);
+      
+      // Cancelar invitaciones pendientes
+      await db.from('invitaciones')
+        .update({ estado: 'CANCELADA' })
+        .eq('evento_id', evento.id)
+        .eq('estado', 'PENDIENTE');
+      
+      // Registrar en historial
+      await db.from('historial').insert({
+        evento_id: evento.id,
+        guia_id: guia.id,
+        accion: 'GUIA_SE_BAJO',
+        detalle: 'Guía canceló participación tras cambios en evento',
+        actor: guia.nombre + ' ' + guia.apellido
+      });
+      
+      return {ok:true, msg:'Te has bajado del evento. El admin será notificado. Gracias por avisar.'};
+    }
+    
+    return {ok:false, msg:'Acción no válida'};
+    
+  } catch(e) {
+    console.error('Error procesando reconfirmación:', e);
+    return {ok:false, msg:'Error procesando la acción: '+e.message};
   }
 }
 
@@ -663,37 +785,32 @@ async function sendInviteEmail(guia, evento, token, expira){
   const fechaExpira = new Date(expira).toLocaleString('es-AR');
   const horario     = evento.hora_inicio + (evento.hora_fin ? ' - '+evento.hora_fin : '');
 
-  try {
-    await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
-      to_email:    guia.email,
-      guia_nombre: guia.nombre + ' ' + guia.apellido,
-      tipo_evento: evento.tipo_evento,
-      fecha:       fechaEvento,
-      horario:     horario,
-      prioridad:   evento.prioridad,
-      descripcion: evento.descripcion || '—',
-      expira:      fechaExpira,
-      url_aceptar: aceptarUrl,
-      url_rechazar:rechazarUrl,
-    }, EMAILJS_KEY);
-    console.log('Email enviado a', guia.email);
-  } catch(e){ console.error('EmailJS error:', e); }
+  return await sendEmail('invitacion_evento', {
+    to_email:     guia.email,
+    guia_nombre:  guia.nombre + ' ' + guia.apellido,
+    tipo_evento:  evento.tipo_evento,
+    fecha:        fechaEvento,
+    horario:      horario,
+    prioridad:    evento.prioridad,
+    descripcion:  evento.descripcion || '—',
+    expira:       fechaExpira,
+    url_aceptar:  aceptarUrl,
+    url_rechazar: rechazarUrl,
+  });
 }
 
 async function sendCancelEmail(guia, evento, motivo=''){
   const fechaEvento = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const horario = evento.hora_inicio + (evento.hora_fin ? ' - '+evento.hora_fin : '');
-  try {
-    await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE_CANCEL, {
-      to_email:    guia.email,
-      guia_nombre: guia.nombre + ' ' + guia.apellido,
-      tipo_evento: evento.tipo_evento,
-      fecha:       fechaEvento,
-      horario:     horario,
-      motivo:      motivo || 'Sin especificar',
-    }, EMAILJS_KEY);
-    console.log('Email cancelación enviado a', guia.email);
-  } catch(e){ console.error('EmailJS cancel error:', e); }
+  
+  return await sendEmail('cancelacion_evento', {
+    to_email:    guia.email,
+    guia_nombre: guia.nombre + ' ' + guia.apellido,
+    tipo_evento: evento.tipo_evento,
+    fecha:       fechaEvento,
+    horario:     horario,
+    motivo:      motivo || 'Sin especificar',
+  });
 }
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
@@ -2898,7 +3015,14 @@ function attachEvents(){
   if(params.get('token')){
     const token=params.get('token'), accion=params.get('accion');
     (async()=>{
-      const result=await responderInvitacion(token, accion==='aceptar'?'aceptar':'rechazar');
+      let result;
+      // Check if it's a reconfirmation token or invitation token
+      if(accion==='reconfirmar' || accion==='cancelar_cambio'){
+        result = await procesarReconfirmacionToken(token, accion);
+      } else {
+        result = await responderInvitacion(token, accion==='aceptar'?'aceptar':'rechazar');
+      }
+      
       const box=document.getElementById('response-box');
       if(box){
         let gcalBtn = '';
@@ -2907,8 +3031,9 @@ function attachEvents(){
           const gcalUrl = buildGCalUrl(ev);
           gcalBtn = `<a href="${gcalUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:8px;padding:12px 22px;background:#4285F4;color:white;border-radius:9px;font-weight:700;font-size:14px;text-decoration:none;margin-bottom:12px;font-family:'DM Sans',sans-serif">📅 Agregar a Google Calendar</a><br/>`;
         }
+        const emoji = result.ok ? (accion==='aceptar'||accion==='reconfirmar' ? '✅' : '👍') : '⚠️';
         box.innerHTML=`
-          <div style="font-size:48px;margin-bottom:16px">${result.ok?(accion==='aceptar'?'✅':'👍'):'⚠️'}</div>
+          <div style="font-size:48px;margin-bottom:16px">${emoji}</div>
           <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:#1A1A1A;margin-bottom:8px">${result.ok?'¡Listo!':'Lo sentimos'}</div>
           <div style="font-size:14px;color:#9E9A93;line-height:1.6;margin-bottom:24px">${result.msg}</div>
           ${gcalBtn}
@@ -3021,30 +3146,31 @@ function attachEvents(){
     if(!tokenData){toast('Error al crear token',T.red);return;}
     const confirmUrl = window.location.origin+window.location.pathname+'?confirmar_calendario='+tokenData.token;
     // build email body
-    // Build plain text list for email (avoids HTML escaping issues in EmailJS)
+    // Build plain text list for email
     const eventosList = eventos.map((e,i)=>{
       const guia=S.guias.find(g=>g.id===e.guia_id);
       const guiaNombre = guia?guia.nombre+' '+guia.apellido:'Sin asignar';
       const horario = e.hora_inicio+(e.hora_fin?' - '+e.hora_fin:'');
       const fecha = new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-      return (i+1)+'. '+fecha+' — '+e.tipo_evento+' — '+horario+' — Guia: '+guiaNombre+(e.nro_file?' — File: '+e.nro_file:'');
-    }).join(' | ');
-    try {
-      await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE_CALENDARIO_TR, {
-        to_email: t.email,
-        transportista_nombre: t.contacto||t.nombre,
-        empresa: t.nombre,
-        fecha_desde: desde,
-        fecha_hasta: hasta,
-        eventos_count: eventos.length,
-        eventos_lista: eventosList,
-        confirmar_url: confirmUrl,
-      }, EMAILJS_KEY);
+      return (i+1)+'. '+fecha+' — '+e.tipo_evento+' — '+horario+' — Guía: '+guiaNombre+(e.nro_file?' — File: '+e.nro_file:'');
+    }).join('\n');
+    
+    const result = await sendEmail('calendario_transportista', {
+      to_email: t.email,
+      transportista_nombre: t.contacto||t.nombre,
+      empresa: t.nombre,
+      fecha_desde: desde,
+      fecha_hasta: hasta,
+      eventos_count: eventos.length,
+      eventos_lista: eventosList,
+      confirmar_url: confirmUrl,
+    });
+    
+    if (result.success) {
       toast('✅ Calendario enviado a '+t.email);
       set({modal:null});
-    } catch(err){
-      console.error(err);
-      toast('Error enviando email: '+err.text,T.red);
+    } else {
+      toast('❌ Error enviando calendario',T.red);
     }
   });
 
