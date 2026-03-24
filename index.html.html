@@ -3816,7 +3816,7 @@ async function loadUsuariosPanel(){
   const {data:guiasAll} = await db.from('guias').select('*');
 
   container.innerHTML = `
-    <!-- ✅ Config de Email de Notificaciones -->
+    <!-- Config de Email de Notificaciones -->
     <div style="background:linear-gradient(135deg,#E63946,#DC2F02);border-radius:12px;padding:20px;margin-bottom:20px">
       <div style="color:white;font-size:16px;font-weight:700;font-family:'Playfair Display',serif;margin-bottom:4px">🔔 Email de Notificaciones Urgentes</div>
       <div style="color:rgba(255,255,255,0.8);font-size:12px;margin-bottom:14px">A esta dirección llegarán los emails cuando un guía se baje de un evento</div>
@@ -3868,7 +3868,6 @@ async function loadUsuariosPanel(){
         </div>`;
       }).join('')}
     </div>`;
-  
 
   // Attach event listener para guardar email de notificaciones
   document.getElementById('btn-save-email-notif')?.addEventListener('click', async()=>{
