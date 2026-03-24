@@ -36,12 +36,25 @@ const db = createClient(SB_URL, SB_KEY);
 
 async function sendEmail(templateId, variables) {
   try {
+    // Obtener sesión actual para el token de auth
+    const { data: { session } } = await db.auth.getSession();
+    
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Si hay sesión, agregar Authorization header
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
+    
     const { data, error } = await db.functions.invoke('send-email', {
       body: { 
         templateId,
         variables,
         to: variables.to_email
-      }
+      },
+      headers
     });
     
     if (error) throw error;
