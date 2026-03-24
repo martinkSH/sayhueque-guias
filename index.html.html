@@ -786,18 +786,18 @@ async function bajarseEvento(eventoId){
   const evento = S.eventos.find(e=>e.id===eventoId);
   if(!evento) return;
   if(!confirm('¿Confirmas que querés bajarte de este evento?')) return;
-  const motivo = prompt('Motivo (opcional):') || '';
+  const motivo = prompt('Motivo (opcional):') || 'Sin especificar';
   const guia = S.myGuia;
-
+  
   // Revert event to A_ASIGNAR and remove guia
   await db.from('eventos').update({estado:'A_ASIGNAR', guia_id:null}).eq('id',eventoId);
-
+  
   // Mark invitation as RECHAZADA
   const {data:invs} = await db.from('invitaciones').select('*').eq('evento_id',eventoId).eq('guia_id',guia.id);
   if(invs?.length){
     await db.from('invitaciones').update({estado:'RECHAZADA',respondido_at:new Date().toISOString()}).eq('id',invs[0].id);
   }
-
+  
   // Log with special accion so admin sees alert
   await db.from('historial').insert({
     evento_id: eventoId,
@@ -806,11 +806,31 @@ async function bajarseEvento(eventoId){
     actor: 'GUIA',
     detalle: `${guia.nombre} ${guia.apellido} se bajó del evento${motivo?' · Motivo: '+motivo:''}`
   });
-
+  
+  // ✅ Enviar email al admin
+  const {data:configData} = await db.from('config').select('value').eq('key','email_notificaciones_admin').single();
+  const emailAdmin = configData?.value;
+  
+  if(emailAdmin){
+    const fechaEvento = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+    const horario = evento.hora_inicio + (evento.hora_fin ? ' - '+evento.hora_fin : '');
+    const panelUrl = window.location.origin + window.location.pathname;
+    
+    await sendEmail('guia_se_bajo', {
+      to_email: emailAdmin,
+      guia_nombre: guia.nombre + ' ' + guia.apellido,
+      tipo_evento: evento.tipo_evento,
+      nro_file: evento.nro_file || '—',
+      fecha: fechaEvento,
+      horario: horario,
+      motivo: motivo,
+      panel_url: panelUrl
+    });
+  }
+  
   await loadAll();
-  toast('✅ Te bajaste del evento.', T.coral);
+  toast('✅ Te bajaste del evento. El admin fue notificado.', T.coral);
 }
-
 async function cancelarInvitacion(invId){
   await db.from('invitaciones').update({estado:'CANCELADA',respondido_at:new Date().toISOString()}).eq('id',invId);
   const inv = S.invitaciones.find(i=>i.id===invId);
