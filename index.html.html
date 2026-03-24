@@ -354,27 +354,6 @@ async function sendCambioEmail(guia, evento, cambios){
 
   return result;
 }
-  
-  // Generar token de reconfirmación
-  const tokenReconfirmar = await generarTokenReconfirmacion(evento.id, guia.id);
-  const reconfirmarUrl = `${APP_URL}?token=${tokenReconfirmar}&accion=reconfirmar`;
-  const cancelarUrl = `${APP_URL}?token=${tokenReconfirmar}&accion=cancelar_cambio`;
-  
-  return await sendEmail('cambios_evento', {
-    to_email:        guia.email,
-    guia_nombre:     guia.nombre + ' ' + guia.apellido,
-    tipo_evento:     evento.tipo_evento,
-    nro_file:        evento.nro_file || '—',
-    fecha:           fechaEvento,
-    horario:         horario,
-    cambios:         cambios,
-    descripcion:     evento.descripcion || '—',
-    link_adjunto:    evento.link_adjunto || '—',
-    url_reconfirmar: reconfirmarUrl,
-    url_cancelar:    cancelarUrl,
-  });
-}
-
 // ── COLA DE EMAILS (recordatorios) ──────────────────────────────────────────
 async function procesarColaEmails(){
   // only admin processes the queue
