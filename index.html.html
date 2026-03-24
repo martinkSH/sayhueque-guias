@@ -1487,6 +1487,7 @@ function buildEventos(){
               const guia=S.guias.find(g=>g.id===e.guia_id);
               const fecha=new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'});
               const invs=S.invitaciones.filter(i=>i.evento_id===e.id);
+              const esPasado = e.fecha < new Date().toISOString().split('T')[0];
               return `
               <tr data-toggle-evento="${e.id}" style="border-bottom:1px solid #F5F3EF;cursor:pointer" onmouseenter="this.style.background='#F9F8F6'" onmouseleave="this.style.background='white'">
                 <td style="padding:10px 14px;width:28px" onclick="event.stopPropagation()">
@@ -1503,11 +1504,17 @@ function buildEventos(){
                 <td style="padding:10px 14px">${badge(e.estado,ESTADO_EVENT_COLOR)}</td>
                 <td style="padding:10px 14px;font-size:12px;color:${T.tealMid};font-weight:600">${guia?esc(guia.nombre+' '+guia.apellido):'<span style="color:#ccc">Sin asignar</span>'}</td>
                 
-                <td style="padding:10px 14px">
+                <td style="padding:10px 14px" onclick="event.stopPropagation()">
                   <div style="display:flex;gap:6px">
                     ${isAdmin()?`<button data-edit-evento="${e.id}" style="padding:4px 10px;border-radius:6px;border:1px solid #E8E4DD;background:white;font-size:11px;cursor:pointer;color:${T.teal};font-weight:600;font-family:'DM Sans',sans-serif">✏️</button>`:''}
                     ${(e.estado==='A_ASIGNAR'||e.estado==='ASIGNADO')&&isAdmin()?`<button data-invitar="${e.id}" style="padding:4px 10px;border-radius:6px;border:none;background:${T.teal};color:white;font-size:11px;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif">📧 Invitar</button>`:''}
                     ${e.estado!=='CANCELADO'&&isAdmin()?`<button data-cancelar-evento="${e.id}" style="padding:4px 10px;border-radius:6px;border:1px solid #fcd5d5;background:#fff5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600;font-family:'DM Sans',sans-serif">✕ Cancelar</button>`:''}
+                    
+                    ${/* ✅ NUEVO: Botón para que el guía se baje del evento */}
+                    ${!isAdmin() && e.estado==='CONFIRMADO' && e.guia_id===S.myGuia?.id && !esPasado?`
+                      <button data-bajar-evento="${e.id}" style="padding:4px 10px;border-radius:6px;border:1px solid #fcd5d5;background:#fff5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600;font-family:'DM Sans',sans-serif">
+                        🚫 Me bajo
+                      </button>`:''}
                   </div>
                 </td>
               </tr>
