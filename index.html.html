@@ -2865,6 +2865,11 @@ function buildEventoEnViajeModal(fileId){
         </div>
         
         <div>
+          <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Link Drive (adjuntos)</label>
+          <input id="ev-link-adjunto" type="url" placeholder="https://drive.google.com/..." style="${iStyle}"/>
+        </div>
+        
+        <div>
           <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Notas</label>
           <textarea id="ev-notas" rows="3" placeholder="Notas adicionales..." style="${iStyle};resize:vertical"></textarea>
         </div>
@@ -3815,6 +3820,7 @@ function attachEvents(){
     const fecha = document.getElementById('ev-fecha')?.value;
     const hora_inicio = document.getElementById('ev-hora-inicio')?.value;
     const hora_fin = document.getElementById('ev-hora-fin')?.value;
+    const link_adjunto = document.getElementById('ev-link-adjunto')?.value.trim();
     const notas = document.getElementById('ev-notas')?.value.trim();
 
     if(!tipo_evento || !fecha || !hora_inicio){
@@ -3838,7 +3844,8 @@ function attachEvents(){
       fecha,
       hora_inicio,
       hora_fin: hora_fin || null,
-      notas,
+      link_adjunto: link_adjunto || null,
+      descripcion: notas,
       estado: 'A_ASIGNAR'
     }).select().single();
 
