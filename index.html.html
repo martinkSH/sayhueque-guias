@@ -2964,6 +2964,13 @@ function buildToast(){
 }
 
 // ── EVENTS ────────────────────────────────────────────────────────────────────
+  function attachEventoRowEvents(){
+  // Re-attach toggle events after render
+  document.querySelectorAll('[data-toggle-evento]').forEach(el=>el.addEventListener('click',()=>{
+    const id=parseInt(el.dataset.toggleEvento);
+    set({expandedEventId:S.expandedEventId===id?null:id});
+  }));
+}
 function attachEvents(){
   // ── MOBILE EVENTS ─────────────────────────────────────────────────────────
   if(isMobile() && S.role==='guia'){
