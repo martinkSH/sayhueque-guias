@@ -348,8 +348,8 @@ async function sendCambioEmail(guia, evento, cambios){
       actor: S.user.email
     });
 
-    await loadEventos(); // Recargar para mostrar nuevo estado
-    showToast('Email de cambios enviado. Esperando reconfirmación del guía.', 'info');
+    await loadAll(); // ✅ Recargar para mostrar nuevo estado
+    toast('Email de cambios enviado. Esperando reconfirmación del guía.'); // ✅
   }
 
   return result;
