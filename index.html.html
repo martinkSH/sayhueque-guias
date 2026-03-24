@@ -3893,8 +3893,12 @@ async function init(){
     await handleConfirmarCalendario(calToken);
     return;
   }
-  // check response token
-  if(params.get('token')){ set({loading:false}); return; }
+// check response token - LIMPIAR URL INMEDIATAMENTE
+if(params.get('token')){ 
+  window.history.replaceState({}, '', APP_URL); // ✅ Limpiar URL ANTES de procesar
+  set({loading:false}); 
+  return; 
+}
 
   const {data:{session}}=await db.auth.getSession();
   if(session?.user){ set({user:session.user,loading:false}); await loadRole(); await loadAll(); }
