@@ -841,39 +841,7 @@ async function bajarseEvento(eventoId){
 // ══════════════════════════════════════════════════════════════════════════
 
 function modalCrearViaje(){
-  set({modal:{
-    title:'Crear Nuevo Viaje',
-    content:`
-      <div style="display:flex;flex-direction:column;gap:14px">
-        <div>
-          <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Nro File *</label>
-          <input id="nro-file-input" type="text" placeholder="Ej: 12345" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif"/>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div>
-            <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Fecha IN *</label>
-            <input id="fecha-in-input" type="date" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif"/>
-          </div>
-          <div>
-            <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Fecha OUT *</label>
-            <input id="fecha-out-input" type="date" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif"/>
-          </div>
-        </div>
-        <div>
-          <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Operador</label>
-          <input id="operador-input" type="text" placeholder="Nombre del operador" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif"/>
-        </div>
-        <div>
-          <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">DH / GR</label>
-          <input id="dh-gr-input" type="text" placeholder="Nombre del DH/GR" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif"/>
-        </div>
-      </div>
-      <div style="display:flex;gap:10px;margin-top:20px">
-        <button onclick="closeModal()" style="flex:1;padding:12px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;font-size:14px;font-weight:600;cursor:pointer;color:#555">Cancelar</button>
-        <button onclick="guardarNuevoViaje()" style="flex:1;padding:12px;border-radius:8px;border:none;background:linear-gradient(135deg,#1B6B74,#2A9D8F);color:white;font-size:14px;font-weight:700;cursor:pointer">Crear Viaje</button>
-      </div>
-    `
-  }});
+  set({modal:{type:'viaje-form', entry:{}}});
 }
 
 async function guardarNuevoViaje(){
@@ -919,40 +887,7 @@ async function guardarNuevoViaje(){
 function modalEditarViaje(fileId){
   const file = S.files.find(f=>f.id===fileId);
   if(!file) return;
-
-  set({modal:{
-    title:'Editar Viaje',
-    content:`
-      <div style="display:flex;flex-direction:column;gap:14px">
-        <div>
-          <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Nro File *</label>
-          <input id="nro-file-input" type="text" value="${esc(file.nro_file)}" placeholder="Ej: 12345" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif"/>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div>
-            <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Fecha IN *</label>
-            <input id="fecha-in-input" type="date" value="${file.fecha_in}" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif"/>
-          </div>
-          <div>
-            <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Fecha OUT *</label>
-            <input id="fecha-out-input" type="date" value="${file.fecha_out}" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif"/>
-          </div>
-        </div>
-        <div>
-          <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Operador</label>
-          <input id="operador-input" type="text" value="${esc(file.operador_nombre||'')}" placeholder="Nombre del operador" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif"/>
-        </div>
-        <div>
-          <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">DH / GR</label>
-          <input id="dh-gr-input" type="text" value="${esc(file.dh_gr_nombre||'')}" placeholder="Nombre del DH/GR" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif"/>
-        </div>
-      </div>
-      <div style="display:flex;gap:10px;margin-top:20px">
-        <button onclick="closeModal()" style="flex:1;padding:12px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;font-size:14px;font-weight:600;cursor:pointer;color:#555">Cancelar</button>
-        <button onclick="guardarEditarViaje('${fileId}')" style="flex:1;padding:12px;border-radius:8px;border:none;background:linear-gradient(135deg,#1B6B74,#2A9D8F);color:white;font-size:14px;font-weight:700;cursor:pointer">Guardar Cambios</button>
-      </div>
-    `
-  }});
+  set({modal:{type:'viaje-form', entry:file}});
 }
 
 async function guardarEditarViaje(fileId){
@@ -1321,6 +1256,8 @@ async function register(email,pass){
 async function logout(){ await db.auth.signOut(); set({user:null,role:null,myGuia:null,guias:[],eventos:[],invitaciones:[],historial:[],view:'dashboard'}); }
 
 function toast(msg,color=T.tealMid){ set({toast:{msg,color}}); setTimeout(()=>set({toast:null}),3500); }
+function closeModal(){ set({modal:null}); }
+
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -2998,7 +2935,13 @@ function buildUsuarios(){
 // ── MODALS ────────────────────────────────────────────────────────────────────
 function buildModal(){
   const m=S.modal;
+  
+  // Generic modal with title + content
+  if(m.title && m.content) return buildGenericModal(m.title, m.content);
+  
   if(m.type==='guia-form')    return buildGuiaModal(m.entry);
+  if(m.type==='viaje-form')   return buildViajeModal(m.entry);
+  if(m.type==='evento-en-viaje') return buildEventoEnViajeModal(m.fileId);
   if(m.type==='evento-form')  return buildEventoModal(m.entry);
   if(m.type==='invitar')      return buildInvitarModal(m.eventoId);
   if(m.type==='register')     return buildRegModal();
@@ -3895,6 +3838,117 @@ function attachEvents(){
 
   // modal close
   ['btn-close-modal','btn-close-modal2'].forEach(id=>{document.getElementById(id)?.addEventListener('click',()=>set({modal:null}));});
+
+  // Viajes: Save button
+  document.getElementById('btn-save-viaje')?.addEventListener('click',async()=>{
+    const btn = document.getElementById('btn-save-viaje');
+    const viajeId = btn?.dataset.viajeId;
+    const nro_file = document.getElementById('v-nro-file')?.value.trim();
+    const fecha_in = document.getElementById('v-fecha-in')?.value;
+    const fecha_out = document.getElementById('v-fecha-out')?.value;
+    const operador_nombre = document.getElementById('v-operador')?.value.trim();
+    const dh_gr_nombre = document.getElementById('v-dh-gr')?.value.trim();
+
+    if(!nro_file || !fecha_in || !fecha_out){
+      toast('Completá Nro File y fechas IN/OUT', T.red);
+      return;
+    }
+
+    if(new Date(fecha_out) < new Date(fecha_in)){
+      toast('Fecha OUT no puede ser anterior a fecha IN', T.red);
+      return;
+    }
+
+    if(viajeId){
+      // Edit
+      const {error} = await db.from('files').update({
+        nro_file, fecha_in, fecha_out, operador_nombre, dh_gr_nombre, updated_at: new Date().toISOString()
+      }).eq('id',viajeId);
+      if(error){
+        if(error.code === '23505') toast('Ya existe un viaje con ese Nro File', T.red);
+        else toast('Error: ' + error.message, T.red);
+        return;
+      }
+      toast('✅ Viaje actualizado');
+    } else {
+      // Create
+      const {error} = await db.from('files').insert({nro_file, fecha_in, fecha_out, operador_nombre, dh_gr_nombre});
+      if(error){
+        if(error.code === '23505') toast('Ya existe un viaje con ese Nro File', T.red);
+        else toast('Error: ' + error.message, T.red);
+        return;
+      }
+      toast('✅ Viaje creado correctamente');
+    }
+    await loadAll();
+    set({modal:null, view:'viajes'});
+  });
+
+  // Eventos en viaje: Save button
+  document.getElementById('btn-save-evento-viaje')?.addEventListener('click',async()=>{
+    const btn = document.getElementById('btn-save-evento-viaje');
+    const fileId = btn?.dataset.fileId;
+    const file = S.files.find(f=>f.id===fileId);
+    if(!file) return;
+
+    const tipo_evento = document.getElementById('ev-tipo')?.value;
+    const fecha = document.getElementById('ev-fecha')?.value;
+    const hora_inicio = document.getElementById('ev-hora-inicio')?.value;
+    const hora_fin = document.getElementById('ev-hora-fin')?.value;
+    const guia_id = document.getElementById('ev-guia')?.value || null;
+    const transportista_id = document.getElementById('ev-transportista')?.value || null;
+    const notas = document.getElementById('ev-notas')?.value.trim();
+
+    if(!tipo_evento || !fecha || !hora_inicio){
+      toast('Completá tipo, fecha y hora inicio', T.red);
+      return;
+    }
+
+    // Validate fecha is between file fecha_in and fecha_out
+    const fechaEvento = new Date(fecha);
+    const fechaIn = new Date(file.fecha_in);
+    const fechaOut = new Date(file.fecha_out);
+    
+    if(fechaEvento < fechaIn || fechaEvento > fechaOut){
+      toast('La fecha del evento debe estar entre las fechas del viaje', T.red);
+      return;
+    }
+
+    const estado = guia_id ? 'CONFIRMADO' : 'A_ASIGNAR';
+
+    const {data,error} = await db.from('eventos').insert({
+      file_id: fileId,
+      tipo_evento,
+      fecha,
+      hora_inicio,
+      hora_fin: hora_fin || null,
+      guia_id,
+      transportista_id,
+      notas,
+      estado,
+      operador_nombre: file.operador_nombre,
+      dh_gr_nombre: file.dh_gr_nombre
+    }).select().single();
+
+    if(error){
+      toast('Error creando evento: ' + error.message, T.red);
+      return;
+    }
+
+    // Log creation
+    await db.from('historial').insert({
+      evento_id: data.id,
+      guia_id: guia_id,
+      accion: 'CREATED',
+      actor: 'ADMIN',
+      detalle: `Evento creado${guia_id?' con guía asignado':''}`
+    });
+
+    await loadAll();
+    set({modal:null});
+    toast('✅ Evento creado');
+  });
+
 
   // WP Agenda modal logic
   const btnPreviewWP = document.getElementById('btn-preview-wp');
