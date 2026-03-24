@@ -1687,13 +1687,14 @@ function buildViajes(){
                     <div style="background:${estadoColor.bg||'#E8E4DD'};color:${estadoColor.fg||'#555'};padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap">${estadoColor.label||e.estado}</div>
                   </div>
                   
-                  ${guia?`<div style="font-size:12px;color:#555;margin-top:6px">👤 ${esc(guia.nombre+' '+guia.apellido)}</div>`:''}
+                  ${guia?`<div style="font-size:12px;color:#555;margin-top:6px">👤 Guía: ${esc(guia.nombre+' '+guia.apellido)}</div>`:''}
+                  ${(()=>{ const tr=S.transportistas.find(t=>t.id===e.transportista_id); return tr?`<div style="font-size:12px;color:#555;margin-top:4px">🚐 Transportista: ${esc(tr.nombre)}</div>`:''; })()}
                   ${e.descripcion?`<div style="font-size:12px;color:#9E9A93;margin-top:6px;font-style:italic">${esc(e.descripcion)}</div>`:''}
                   ${e.link_adjunto?`<div style="font-size:12px;margin-top:6px"><a href="${esc(e.link_adjunto)}" target="_blank" style="color:#1B6B74;text-decoration:underline">🔗 Ver adjunto</a></div>`:''}
                   
                   ${isAdmin()?`
                     <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
-                      ${e.estado==='A_ASIGNAR'?`<button data-invitar="${e.id}" style="padding:6px 12px;border-radius:6px;border:none;background:#1B6B74;color:white;font-size:11px;cursor:pointer;font-weight:600">📨 Invitar guía</button>`:''}
+                      ${e.estado==='A_ASIGNAR'||e.estado==='ASIGNADO'?`<button data-invitar="${e.id}" style="padding:6px 12px;border-radius:6px;border:none;background:#1B6B74;color:white;font-size:11px;cursor:pointer;font-weight:600">📨 Invitar guía</button>`:''}
                       <button data-edit-evento="${e.id}" style="padding:6px 12px;border-radius:6px;border:1px solid #E8E4DD;background:white;font-size:11px;cursor:pointer;color:#1B6B74;font-weight:600">✏️ Editar</button>
                       ${e.estado!=='CANCELADO'?`<button data-cancelar-evento="${e.id}" style="padding:6px 12px;border-radius:6px;border:1px solid #fcd5d5;background:#fff5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600">❌ Cancelar</button>`:''}
                     </div>
@@ -3982,7 +3983,6 @@ function attachEvents(){
   document.getElementById('btn-save-evento')?.addEventListener('click',async()=>{
     const id=document.getElementById('btn-save-evento').dataset.id;
     const data={
-      nro_file:   document.getElementById('e-nro_file')?.value?.trim()||null,
       tipo_evento:(()=>{
         const t = document.getElementById('e-tipo_evento')?.value;
         if(t==='Otro'){
@@ -4000,7 +4000,6 @@ function attachEvents(){
       transportista_id: document.getElementById('e-aplica-transportista')?.value==='si' ? (parseInt(document.getElementById('e-transportista-id')?.value)||null) : null,
       estado: id ? undefined : 'A_ASIGNAR',
     };
-    if(!data.nro_file){toast('El Nro de File es obligatorio',T.red);return;}
     if(!data.tipo_evento||!data.fecha||!data.hora_inicio){toast('Tipo, fecha y hora inicio son obligatorios',T.red);return;}
     if(id){data.id=parseInt(id);delete data.estado;}
     const eid=await saveEvento(data);
