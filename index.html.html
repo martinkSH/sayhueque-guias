@@ -3885,48 +3885,6 @@ async function loadUsuariosPanel(){
   });
 }
 
-  container.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-size:12px;font-weight:700;color:#1A1A1A;text-transform:uppercase;letter-spacing:0.08em">🔑 Usuarios del sistema (${roles.length})</div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      ${roles.map(r=>{
-        const guia = guiasAll?.find(g=>g.id===r.guia_id);
-        const isAdminRole = r.role==='admin';
-        const displayName = guia ? esc(guia.nombre+' '+guia.apellido) : 'Admin';
-        const displayEmail = guia ? esc(guia.email) : '';
-        return `
-        <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:10px;border:1.5px solid #E8E4DD;background:white">
-          <div style="width:38px;height:38px;border-radius:50%;background:${isAdminRole?'#1B6B74':'#E9C46A'}20;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">
-            ${isAdminRole?'👑':'👤'}
-          </div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:700;color:#1A1A1A">${displayName}</div>
-            <div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap">
-              <span style="background:${isAdminRole?'#1B6B74':'#E9C46A'}20;color:${isAdminRole?'#1B6B74':'#856404'};padding:1px 8px;border-radius:10px;font-weight:700;font-size:10px">${r.role.toUpperCase()}</span>
-              ${displayEmail?`<span style="font-size:11px;color:#9E9A93">${displayEmail}</span>`:''}
-            </div>
-          </div>
-          <div style="display:flex;gap:6px;flex-shrink:0">
-            <button onclick="resetPassword('${r.user_id}','${displayEmail||''}')"
-              title="Enviar email de reset de contraseña"
-              style="padding:6px 12px;border-radius:6px;border:1px solid #E8E4DD;background:white;font-size:11px;cursor:pointer;color:#E76F51;font-weight:600;font-family:'DM Sans',sans-serif">
-              🔒 Reset pass
-            </button>
-            <button onclick="editUsuario('${r.user_id}','${r.role}',${r.guia_id||'null'},'${displayEmail}')"
-              style="padding:6px 12px;border-radius:6px;border:1px solid #E8E4DD;background:white;font-size:11px;cursor:pointer;color:#1B6B74;font-weight:600;font-family:'DM Sans',sans-serif">
-              ✏️ Editar
-            </button>
-            ${r.user_id !== S.user?.id ? `<button onclick="darDeBajaUsuario('${r.user_id}','${displayName}')"
-              style="padding:6px 12px;border-radius:6px;border:1px solid #fcd5d5;background:#fff5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600;font-family:'DM Sans',sans-serif">
-              ✕ Baja
-            </button>` : '<span style="font-size:10px;color:#9E9A93;padding:6px 4px">(vos)</span>'}
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`;
-
-
 async function resetPassword(userId, email){
   if(!email){ toast('No se encontró el email del usuario', '#E63946'); return; }
   if(!confirm(`¿Enviar email de reset de contraseña a ${email}?`)) return;
