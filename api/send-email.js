@@ -20,6 +20,8 @@ export default async function handler(req, res) {
   try {
     const { templateId, variables } = req.body;
 
+    console.log('📧 Procesando email:', { templateId, to: variables?.to_email });
+
     // Crear transporter de Nodemailer
     const transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
@@ -41,18 +43,29 @@ export default async function handler(req, res) {
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3eGJnaG55anZhaWpwZml5Z3FnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcwNTM1MjgsImV4cCI6MjA1MjYyOTUyOH0.YcVy3mHVQUqEUv-3xREnt3aUj_CStIHiSdSIbVd0khU'
       );
       
+      console.log('🔍 Buscando template:', templateId);
+      
       const { data: template, error } = await supabase
         .from('email_templates')
         .select('html, subject')
         .eq('id', templateId)
         .single();
       
+      console.log('Resultado Supabase:', { template: template ? 'encontrado' : 'null', error });
+      
       if (error) {
-        throw new Error('Template no encontrado: ' + templateId);
+        console.error('❌ Error de Supabase:', error);
+        throw new Error(`Error cargando template: ${JSON.stringify(error)}`);
+      }
+      
+      if (!template) {
+        throw new Error('Template no encontrado (data es null): ' + templateId);
       }
       
       emailHtml = template.html;
       emailSubject = template.subject;
+      
+      console.log('✅ Template cargado, subject:', emailSubject);
       
       // Reemplazar variables {{variable}}
       Object.keys(variables).forEach(key => {
@@ -62,6 +75,8 @@ export default async function handler(req, res) {
       });
     }
 
+    console.log('📤 Enviando email a:', variables.to_email);
+
     // Enviar email
     await transporter.sendMail({
       from: 'Say Hueque <tp@sayhueque.com>',
@@ -70,11 +85,11 @@ export default async function handler(req, res) {
       html: emailHtml,
     });
 
-    console.log('✅ Email enviado a:', variables.to_email);
+    console.log('✅ Email enviado exitosamente a:', variables.to_email);
     return res.status(200).json({ success: true, message: 'Email enviado' });
     
   } catch (error) {
-    console.error('❌ Error enviando email:', error);
+    console.error('❌ Error completo:', error);
     return res.status(500).json({ success: false, error: error.message });
   }
 }
