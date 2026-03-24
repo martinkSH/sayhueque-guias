@@ -3815,8 +3815,6 @@ function attachEvents(){
     const fecha = document.getElementById('ev-fecha')?.value;
     const hora_inicio = document.getElementById('ev-hora-inicio')?.value;
     const hora_fin = document.getElementById('ev-hora-fin')?.value;
-    const guia_id = document.getElementById('ev-guia')?.value || null;
-    const transportista_id = document.getElementById('ev-transportista')?.value || null;
     const notas = document.getElementById('ev-notas')?.value.trim();
 
     if(!tipo_evento || !fecha || !hora_inicio){
@@ -3834,20 +3832,14 @@ function attachEvents(){
       return;
     }
 
-    const estado = guia_id ? 'CONFIRMADO' : 'A_ASIGNAR';
-
     const {data,error} = await db.from('eventos').insert({
       file_id: fileId,
       tipo_evento,
       fecha,
       hora_inicio,
       hora_fin: hora_fin || null,
-      guia_id,
-      transportista_id,
       notas,
-      estado,
-      operador_nombre: file.operador_nombre,
-      dh_gr_nombre: file.dh_gr_nombre
+      estado: 'A_ASIGNAR'
     }).select().single();
 
     if(error){
@@ -3858,10 +3850,9 @@ function attachEvents(){
     // Log creation
     await db.from('historial').insert({
       evento_id: data.id,
-      guia_id: guia_id,
       accion: 'CREATED',
       actor: 'ADMIN',
-      detalle: `Evento creado${guia_id?' con guía asignado':''}`
+      detalle: 'Evento creado sin guía asignado'
     });
 
     await loadAll();
