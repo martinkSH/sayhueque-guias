@@ -1,0 +1,9 @@
+{
+  "name": "sayhueque-guias",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "nodemailer": "^6.9.7",
+    "@supabase/supabase-js": "^2.39.0"
+  }
+}
