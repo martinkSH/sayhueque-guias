@@ -313,6 +313,47 @@ async function loadAll(){
 async function sendCambioEmail(guia, evento, cambios){
   const fechaEvento = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const horario = evento.hora_inicio + (evento.hora_fin ? ' - '+evento.hora_fin : '');
+
+  // Generar token de reconfirmación (7 días)
+  const tokenReconfirmar = await generarTokenReconfirmacion(evento.id, guia.id);
+  const reconfirmarUrl = `${APP_URL}?token=${tokenReconfirmar}&accion=reconfirmar`;
+  const cancelarUrl = `${APP_URL}?token=${tokenReconfirmar}&accion=cancelar_cambio`;
+
+  const result = await sendEmail('cambios_evento', {
+    to_email: guia.email,
+    guia_nombre: guia.nombre + ' ' + guia.apellido,
+    tipo_evento: evento.tipo_evento,
+    nro_file: evento.nro_file || '—',
+    fecha: fechaEvento,
+    horario: horario,
+    cambios: cambios,
+    descripcion: evento.descripcion || '—',
+    link_adjunto: evento.link_adjunto || '—',
+    url_reconfirmar: reconfirmarUrl,
+    url_cancelar: cancelarUrl,
+  });
+
+  // Si el email se envió correctamente, cambiar estado del evento a RECONFIRMACION_PENDIENTE
+  if (result.success) {
+    await db.from('eventos')
+      .update({ estado: 'RECONFIRMACION_PENDIENTE' })
+      .eq('id', evento.id);
+
+    // Registrar en historial
+    await db.from('historial').insert({
+      evento_id: evento.id,
+      guia_id: guia.id,
+      accion: 'CAMBIOS_NOTIFICADOS',
+      detalle: `Cambios notificados: ${cambios}`,
+      actor: S.user.email
+    });
+
+    await loadEventos(); // Recargar para mostrar nuevo estado
+    showToast('Email de cambios enviado. Esperando reconfirmación del guía.', 'info');
+  }
+
+  return result;
+}
   
   // Generar token de reconfirmación
   const tokenReconfirmar = await generarTokenReconfirmacion(evento.id, guia.id);
