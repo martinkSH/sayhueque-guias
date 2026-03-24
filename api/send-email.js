@@ -40,7 +40,7 @@ export default async function handler(req, res) {
     if (templateId && variables) {
       const supabase = createClient(
         'https://ewxbghnyjvaijpfiygqg.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3eGJnaG55anZhaWpwZml5Z3FnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzcwNTM1MjgsImV4cCI6MjA1MjYyOTUyOH0.YcVy3mHVQUqEUv-3xREnt3aUj_CStIHiSdSIbVd0khU'
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3eGJnaG55anZhaWpwZml5Z3FnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTgxNTEsImV4cCI6MjA4ODM5NDE1MX0.tySNpML47ViQQ_Xh3Eaj1Dslt17oLZKEiWL0hLNdp4M'
       );
       
       console.log('🔍 Buscando template:', templateId);
