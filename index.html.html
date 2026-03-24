@@ -2944,7 +2944,7 @@ function buildEventoModal(entry={}){
       </div>
       <div style="padding:28px;display:flex;flex-direction:column;gap:18px">
         ${sec('📋','Datos del evento',T.coral)}
-        ${g2(`${fld('Nro de File / TourPlan',inp('nro_file','nro_file','ej: TP-2026-001'),true)} ${fld('Tipo de evento',sel('tipo_evento','tipo_evento',TIPOS_EVENTO),true)}`)}
+        ${fld('Tipo de evento',sel('tipo_evento','tipo_evento',TIPOS_EVENTO),true)}
         <div id="otro-tipo-field" style="display:${(entry.tipo_evento&&!TIPOS_EVENTO.includes(entry.tipo_evento))||entry.tipo_evento==='Otro'?'block':'none'}">
           ${fld('Especificá el tipo de evento',`<input id="e-tipo_otro" type="text" value="${esc(entry.tipo_evento&&!TIPOS_EVENTO.includes(entry.tipo_evento)?entry.tipo_evento:'')}" placeholder="Ej: Cabalgata, Avistaje, Cultural..." style="${iStyle}"/>`,true)}
         </div>
