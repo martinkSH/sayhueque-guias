@@ -1510,7 +1510,7 @@ function buildEventos(){
                     ${(e.estado==='A_ASIGNAR'||e.estado==='ASIGNADO')&&isAdmin()?`<button data-invitar="${e.id}" style="padding:4px 10px;border-radius:6px;border:none;background:${T.teal};color:white;font-size:11px;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif">📧 Invitar</button>`:''}
                     ${e.estado!=='CANCELADO'&&isAdmin()?`<button data-cancelar-evento="${e.id}" style="padding:4px 10px;border-radius:6px;border:1px solid #fcd5d5;background:#fff5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600;font-family:'DM Sans',sans-serif">✕ Cancelar</button>`:''}
                     
-                    ${/* ✅ NUEVO: Botón para que el guía se baje del evento */}
+
                     ${!isAdmin() && e.estado==='CONFIRMADO' && e.guia_id===S.myGuia?.id && !esPasado?`
                       <button data-bajar-evento="${e.id}" style="padding:4px 10px;border-radius:6px;border:1px solid #fcd5d5;background:#fff5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600;font-family:'DM Sans',sans-serif">
                         🚫 Me bajo
