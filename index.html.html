@@ -569,7 +569,10 @@ async function procesarReconfirmacionToken(token, accion){
         actor: guia.nombre + ' ' + guia.apellido
       });
       
-      await loadAll(); // ✅ Recargar eventos
+      await loadAll();
+      
+      // Limpiar URL para que no se vuelva a procesar
+      window.history.replaceState({}, '', APP_URL);
       
       return {ok:true, msg:'¡Evento reconfirmado correctamente! Gracias por confirmar tu disponibilidad.'};
       
@@ -602,7 +605,10 @@ async function procesarReconfirmacionToken(token, accion){
         actor: guia.nombre + ' ' + guia.apellido
       });
       
-      await loadAll(); // ✅ Recargar eventos
+      await loadAll();
+      
+      // Limpiar URL para que no se vuelva a procesar
+      window.history.replaceState({}, '', APP_URL);
       
       return {ok:true, msg:'Te has bajado del evento. El admin será notificado. Gracias por avisar.'};
     }
