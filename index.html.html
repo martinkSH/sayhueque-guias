@@ -108,13 +108,14 @@ let S = {
   user:null, loading:true,
   role:null,      // 'admin' | 'guia' | null
   myGuia:null,    // guia record for current user if role=guia
-  guias:[], eventos:[], invitaciones:[], historial:[],
+  guias:[], files:[], eventos:[], invitaciones:[], historial:[],
   view:'dashboard',
   liquidaciones:[],
   modal:null,
   toast:null,
   calMonth: new Date(),
   expandedEventId: null,
+  expandedFileId: null,
   filterEstado:'ACTIVOS',  // ACTIVOS = hide cancelados by default
   transportistas: [],
   selectedEventos: [],
@@ -284,7 +285,7 @@ async function loadAll(){
     const {data:invData} = await db.from('invitaciones').select('*').eq('guia_id',S.myGuia.id).order('created_at',{ascending:false});
     const invEventoIds = [...new Set((invData||[]).map(i=>i.evento_id))];
     
-    const [e,h,l,tr] = await Promise.all([
+    const [e,h,l,tr,f] = await Promise.all([
       // load all eventos where guia is assigned OR has an invitation
       db.from('eventos').select('*').or(
         `guia_id.eq.${S.myGuia.id}${invEventoIds.length?',id.in.('+invEventoIds.join(',')+')'  :''}`
@@ -292,21 +293,23 @@ async function loadAll(){
       db.from('historial').select('*').eq('guia_id',S.myGuia.id).order('created_at',{ascending:false}).limit(100),
       db.from('liquidaciones').select('*').eq('guia_id',S.myGuia.id).order('created_at',{ascending:false}),
       db.from('transportistas').select('*').order('nombre'),
+      db.from('files').select('*').order('fecha_in',{ascending:false}),
     ]);
     const {data:blqData} = await db.from('bloqueos_disponibilidad').select('*').eq('guia_id',S.myGuia.id);
-    set({ guias:[S.myGuia], eventos:e.data||[], invitaciones:invData||[], historial:h.data||[], liquidaciones:l.data||[], transportistas:tr.data||[], bloqueos:blqData||[] });
+    set({ guias:[S.myGuia], eventos:e.data||[], invitaciones:invData||[], historial:h.data||[], liquidaciones:l.data||[], transportistas:tr.data||[], files:f.data||[], bloqueos:blqData||[] });
   } else {
     // admin sees everything
-    const [g,e,i,h,l,tr] = await Promise.all([
+    const [g,e,i,h,l,tr,f] = await Promise.all([
       db.from('guias').select('*').order('nombre'),
       db.from('eventos').select('*').order('fecha',{ascending:false}),
       db.from('invitaciones').select('*').order('created_at',{ascending:false}),
       db.from('historial').select('*').order('created_at',{ascending:false}).limit(200),
       db.from('liquidaciones').select('*').order('created_at',{ascending:false}),
       db.from('transportistas').select('*').order('nombre'),
+      db.from('files').select('*').order('fecha_in',{ascending:false}),
     ]);
     const {data:blqAll} = await db.from('bloqueos_disponibilidad').select('*');
-    set({ guias:g.data||[], eventos:e.data||[], invitaciones:i.data||[], historial:h.data||[], liquidaciones:l.data||[], transportistas:tr.data||[], bloqueos:blqAll||[] });
+    set({ guias:g.data||[], eventos:e.data||[], invitaciones:i.data||[], historial:h.data||[], liquidaciones:l.data||[], transportistas:tr.data||[], files:f.data||[], bloqueos:blqAll||[] });
   }
 }
 
@@ -815,12 +818,13 @@ async function bajarseEvento(eventoId){
     const fechaEvento = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
     const horario = evento.hora_inicio + (evento.hora_fin ? ' - '+evento.hora_fin : '');
     const panelUrl = window.location.origin + window.location.pathname;
+    const file = S.files.find(f=>f.id===evento.file_id);
     
     await sendEmail('guia_se_bajo', {
       to_email: emailAdmin,
       guia_nombre: guia.nombre + ' ' + guia.apellido,
       tipo_evento: evento.tipo_evento,
-      nro_file: evento.nro_file || '—',
+      nro_file: file?.nro_file || '—',
       fecha: fechaEvento,
       horario: horario,
       motivo: motivo,
@@ -831,6 +835,418 @@ async function bajarseEvento(eventoId){
   await loadAll();
   toast('✅ Te bajaste del evento. El admin fue notificado.', T.coral);
 }
+
+// ══════════════════════════════════════════════════════════════════════════
+// VIAJES (FILES) FUNCTIONS
+// ══════════════════════════════════════════════════════════════════════════
+
+function modalCrearViaje(){
+  set({modal:{
+    title:'Crear Nuevo Viaje',
+    content:`
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div>
+          <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Nro File *</label>
+          <input id="nro-file-input" type="text" placeholder="Ej: 12345" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif"/>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Fecha IN *</label>
+            <input id="fecha-in-input" type="date" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif"/>
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Fecha OUT *</label>
+            <input id="fecha-out-input" type="date" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif"/>
+          </div>
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Operador</label>
+          <input id="operador-input" type="text" placeholder="Nombre del operador" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif"/>
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">DH / GR</label>
+          <input id="dh-gr-input" type="text" placeholder="Nombre del DH/GR" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif"/>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:20px">
+        <button onclick="closeModal()" style="flex:1;padding:12px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;font-size:14px;font-weight:600;cursor:pointer;color:#555">Cancelar</button>
+        <button onclick="guardarNuevoViaje()" style="flex:1;padding:12px;border-radius:8px;border:none;background:linear-gradient(135deg,#1B6B74,#2A9D8F);color:white;font-size:14px;font-weight:700;cursor:pointer">Crear Viaje</button>
+      </div>
+    `
+  }});
+}
+
+async function guardarNuevoViaje(){
+  const nro_file = document.getElementById('nro-file-input').value.trim();
+  const fecha_in = document.getElementById('fecha-in-input').value;
+  const fecha_out = document.getElementById('fecha-out-input').value;
+  const operador_nombre = document.getElementById('operador-input').value.trim();
+  const dh_gr_nombre = document.getElementById('dh-gr-input').value.trim();
+
+  if(!nro_file || !fecha_in || !fecha_out){
+    toast('Completá Nro File y fechas IN/OUT', T.red);
+    return;
+  }
+
+  if(new Date(fecha_out) < new Date(fecha_in)){
+    toast('Fecha OUT no puede ser anterior a fecha IN', T.red);
+    return;
+  }
+
+  const {data,error} = await db.from('files').insert({
+    nro_file,
+    fecha_in,
+    fecha_out,
+    operador_nombre,
+    dh_gr_nombre
+  }).select().single();
+
+  if(error){
+    if(error.code === '23505'){
+      toast('Ya existe un viaje con ese Nro File', T.red);
+    } else {
+      toast('Error creando viaje: ' + error.message, T.red);
+    }
+    return;
+  }
+
+  await loadAll();
+  closeModal();
+  toast('✅ Viaje creado correctamente');
+  set({view:'viajes'});
+}
+
+function modalEditarViaje(fileId){
+  const file = S.files.find(f=>f.id===fileId);
+  if(!file) return;
+
+  set({modal:{
+    title:'Editar Viaje',
+    content:`
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div>
+          <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Nro File *</label>
+          <input id="nro-file-input" type="text" value="${esc(file.nro_file)}" placeholder="Ej: 12345" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif"/>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Fecha IN *</label>
+            <input id="fecha-in-input" type="date" value="${file.fecha_in}" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif"/>
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Fecha OUT *</label>
+            <input id="fecha-out-input" type="date" value="${file.fecha_out}" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif"/>
+          </div>
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Operador</label>
+          <input id="operador-input" type="text" value="${esc(file.operador_nombre||'')}" placeholder="Nombre del operador" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif"/>
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">DH / GR</label>
+          <input id="dh-gr-input" type="text" value="${esc(file.dh_gr_nombre||'')}" placeholder="Nombre del DH/GR" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif"/>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:20px">
+        <button onclick="closeModal()" style="flex:1;padding:12px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;font-size:14px;font-weight:600;cursor:pointer;color:#555">Cancelar</button>
+        <button onclick="guardarEditarViaje('${fileId}')" style="flex:1;padding:12px;border-radius:8px;border:none;background:linear-gradient(135deg,#1B6B74,#2A9D8F);color:white;font-size:14px;font-weight:700;cursor:pointer">Guardar Cambios</button>
+      </div>
+    `
+  }});
+}
+
+async function guardarEditarViaje(fileId){
+  const nro_file = document.getElementById('nro-file-input').value.trim();
+  const fecha_in = document.getElementById('fecha-in-input').value;
+  const fecha_out = document.getElementById('fecha-out-input').value;
+  const operador_nombre = document.getElementById('operador-input').value.trim();
+  const dh_gr_nombre = document.getElementById('dh-gr-input').value.trim();
+
+  if(!nro_file || !fecha_in || !fecha_out){
+    toast('Completá Nro File y fechas IN/OUT', T.red);
+    return;
+  }
+
+  if(new Date(fecha_out) < new Date(fecha_in)){
+    toast('Fecha OUT no puede ser anterior a fecha IN', T.red);
+    return;
+  }
+
+  const {error} = await db.from('files').update({
+    nro_file,
+    fecha_in,
+    fecha_out,
+    operador_nombre,
+    dh_gr_nombre,
+    updated_at: new Date().toISOString()
+  }).eq('id',fileId);
+
+  if(error){
+    if(error.code === '23505'){
+      toast('Ya existe un viaje con ese Nro File', T.red);
+    } else {
+      toast('Error actualizando viaje: ' + error.message, T.red);
+    }
+    return;
+  }
+
+  await loadAll();
+  closeModal();
+  toast('✅ Viaje actualizado');
+}
+
+async function eliminarViaje(fileId){
+  const file = S.files.find(f=>f.id===fileId);
+  if(!file) return;
+  
+  const eventosEnViaje = S.eventos.filter(e=>e.file_id===fileId);
+  
+  if(eventosEnViaje.length > 0){
+    if(!confirm(`Este viaje tiene ${eventosEnViaje.length} evento(s). ¿Eliminar el viaje y todos sus eventos?`)) return;
+  } else {
+    if(!confirm(`¿Eliminar el viaje ${file.nro_file}?`)) return;
+  }
+
+  // Delete all eventos first (cascade will handle invitaciones, historial, etc)
+  for(const e of eventosEnViaje){
+    await db.from('eventos').delete().eq('id',e.id);
+  }
+  
+  // Delete the file
+  await db.from('files').delete().eq('id',fileId);
+  
+  await loadAll();
+  toast(`🗑️ Viaje eliminado`, T.red);
+}
+
+function exportarViajes(){
+  if(!S.files?.length){
+    toast('No hay viajes para exportar', T.red);
+    return;
+  }
+
+  const data = S.files.map(f=>({
+    'Nro File': f.nro_file,
+    'Fecha IN': f.fecha_in,
+    'Fecha OUT': f.fecha_out,
+    'Operador': f.operador_nombre || '',
+    'DH/GR': f.dh_gr_nombre || ''
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Viajes');
+  XLSX.writeFile(wb, `viajes_${new Date().toISOString().split('T')[0]}.xlsx`);
+  toast('📥 Viajes exportados a Excel');
+}
+
+function importarViajes(){
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.xlsx,.xls';
+  input.onchange = async(e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = async(ev)=>{
+      try {
+        const data = new Uint8Array(ev.target.result);
+        const workbook = XLSX.read(data, {type:'array'});
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet);
+        
+        if(!rows.length){
+          toast('El archivo está vacío', T.red);
+          return;
+        }
+
+        let imported = 0;
+        let errors = 0;
+        
+        for(const row of rows){
+          const nro_file = row['Nro File']?.toString().trim();
+          const fecha_in = row['Fecha IN'];
+          const fecha_out = row['Fecha OUT'];
+          const operador_nombre = row['Operador']?.toString().trim() || null;
+          const dh_gr_nombre = row['DH/GR']?.toString().trim() || null;
+          
+          if(!nro_file || !fecha_in || !fecha_out){
+            errors++;
+            continue;
+          }
+
+          // Try to parse dates if they're Excel serial numbers
+          let parsedIn = fecha_in;
+          let parsedOut = fecha_out;
+          
+          if(typeof fecha_in === 'number'){
+            const d = XLSX.SSF.parse_date_code(fecha_in);
+            parsedIn = `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+          }
+          if(typeof fecha_out === 'number'){
+            const d = XLSX.SSF.parse_date_code(fecha_out);
+            parsedOut = `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+          }
+
+          const {error} = await db.from('files').insert({
+            nro_file,
+            fecha_in: parsedIn,
+            fecha_out: parsedOut,
+            operador_nombre,
+            dh_gr_nombre
+          });
+          
+          if(error){
+            errors++;
+          } else {
+            imported++;
+          }
+        }
+        
+        await loadAll();
+        toast(`✅ ${imported} viajes importados${errors>0?' · '+errors+' errores':''}`, errors>0?T.amber:T.green);
+      } catch(err){
+        toast('Error leyendo archivo: ' + err.message, T.red);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+  input.click();
+}
+
+function modalCrearEvento(fileId){
+  const file = S.files.find(f=>f.id===fileId);
+  if(!file){
+    toast('Viaje no encontrado', T.red);
+    return;
+  }
+
+  const guiasOpts = S.guias.map(g=>`<option value="${g.id}">${esc(g.nombre+' '+g.apellido)}</option>`).join('');
+  const tiposOpts = TIPOS_EVENTO.map(t=>`<option value="${t}">${t}</option>`).join('');
+  const transportistasOpts = S.transportistas.map(t=>`<option value="${t.id}">${esc(t.nombre)}</option>`).join('');
+
+  set({modal:{
+    title:`Crear Evento en ${file.nro_file}`,
+    content:`
+      <div style="background:#FFF3E0;padding:12px;border-radius:8px;margin-bottom:14px;border-left:4px solid #E9C46A">
+        <div style="font-size:12px;font-weight:700;color:#856404;margin-bottom:4px">📅 Rango de fechas del viaje</div>
+        <div style="font-size:13px;color:#555">${new Date(file.fecha_in+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'})} → ${new Date(file.fecha_out+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'})}</div>
+        <div style="font-size:11px;color:#856404;margin-top:4px">Los eventos solo pueden crearse dentro de este rango</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Tipo de evento *</label>
+            <select id="tipo-input" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif">
+              <option value="">Seleccionar...</option>
+              ${tiposOpts}
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Fecha *</label>
+            <input id="fecha-input" type="date" min="${file.fecha_in}" max="${file.fecha_out}" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif"/>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Hora inicio *</label>
+            <input id="hora-inicio-input" type="time" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif"/>
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Hora fin</label>
+            <input id="hora-fin-input" type="time" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif"/>
+          </div>
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Guía</label>
+          <select id="guia-input" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif">
+            <option value="">Sin asignar</option>
+            ${guiasOpts}
+          </select>
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Transportista</label>
+          <select id="transportista-input" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif">
+            <option value="">Sin asignar</option>
+            ${transportistasOpts}
+          </select>
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Notas</label>
+          <textarea id="notas-input" rows="3" placeholder="Notas adicionales..." style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:14px;font-family:'DM Sans',sans-serif;resize:vertical"></textarea>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:20px">
+        <button onclick="closeModal()" style="flex:1;padding:12px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;font-size:14px;font-weight:600;cursor:pointer;color:#555">Cancelar</button>
+        <button onclick="guardarNuevoEvento('${fileId}')" style="flex:1;padding:12px;border-radius:8px;border:none;background:linear-gradient(135deg,#1B6B74,#2A9D8F);color:white;font-size:14px;font-weight:700;cursor:pointer">Crear Evento</button>
+      </div>
+    `
+  }});
+}
+
+async function guardarNuevoEvento(fileId){
+  const file = S.files.find(f=>f.id===fileId);
+  if(!file) return;
+
+  const tipo_evento = document.getElementById('tipo-input').value;
+  const fecha = document.getElementById('fecha-input').value;
+  const hora_inicio = document.getElementById('hora-inicio-input').value;
+  const hora_fin = document.getElementById('hora-fin-input').value;
+  const guia_id = document.getElementById('guia-input').value || null;
+  const transportista_id = document.getElementById('transportista-input').value || null;
+  const notas = document.getElementById('notas-input').value.trim();
+
+  if(!tipo_evento || !fecha || !hora_inicio){
+    toast('Completá tipo, fecha y hora inicio', T.red);
+    return;
+  }
+
+  // Validate fecha is between file fecha_in and fecha_out
+  const fechaEvento = new Date(fecha);
+  const fechaIn = new Date(file.fecha_in);
+  const fechaOut = new Date(file.fecha_out);
+  
+  if(fechaEvento < fechaIn || fechaEvento > fechaOut){
+    toast('La fecha del evento debe estar entre las fechas del viaje', T.red);
+    return;
+  }
+
+  const estado = guia_id ? 'CONFIRMADO' : 'A_ASIGNAR';
+
+  const {data,error} = await db.from('eventos').insert({
+    file_id: fileId,
+    tipo_evento,
+    fecha,
+    hora_inicio,
+    hora_fin: hora_fin || null,
+    guia_id,
+    transportista_id,
+    notas,
+    estado,
+    operador_nombre: file.operador_nombre,
+    dh_gr_nombre: file.dh_gr_nombre
+  }).select().single();
+
+  if(error){
+    toast('Error creando evento: ' + error.message, T.red);
+    return;
+  }
+
+  // Log creation
+  await db.from('historial').insert({
+    evento_id: data.id,
+    guia_id: guia_id,
+    accion: 'CREATED',
+    actor: 'ADMIN',
+    detalle: `Evento creado${guia_id?' con guía asignado':''}`
+  });
+
+  await loadAll();
+  closeModal();
+  toast('✅ Evento creado');
+}
+
 async function cancelarInvitacion(invId){
   await db.from('invitaciones').update({estado:'CANCELADA',respondido_at:new Date().toISOString()}).eq('id',invId);
   const inv = S.invitaciones.find(i=>i.id===invId);
@@ -1031,7 +1447,7 @@ function buildMain(){
   const pageContent = S.view==='dashboard'  ? buildDashboard()
     : S.view==='transportistas' ? buildTransportistas()
     : S.view==='guias'        ? buildGuias()
-    : S.view==='eventos'      ? buildEventos()
+    : S.view==='viajes'       ? buildViajes()
     : S.view==='calendario'   ? buildCalendario()
     : S.view==='historial'    ? buildHistorial()
     : S.view==='disponibilidad' ? buildDisponibilidad()
@@ -1058,7 +1474,7 @@ function buildMain(){
 function buildSidebar(pendInv){
   const allItems=[
     {id:'dashboard', icon:'📊', label:'Dashboard',  admin:false},
-    {id:'eventos',   icon:'📋', label:'Eventos',    admin:false, badge: S.eventos.filter(e=>e.estado==='A_ASIGNAR').length},
+    {id:'viajes',    icon:'📁', label:'Viajes',     admin:false},
     {id:'calendario',icon:'📅', label:'Calendario', admin:false},
     {id:'guias',     icon:'👤', label:'Guías',      admin:true},
     {id:'disponibilidad', icon:'📆', label:'Mi disponibilidad', admin:false, guiaOnly:true},
@@ -1099,7 +1515,7 @@ function buildSidebar(pendInv){
 function buildMobileDrawer(pendInv){
   const allItems=[
     {id:'dashboard',    icon:'📊', label:'Dashboard',       admin:false},
-    {id:'eventos',      icon:'📋', label:'Eventos',         admin:false, badge: S.eventos.filter(e=>e.estado==='A_ASIGNAR').length},
+    {id:'viajes',       icon:'📁', label:'Viajes',          admin:false},
     {id:'calendario',   icon:'📅', label:'Calendario',      admin:false},
     {id:'guias',        icon:'👤', label:'Guías',           admin:true},
     {id:'disponibilidad', icon:'📆', label:'Mi disponibilidad', admin:false, guiaOnly:true},
@@ -1141,7 +1557,7 @@ function buildMobileDrawer(pendInv){
 function buildBottomNav(pendInv){
   const mainItems = [
     {id:'dashboard',    icon:'📊', label:'Inicio',    admin:false},
-    {id:'eventos',      icon:'📋', label:'Eventos',   admin:false, badge: S.eventos.filter(e=>e.estado==='A_ASIGNAR').length},
+    {id:'viajes',       icon:'📁', label:'Viajes',    admin:false},
     {id:'disponibilidad', icon:'📆', label:'Dispo.',   admin:false, guiaOnly:true},
     {id:'invitaciones', icon:'📨', label:'Invit.',    admin:false, guiaOnly:true, badge: S.invitaciones.filter(i=>i.estado==='PENDIENTE').length},
     {id:'liquidaciones',icon:'💰', label:'Liquid.',   admin:false},
@@ -1176,11 +1592,10 @@ function buildTopBar(){
         <button data-open="guia-form" style="${btnP(T.teal)}padding:8px 16px">+ Nuevo guía</button>
         <input id="file-import-guias" type="file" accept=".xlsx,.csv" style="display:none"/>
       ` : ''}
-      ${S.view==='eventos' && isAdmin() ? `
-        <button id="btn-import-eventos" style="${btnS}padding:8px 14px;font-size:12px">⬆ Importar</button>
-        <button id="btn-export-eventos" style="${btnS}padding:8px 14px;font-size:12px">⬇ Exportar</button>
-        <button data-open="evento-form" style="${btnP(T.teal)}padding:8px 16px">+ Nuevo evento</button>
-        <input id="file-import-eventos" type="file" accept=".xlsx,.csv" style="display:none"/>
+      ${S.view==='viajes' && isAdmin() ? `
+        <button onclick="importarViajes()" style="${btnS}padding:8px 14px;font-size:12px">📥 Importar</button>
+        <button onclick="exportarViajes()" style="${btnS}padding:8px 14px;font-size:12px">📤 Exportar</button>
+        <button onclick="modalCrearViaje()" style="${btnP(T.teal)}padding:8px 16px">+ Nuevo viaje</button>
       ` : ''}
       ${S.view==='calendario' && isAdmin() ?`<button data-open="evento-form" style="${btnP(T.teal)}padding:8px 16px">+ Nuevo evento</button>`:''}
       ${S.view==='usuarios' ?`<button data-open="usuario-form" style="${btnP(T.teal)}padding:8px 16px">+ Nuevo usuario</button>`:''}
@@ -1466,6 +1881,91 @@ function renderEventosTable(){
     return buildEventoRow(e, open, guia, fecha);
   }).join('');
   attachEventoRowEvents();
+}
+
+function buildViajes(){
+  if(!S.files?.length){
+    return `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:400px;color:#9E9A93">
+        <div style="font-size:48px;margin-bottom:16px">📁</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:8px">No hay viajes creados</div>
+        <div style="font-size:13px;margin-bottom:20px">Creá tu primer viaje para empezar</div>
+        ${isAdmin()?`<button onclick="modalCrearViaje()" style="padding:10px 20px;border-radius:8px;border:none;background:linear-gradient(135deg,#1B6B74,#2A9D8F);color:white;font-size:14px;font-weight:600;cursor:pointer">+ Crear Viaje</button>`:''}
+      </div>`;
+  }
+
+  const sortedFiles = [...S.files].sort((a,b)=> new Date(a.fecha_in) - new Date(b.fecha_in));
+
+  return sortedFiles.map(file=>{
+    const eventos = S.eventos.filter(e=>e.file_id===file.id);
+    const isExpanded = S.expandedFileId === file.id;
+    
+    const fechaInStr = new Date(file.fecha_in+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'});
+    const fechaOutStr = new Date(file.fecha_out+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'});
+
+    return `
+      <div style="background:white;border-radius:12px;border:1.5px solid #E8E4DD;margin-bottom:16px;overflow:hidden;animation:fadeIn 0.3s ease">
+        <!-- File Header -->
+        <div style="padding:16px 20px;background:linear-gradient(135deg,#1B6B74,#2A9D8F);color:white;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="set({expandedFileId:S.expandedFileId==='${file.id}'?null:'${file.id}'})">
+          <div style="flex:1">
+            <div style="font-size:18px;font-weight:700;font-family:'Playfair Display',serif;margin-bottom:4px">📁 File ${esc(file.nro_file)}</div>
+            <div style="font-size:13px;opacity:0.9">${fechaInStr} → ${fechaOutStr}</div>
+            ${file.operador_nombre||file.dh_gr_nombre?`<div style="font-size:12px;opacity:0.8;margin-top:4px">${file.operador_nombre?'Operador: '+esc(file.operador_nombre):''}${file.operador_nombre&&file.dh_gr_nombre?' · ':''}${file.dh_gr_nombre?'DH/GR: '+esc(file.dh_gr_nombre):''}</div>`:''}
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div style="background:rgba(255,255,255,0.2);padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700">${eventos.length} evento${eventos.length!==1?'s':''}</div>
+            ${isAdmin()?`
+              <button onclick="event.stopPropagation();modalEditarViaje('${file.id}')" style="padding:6px 12px;border-radius:6px;border:none;background:rgba(255,255,255,0.2);color:white;font-size:11px;cursor:pointer;font-weight:600">✏️ Editar</button>
+              <button onclick="event.stopPropagation();eliminarViaje('${file.id}')" style="padding:6px 12px;border-radius:6px;border:none;background:rgba(230,57,70,0.9);color:white;font-size:11px;cursor:pointer;font-weight:600">🗑️ Eliminar</button>
+            `:''}
+            <div style="font-size:20px;transition:transform 0.2s;transform:rotate(${isExpanded?'180deg':'0deg'})">${isExpanded?'▲':'▼'}</div>
+          </div>
+        </div>
+
+        ${isExpanded?`
+          <!-- Eventos list -->
+          <div style="padding:20px">
+            ${isAdmin()?`
+              <button onclick="modalCrearEvento('${file.id}')" style="width:100%;padding:12px;border-radius:8px;border:1.5px dashed #1B6B74;background:rgba(27,107,116,0.05);color:#1B6B74;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:16px">+ Agregar Evento</button>
+            `:''}
+            
+            ${eventos.length===0?`
+              <div style="text-align:center;color:#9E9A93;padding:40px 20px">
+                <div style="font-size:32px;margin-bottom:12px">📅</div>
+                <div style="font-size:14px">No hay eventos en este viaje</div>
+              </div>
+            `:eventos.map(e=>{
+              const guia = S.guias.find(g=>g.id===e.guia_id);
+              const estadoColor = ESTADO_EVENT_COLOR[e.estado] || {};
+              const fechaStr = new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'short'});
+              const isPast = new Date(e.fecha) < new Date(new Date().toDateString());
+              
+              return `
+                <div style="background:#F9F8F6;border-radius:10px;padding:14px;margin-bottom:10px;border-left:4px solid ${estadoColor.bg||'#E8E4DD'}">
+                  <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
+                    <div>
+                      <div style="font-size:14px;font-weight:700;color:#1A1A1A">${esc(e.tipo_evento)}</div>
+                      <div style="font-size:12px;color:#555;margin-top:2px">📅 ${fechaStr} · 🕐 ${e.hora_inicio}${e.hora_fin?' - '+e.hora_fin:''}</div>
+                    </div>
+                    <div style="background:${estadoColor.bg||'#E8E4DD'};color:${estadoColor.fg||'#555'};padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap">${estadoColor.label||e.estado}</div>
+                  </div>
+                  
+                  ${guia?`<div style="font-size:12px;color:#555;margin-top:6px">👤 ${esc(guia.nombre+' '+guia.apellido)}</div>`:''}
+                  ${e.notas?`<div style="font-size:12px;color:#9E9A93;margin-top:6px;font-style:italic">${esc(e.notas)}</div>`:''}
+                  
+                  ${!isAdmin() && e.estado==='CONFIRMADO' && e.guia_id===S.myGuia?.id && !isPast?`
+                    <div style="margin-top:10px">
+                      <button onclick="bajarseEvento('${e.id}')" style="padding:6px 12px;border-radius:6px;border:1px solid #fcd5d5;background:#fff5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600;font-family:'DM Sans',sans-serif">🚫 Me bajo del evento</button>
+                    </div>
+                  `:''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `:''}
+      </div>
+    `;
+  }).join('');
 }
 
 function buildEventos(){
