@@ -564,6 +564,11 @@ async function procesarReconfirmacionToken(token, accion){
         .update({ usado: true })
         .eq('id', tokenData.id);
       
+      // Cambiar estado a CONFIRMADO
+      await db.from('eventos')
+        .update({ estado: 'CONFIRMADO' })
+        .eq('id', evento.id);
+      
       // Registrar en historial
       await db.from('historial').insert({
         evento_id: evento.id,
@@ -573,6 +578,8 @@ async function procesarReconfirmacionToken(token, accion){
         actor: guia.nombre + ' ' + guia.apellido
       });
       
+      await loadEventos(); // Recargar eventos
+      
       return {ok:true, msg:'¡Evento reconfirmado correctamente! Gracias por confirmar tu disponibilidad.'};
       
     } else if (accion === 'cancelar_cambio') {
@@ -581,12 +588,11 @@ async function procesarReconfirmacionToken(token, accion){
         .update({ usado: true })
         .eq('id', tokenData.id);
       
-      // Cancelar evento (volver a A_ASIGNAR)
+      // Cambiar estado a RECHAZADO_POR_GUIA y quitar guía asignado
       await db.from('eventos')
         .update({ 
-          estado: 'A_ASIGNAR',
-          guia_id: null,
-          alerta_guia_bajo: true
+          estado: 'RECHAZADO_POR_GUIA',
+          guia_id: null
         })
         .eq('id', evento.id);
       
@@ -605,6 +611,8 @@ async function procesarReconfirmacionToken(token, accion){
         actor: guia.nombre + ' ' + guia.apellido
       });
       
+      await loadEventos(); // Recargar eventos
+      
       return {ok:true, msg:'Te has bajado del evento. El admin será notificado. Gracias por avisar.'};
     }
     
@@ -615,7 +623,6 @@ async function procesarReconfirmacionToken(token, accion){
     return {ok:false, msg:'Error procesando la acción: '+e.message};
   }
 }
-
 // ── LIQUIDACIONES FUNCTIONS ──────────────────────────────────────────────────
 function nuevaLiquidacion(eventoId){
   set({modal:{type:'nueva-liq', eventoId}});
