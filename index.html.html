@@ -61,6 +61,103 @@ async function sendEmail(templateId, variables) {
   }
 }
 
+async function sendInviteEmail(guia, evento, token, expira){
+  const file = S.files.find(f=>f.id===evento.file_id);
+  const acceptUrl = `${window.location.origin}?action=aceptar&token=${token}`;
+  const rejectUrl = `${window.location.origin}?action=rechazar&token=${token}`;
+  
+  const fechaStr = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  const expiraStr = new Date(expira).toLocaleString('es-AR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+  
+  // Calcular prioridad según SLA
+  const hoursUntil = (new Date(evento.fecha) - new Date()) / (1000*60*60);
+  const prioridad = hoursUntil <= SLA.URGENTE ? '🔴 URGENTE' : '🟢 REGULAR';
+  
+  return await sendEmail('invitacion_evento', {
+    to_email: guia.email,
+    prioridad: prioridad,
+    guia_nombre: guia.nombre,
+    tipo_evento: evento.tipo_evento,
+    fecha: fechaStr,
+    horario: evento.hora_inicio + (evento.hora_fin ? ' - ' + evento.hora_fin : ''),
+    descripcion: evento.descripcion || 'Sin descripción',
+    expira: expiraStr,
+    url_aceptar: acceptUrl,
+    url_rechazar: rejectUrl
+  });
+}
+
+async function sendCambiosEmail(guia, evento, cambiosTexto, tokenReconfirmar){
+  const file = S.files.find(f=>f.id===evento.file_id);
+  const reconfirmarUrl = `${window.location.origin}?action=reconfirmar&token=${tokenReconfirmar}`;
+  const cancelarUrl = `${window.location.origin}?action=cancelar_por_cambios&evento_id=${evento.id}`;
+  
+  const fechaStr = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  
+  return await sendEmail('cambios_evento', {
+    to_email: guia.email,
+    guia_nombre: guia.nombre,
+    tipo_evento: evento.tipo_evento,
+    fecha: fechaStr,
+    horario: evento.hora_inicio + (evento.hora_fin ? ' - ' + evento.hora_fin : ''),
+    nro_file: file?.nro_file || '—',
+    descripcion: evento.descripcion || 'Sin descripción',
+    link_adjunto: evento.link_adjunto || '',
+    cambios: cambiosTexto,
+    url_reconfirmar: reconfirmarUrl,
+    url_cancelar: cancelarUrl
+  });
+}
+
+async function sendCancelacionEmail(guia, evento, motivo){
+  const fechaStr = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  
+  return await sendEmail('cancelacion_evento', {
+    to_email: guia.email,
+    guia_nombre: guia.nombre,
+    tipo_evento: evento.tipo_evento,
+    fecha: fechaStr,
+    horario: evento.hora_inicio + (evento.hora_fin ? ' - ' + evento.hora_fin : ''),
+    motivo: motivo || 'Sin especificar'
+  });
+}
+
+async function sendGuiaSebajoEmail(admins, guia, evento, motivo){
+  const file = S.files.find(f=>f.id===evento.file_id);
+  const fechaStr = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  const panelUrl = `${window.location.origin}`;
+  
+  const emailPromises = admins.map(adminEmail => 
+    sendEmail('guia_se_bajo', {
+      to_email: adminEmail,
+      guia_nombre: guia.nombre,
+      tipo_evento: evento.tipo_evento,
+      nro_file: file?.nro_file || '—',
+      fecha: fechaStr,
+      horario: evento.hora_inicio + (evento.hora_fin ? ' - ' + evento.hora_fin : ''),
+      motivo: motivo || 'Sin especificar',
+      panel_url: panelUrl
+    })
+  );
+  
+  return await Promise.all(emailPromises);
+}
+
+async function sendRecordatorioEmail(guia, evento){
+  const file = S.files.find(f=>f.id===evento.file_id);
+  const fechaStr = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  
+  return await sendEmail('recordatorio_invitacion', {
+    to_email: guia.email,
+    guia_nombre: guia.nombre,
+    tipo_evento: evento.tipo_evento,
+    fecha: fechaStr,
+    horario: evento.hora_inicio + (evento.hora_fin ? ' - ' + evento.hora_fin : ''),
+    nro_file: file?.nro_file || '—',
+    descripcion: evento.descripcion || 'Sin descripción'
+  });
+}
+
 async function generarTokenReconfirmacion(eventoId, guiaId) {
   const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 días
@@ -75,7 +172,6 @@ async function generarTokenReconfirmacion(eventoId, guiaId) {
   
   return token;
 }
-
 // ── PALETTE ──────────────────────────────────────────────────────────────────
 const T = {
   teal:'#1B6B74', tealMid:'#2A9D8F', coral:'#E76F51', amber:'#E9C46A',
