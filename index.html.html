@@ -446,6 +446,29 @@ async function saveEvento(data){
   return data.id || result?.id;
 }
 
+async function sendInviteEmail(guia, evento, token, expira){
+  const file = S.files.find(f=>f.id===evento.file_id);
+  const acceptUrl = `${window.location.origin}?action=aceptar&token=${token}`;
+  const rejectUrl = `${window.location.origin}?action=rechazar&token=${token}`;
+  
+  const fechaStr = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  const expiraStr = new Date(expira).toLocaleString('es-AR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+  
+  return await sendEmail('invitacion_evento', {
+    to_email: guia.email,
+    guia_nombre: guia.nombre,
+    evento_tipo: evento.tipo_evento,
+    evento_fecha: fechaStr,
+    evento_hora: evento.hora_inicio + (evento.hora_fin ? ' - ' + evento.hora_fin : ''),
+    file_nro: file?.nro_file || '—',
+    evento_descripcion: evento.descripcion || 'Sin descripción',
+    link_adjunto: evento.link_adjunto || '',
+    expira_fecha: expiraStr,
+    accept_url: acceptUrl,
+    reject_url: rejectUrl
+  });
+}
+
 async function invitarGuias(eventoId, guiaIds){
   const evento = S.eventos.find(e=>e.id===eventoId);
   if(!evento) return;
@@ -1692,13 +1715,45 @@ function buildViajes(){
                   ${e.descripcion?`<div style="font-size:12px;color:#9E9A93;margin-top:6px;font-style:italic">${esc(e.descripcion)}</div>`:''}
                   ${e.link_adjunto?`<div style="font-size:12px;margin-top:6px"><a href="${esc(e.link_adjunto)}" target="_blank" style="color:#1B6B74;text-decoration:underline">🔗 Ver adjunto</a></div>`:''}
                   
-                  ${isAdmin()?`
-                    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
-                      ${e.estado==='A_ASIGNAR'||e.estado==='ASIGNADO'?`<button data-invitar="${e.id}" style="padding:6px 12px;border-radius:6px;border:none;background:#1B6B74;color:white;font-size:11px;cursor:pointer;font-weight:600">📨 Invitar guía</button>`:''}
-                      <button data-edit-evento="${e.id}" style="padding:6px 12px;border-radius:6px;border:1px solid #E8E4DD;background:white;font-size:11px;cursor:pointer;color:#1B6B74;font-weight:600">✏️ Editar</button>
-                      ${e.estado!=='CANCELADO'?`<button data-cancelar-evento="${e.id}" style="padding:6px 12px;border-radius:6px;border:1px solid #fcd5d5;background:#fff5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600">❌ Cancelar</button>`:''}
-                    </div>
-                  `:''}
+                  ${isAdmin()?(()=>{
+                    const invs = S.invitaciones.filter(i=>i.evento_id===e.id);
+                    const pendientes = invs.filter(i=>i.estado==='PENDIENTE');
+                    return `
+                      ${invs.length>0?`
+                        <div style="margin-top:10px;padding-top:10px;border-top:1px solid #E8E4DD">
+                          <div style="font-size:11px;font-weight:700;color:#9E9A93;margin-bottom:6px">📨 INVITACIONES (${invs.length})</div>
+                          ${invs.map(inv=>{
+                            const g=S.guias.find(x=>x.id===inv.guia_id);
+                            const estadoColors = {
+                              PENDIENTE: {bg:'#FFF3CD',fg:'#856404',label:'⏳ Pendiente'},
+                              ACEPTADA: {bg:'#D4EDDA',fg:'#155724',label:'✅ Aceptada'},
+                              RECHAZADA: {bg:'#F8D7DA',fg:'#721C24',label:'❌ Rechazada'},
+                              EXPIRADA: {bg:'#E2E3E5',fg:'#383D41',label:'⏰ Expirada'},
+                              CANCELADA: {bg:'#E2E3E5',fg:'#383D41',label:'🚫 Cancelada'},
+                              TOMADA_POR_OTRO: {bg:'#E2E3E5',fg:'#383D41',label:'👥 Tomada por otro'}
+                            };
+                            const ec = estadoColors[inv.estado] || {};
+                            return `
+                              <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;background:${ec.bg};border-radius:6px;margin-bottom:4px">
+                                <div style="flex:1">
+                                  <div style="font-size:11px;font-weight:600;color:#1A1A1A">${g?esc(g.nombre+' '+g.apellido):'Desconocido'}</div>
+                                  <div style="font-size:10px;color:#666;margin-top:2px">${ec.label}</div>
+                                </div>
+                                ${inv.estado==='PENDIENTE'?`
+                                  <button data-cancelar-inv="${inv.id}" style="padding:4px 8px;border-radius:4px;border:1px solid #dc3545;background:white;font-size:10px;cursor:pointer;color:#dc3545;font-weight:600">Cancelar</button>
+                                `:''}
+                              </div>
+                            `;
+                          }).join('')}
+                        </div>
+                      `:''}
+                      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+                        ${e.estado==='A_ASIGNAR'||e.estado==='ASIGNADO'||e.estado==='CONFIRMADO'||pendientes.length>0?`<button data-invitar="${e.id}" style="padding:6px 12px;border-radius:6px;border:none;background:#1B6B74;color:white;font-size:11px;cursor:pointer;font-weight:600">📨 ${invs.length>0?'Invitar más guías':'Invitar guía'}</button>`:''}
+                        <button data-edit-evento="${e.id}" style="padding:6px 12px;border-radius:6px;border:1px solid #E8E4DD;background:white;font-size:11px;cursor:pointer;color:#1B6B74;font-weight:600">✏️ Editar</button>
+                        ${e.estado!=='CANCELADO'?`<button data-cancelar-evento="${e.id}" style="padding:6px 12px;border-radius:6px;border:1px solid #fcd5d5;background:#fff5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600">❌ Cancelar</button>`:''}
+                      </div>
+                    `;
+                  })():''}
                   
                   ${!isAdmin() && e.estado==='CONFIRMADO' && e.guia_id===S.myGuia?.id && !isPast?`
                     <div style="margin-top:10px">
@@ -4449,7 +4504,7 @@ if(params.get('token')){
   });
 
   // auto check SLA every 5 min
-  setInterval(checkSLA, 5*60*1000);
+  // setInterval(checkSLA, 5*60*1000); // TODO: implement checkSLA function
 }
 init();
 </script>
