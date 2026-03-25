@@ -81,6 +81,9 @@ async function sendInviteEmail(guia, evento, token, expira){
     fecha: fechaStr,                      // ✅ FIXED
     horario: evento.hora_inicio + (evento.hora_fin ? ' - ' + evento.hora_fin : ''),  // ✅ FIXED
     descripcion: evento.descripcion || 'Sin descripción',  // ✅ FIXED
+    pickup_location: evento.pickup_location || '',
+    dropoff_location: evento.dropoff_location || '',
+    datos_vuelos: evento.datos_vuelos || '',
     expira: expiraStr,                    // ✅ FIXED
     url_aceptar: acceptUrl,              // ✅ FIXED
     url_rechazar: rejectUrl              // ✅ FIXED
@@ -179,7 +182,7 @@ const T = {
   white:'#FFFFFF', gray1:'#F5F3EF', gray2:'#E8E4DD', gray3:'#9E9A93', dark:'#1A1A1A',
 };
 
-const TIPOS_EVENTO = ['City Tour','Transfer','Full Day','Trekking','Multi Day','Ski','Náutico','Privado','Otro'];
+const TIPOS_EVENTO = ['01HS A DISPOSICION (Ing-Esp-Por)', '02HS A DISPOSICION (Ing-Esp-Por)', '03HS A DISPOSICION (Ing-Esp-Por)', '04HS A DISPOSICION (Ing-Esp-Por)', '05HS A DISPOSICION (Ing-Esp-Por)', '08HS A DISPOSICION (Ing-Esp-Por)', '09HS A DISPOSICION (Ing-Esp-Por)', 'ART TOUR (05HS) (Ing-Esp-Por)', 'BUENOS AIRES NIGHTLIFE & MILONGA', 'CITY TOUR (03HS) (Ing-Esp-Por)', 'CITY TOUR (04HS) (Ale,Ita,Fran)', 'CITY TOUR (04HS) (Ing-Esp-Por)', 'CITY TOUR (05HS) (Ale,Ita,Fran)', 'CITY TOUR (05HS) (Ing-Esp-Por)', 'CITY TOUR (06HS) (Ing-Esp-Por)', 'CITY TOUR (08HS) (Ale,Ita,Fran)', 'CITY TOUR (08HS) (Ing-Esp-Por)', 'CITY TOUR (7HS) (Ing-Esp-Por)', 'CITY TOUR ARTE Y ARQUITECTURA (05HS) (Ing-Esp-Por)', 'CITY TOUR ARTE Y ARQUITECTURA (06HS) (Ing-Esp-Por)', 'FD ESTANCIA PUESTO VIEJO (Esp,Ing)', 'FD ESTANCIA o FIESTA GAUCHA (Ale,Ita,Fran)', 'FD ESTANCIA o FIESTA GAUCHA (Esp,Ing)', 'FD TIGRE (07HS) (Ing-Esp-Por)', 'FD TIGRE 7HS (Ale,Ita,Fran)', 'HD BUENOS AIRES TASTING', 'HD CITY TOUR JUDIO (04HS) (PVT) (Ing-Esp-Por)', 'HD CITY TOUR JUDIO (05HS) (PVT) (Ing-Esp-Por)', 'HD FOODIE TOUR (05HS) (PVT) (Ing-Esp-Por)', 'HD HIDDEN BUE (04HS) (PVT) (Ing-Esp-Por)', 'HD ISLA MACIEL (04HS) (Ing-Esp-Por)', 'HD MILONGA TOUR (04HS) (PVT) (Ing-Esp-Por)', 'HD ORIENTATION WALKING TOUR (PVT) (FAMILY)', 'HD RECOLETA WALKING TOUR (PVT)', 'HD TIGRE 5HS (Ale,Ita,Fran)', 'HD TIGRE 5HS (Ing-Esp-Por)', 'HD WALKING CITY TOUR NORTE (Ale,Ita,Fran)', 'HD WALKING CITY TOUR NORTE Ing, Esp (PVT)', 'HD WALKING CITY TOUR SUR (Ale,Ita,Fran)', 'HD WALKING CITY TOUR SUR Ing, Esp (PVT)', 'HD WALKING TOUR C/ZANJON DE GRANADOS (PVT)', 'HIDDEN BAR TOUR (04HS) (Ing-Esp-Por)', 'TANGO CENA SHOW (Ale,Ita,Fran)', 'TANGO CENA SHOW (Ing-Esp-Por)', 'TANGO SHOW (Ale-Fra-Ita)', 'TANGO SHOW (Ing - Esp)', 'TRF AEP/ HTL - TERM o VV (Ale,Ita,Fran)', 'TRF AEP/ HTL - TERM o VV (Ing-Esp-Por)', 'TRF APT EZE/ SAN ANTONIO DE ARECO (Ing-Esp-Por)', 'TRF CNX AEP/ PTO - TERM o VV (Ale,Ita,Fran)', 'TRF CNX AEP/ PTO - TERM o VV (Ing-Esp-Por)', 'TRF CNX EZE/ AEP-PTO-TERM o VV (Ale,Ita,Fran)', 'TRF CNX EZE/ AEP-PTO-TERM o VV (Ing-Esp-Por)', 'TRF EZE/ HTL - TERM o VV', 'TRF EZE/ HTL - TERM o VV (Ale,Ita,Fran)', 'TRF EZE/ HTL - TERM o VV (Ing-Esp-Por)', 'TRF HTL FTE/ APT FTE', 'TRF HTL o APT EZE-AEP / ARECO o VV (Ing-Esp-Por)', 'TRF HTL o APT EZE-AEP / MONTE o VV (Ing-Esp-Por)', 'TRF HTL/ CAFE TORTONI o VV', 'TRF HTL/ MEETING POINT o VV', 'TRF HTL/ RESTAURANT/ HTL (Ing-Esp-Por)', 'TRF HTL/ THE ARGENTINE EXP, COOKING CLASS o VV', 'TRF PTO - TERM/ HTL o VV (Ale,Ita,Fran)', 'TRF PTO - TERM/ HTL o VV (Ing-Esp-Por)', 'TRF TANGO/ HTL o VV (Ing-Esp-Por)', 'TRF TIGRE/ HTL BUE (Ing-Esp-Por)', 'WALKING CITY (Ing-Esp-Por)', 'Otro'];
 let SLA = { URGENTE: 5, REGULAR: 48 }; // overridden by DB config on load
 
 const ESTADO_EVENT_COLOR = {
@@ -436,6 +439,9 @@ async function sendCambioEmail(guia, evento, cambios){
     cambios: cambios,
     descripcion: evento.descripcion || '—',
     link_adjunto: evento.link_adjunto || '—',
+    pickup_location: evento.pickup_location || '',
+    dropoff_location: evento.dropoff_location || '',
+    datos_vuelos: evento.datos_vuelos || '',
     url_reconfirmar: reconfirmarUrl,
     url_cancelar: cancelarUrl,
   });
@@ -1449,7 +1455,7 @@ function buildSidebar(pendInv){
     {id:'historial', icon:'📜', label:'Historial',  admin:false},
     {id:'liquidaciones', icon:'💰', label:'Liquidaciones', admin:false},
     {id:'transportistas',icon:'🚐', label:'Transportistas', admin:true},
-    {id:'usuarios',      icon:'🔑', label:'Usuarios',      admin:true},
+    {id:'usuarios',      icon:'🔑', label:'Config',         admin:true},
   ];
   const items = allItems.filter(i => (!i.admin || isAdmin()) && (!i.guiaOnly || !isAdmin()));
   return `
@@ -1489,7 +1495,7 @@ function buildMobileDrawer(pendInv){
     {id:'invitaciones', icon:'📨', label:'Mis invitaciones',admin:false, guiaOnly:true, badge: S.invitaciones.filter(i=>i.estado==='PENDIENTE').length},
     {id:'historial',    icon:'📜', label:'Historial',       admin:false},
     {id:'liquidaciones',icon:'💰', label:'Liquidaciones',   admin:false},
-    {id:'usuarios',     icon:'🔑', label:'Usuarios',        admin:true},
+    {id:'usuarios',     icon:'🔑', label:'Config',          admin:true},
   ];
   const items = allItems.filter(i => (!i.admin || isAdmin()) && (!i.guiaOnly || !isAdmin()));
   return `
@@ -1547,7 +1553,7 @@ function buildBottomNav(pendInv){
 }
 
 function buildTopBar(){
-  const titles={dashboard:'📊 Dashboard',guias:'👤 Guías',eventos:'📋 Eventos',calendario:'📅 Calendario',historial:'📜 Historial',invitaciones:'📨 Mis invitaciones',liquidaciones:'💰 Liquidaciones',usuarios:'🔑 Usuarios'};
+  const titles={dashboard:'📊 Dashboard',guias:'👤 Guías',eventos:'📋 Eventos',calendario:'📅 Calendario',historial:'📜 Historial',invitaciones:'📨 Mis invitaciones',liquidaciones:'💰 Liquidaciones',usuarios:'🔑 Usuarios / Configuración'};
   return `
   <div style="background:white;border-bottom:1px solid #E8E4DD;padding:0 16px;height:54px;display:flex;align-items:center;gap:12px;flex-shrink:0">
     <button id="btn-open-drawer" class="topbar-hamburger" style="display:none;background:none;border:none;font-size:22px;cursor:pointer;padding:4px;color:${T.teal}">☰</button>
@@ -1962,6 +1968,9 @@ function buildViajes(){
                   ${guia?`<div style="font-size:12px;color:#555;margin-top:6px">👤 Guía: ${esc(guia.nombre+' '+guia.apellido)}</div>`:''}
                   ${(()=>{ const tr=S.transportistas.find(t=>t.id===e.transportista_id); return tr?`<div style="font-size:12px;color:#555;margin-top:4px">🚐 Transportista: ${esc(tr.nombre)}</div>`:''; })()}
                   ${e.descripcion?`<div style="font-size:12px;color:#9E9A93;margin-top:6px;font-style:italic">${esc(e.descripcion)}</div>`:''}
+                  ${e.pickup_location?`<div style="font-size:12px;color:#555;margin-top:4px">📍 Pick Up: <strong>${esc(e.pickup_location)}</strong></div>`:''}
+                  ${e.dropoff_location?`<div style="font-size:12px;color:#555;margin-top:2px">📍 Drop Off: <strong>${esc(e.dropoff_location)}</strong></div>`:''}
+                  ${e.datos_vuelos?`<div style="font-size:12px;color:#457B9D;margin-top:4px;font-weight:600">✈️ Vuelos: ${esc(e.datos_vuelos)}</div>`:''}
                   ${e.link_adjunto?`<div style="font-size:12px;margin-top:6px"><a href="${esc(e.link_adjunto)}" target="_blank" style="color:#1B6B74;text-decoration:underline">🔗 Ver adjunto</a></div>`:''}
                   
                   ${isAdmin()?(()=>{
@@ -3212,12 +3221,34 @@ function buildMisInvitaciones(){
 
 // ── USUARIOS ─────────────────────────────────────────────────────────────────
 function buildUsuarios(){
-  // This view is admin-only, loaded from Supabase auth users + user_roles
   return `
   <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
+
+    <!-- Usuarios del sistema -->
     <div id="usuarios-list" style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:20px">
       <div style="font-size:13px;color:#9E9A93">Cargando usuarios...</div>
     </div>
+
+    <!-- Import / Export eventos -->
+    <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:24px">
+      <div style="font-size:13px;font-weight:700;color:#1A1A1A;margin-bottom:4px">📋 Importar / Exportar Eventos</div>
+      <div style="font-size:12px;color:#9E9A93;margin-bottom:18px">Cargá eventos masivamente desde Excel. Si detecta duplicados (misma fecha + tipo + file) los omite automáticamente.</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button id="btn-import-eventos" style="${btnP(T.teal)}padding:8px 18px;font-size:13px">⬆ Importar eventos (.xlsx)</button>
+        <button id="btn-export-eventos" style="${btnS}padding:8px 18px;font-size:13px">⬇ Exportar eventos (.xlsx)</button>
+        <button id="btn-download-template-eventos" style="${btnS}padding:8px 18px;font-size:13px">📄 Descargar plantilla</button>
+        <input id="file-import-eventos" type="file" accept=".xlsx,.csv" style="display:none"/>
+      </div>
+      <div id="import-eventos-status" style="margin-top:12px;font-size:12px;color:#555"></div>
+    </div>
+
+    <!-- SLA Config -->
+    <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:24px">
+      <div style="font-size:13px;font-weight:700;color:#1A1A1A;margin-bottom:4px">⚙️ Configuración SLA</div>
+      <div style="font-size:12px;color:#9E9A93;margin-bottom:14px">Tiempo máximo de respuesta para invitaciones.</div>
+      <button id="btn-config-sla2" style="${btnS}padding:8px 18px;font-size:13px">⚙️ Configurar SLA</button>
+    </div>
+
   </div>`;
 }
 
@@ -3359,6 +3390,20 @@ function buildEventoEnViajeModal(fileId){
           <input id="ev-link-adjunto" type="url" placeholder="https://drive.google.com/..." style="${iStyle}"/>
         </div>
         
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">📍 Pick Up Location</label>
+            <input id="ev-pickup" type="text" placeholder="Hotel, dirección..." style="${iStyle}"/>
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">📍 Drop Off Location</label>
+            <input id="ev-dropoff" type="text" placeholder="Terminal, hotel..." style="${iStyle}"/>
+          </div>
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">✈️ Datos de vuelos (si aplica)</label>
+          <input id="ev-vuelos" type="text" placeholder="Ej: AA1234 EZE 14:30 / IB2345 AEP 09:15" style="${iStyle}"/>
+        </div>
         <div>
           <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Notas</label>
           <textarea id="ev-notas" rows="3" placeholder="Notas adicionales..." style="${iStyle};resize:vertical"></textarea>
@@ -3431,7 +3476,8 @@ function buildEventoModal(entry={}){
         </div>
         ${g2(`${fld('Fecha',inp('fecha','fecha','',  'date'),true)} ${fld('Prioridad',sel('prioridad','prioridad',['REGULAR','URGENTE']))}`)}
         ${g2(`${fld('Hora inicio',inp('hora_inicio','hora_inicio','','time'),true)} ${fld('Hora fin',inp('hora_fin','hora_fin','','time'))}`)}
-        ${fld('Descripción / Observaciones',`<textarea id="e-descripcion" placeholder="Detalles del evento, punto de encuentro, indicaciones especiales..." rows="3" style="${iStyle}resize:vertical">${esc(entry.descripcion||'')}</textarea>`)}
+        ${fld('Descripción / Observaciones',`<textarea id="e-descripcion" placeholder="Detalles del evento, indicaciones especiales..." rows="3" style="${iStyle}resize:vertical">${esc(entry.descripcion||'')}</textarea>`)}
+        ${g2(`${fld('📍 Pick Up Location',inp('pickup_location','pickup_location','Hotel, dirección...'))} ${fld('📍 Drop Off Location',inp('dropoff_location','dropoff_location','Terminal, hotel...'))}`)}        ${fld('✈️ Datos de vuelos (si aplica)',inp('datos_vuelos','datos_vuelos','Ej: AA1234 EZE 14:30 / IB2345 AEP 09:15'))}
         ${fld('Link adjunto (Drive, doc, etc.)',inp('link_adjunto','link_adjunto','https://drive.google.com/...'))}
         <div style="border-top:1px solid #F0EDE8;margin:8px 0;padding-top:8px">
           <div style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">🚐 Transportista</div>
@@ -4408,6 +4454,105 @@ function attachEvents(){
 
   // config SLA
   document.getElementById('btn-config-sla')?.addEventListener('click',()=>{ set({modal:{type:'config-sla'}}); });
+  document.getElementById('btn-config-sla2')?.addEventListener('click',()=>{ set({modal:{type:'config-sla'}}); });
+
+  // ── Import/Export Eventos ──────────────────────────────────────────────────
+  document.getElementById('btn-import-eventos')?.addEventListener('click',()=>{
+    document.getElementById('file-import-eventos')?.click();
+  });
+  document.getElementById('file-import-eventos')?.addEventListener('change', async(e)=>{
+    const file = e.target.files?.[0]; if(!file) return;
+    const status = document.getElementById('import-eventos-status');
+    status.innerHTML = '⟳ Procesando...';
+    try {
+      const data = await file.arrayBuffer();
+      const wb = XLSX.read(data);
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws);
+      // Normalize columns
+      const eventosToImport = rows.map(r=>({
+        tipo_evento:     String(r.tipo_evento||r['Tipo Evento']||r['tipo evento']||'').trim(),
+        fecha:           String(r.fecha||r['Fecha']||'').trim(),
+        hora_inicio:     String(r.hora_inicio||r['Hora Inicio']||r['hora inicio']||'').trim()||null,
+        hora_fin:        String(r.hora_fin||r['Hora Fin']||r['hora fin']||'').trim()||null,
+        descripcion:     String(r.descripcion||r['Descripcion']||'').trim()||null,
+        pickup_location: String(r.pickup_location||r['Pick Up']||r['pickup']||'').trim()||null,
+        dropoff_location:String(r.dropoff_location||r['Drop Off']||r['dropoff']||'').trim()||null,
+        datos_vuelos:    String(r.datos_vuelos||r['Vuelos']||r['vuelos']||'').trim()||null,
+        link_adjunto:    String(r.link_adjunto||r['Link']||'').trim()||null,
+        prioridad:       String(r.prioridad||r['Prioridad']||'REGULAR').trim(),
+        nro_file:        String(r.nro_file||r['Nro File']||r['nro file']||'').trim()||null,
+        estado:          'A_ASIGNAR',
+      })).filter(r=>r.tipo_evento && r.fecha);
+
+      if(!eventosToImport.length){ status.innerHTML='⚠️ No se encontraron filas válidas (verificá que tenga columnas tipo_evento y fecha)'; return; }
+
+      // Cargar eventos existentes para detectar duplicados
+      const {data:existentes} = await db.from('eventos').select('tipo_evento,fecha,file_id');
+      const existSet = new Set((existentes||[]).map(e=>`${e.tipo_evento}|${e.fecha}|${e.file_id||''}`));
+
+      let insertados=0, duplicados=0, errores=0;
+      for(const ev of eventosToImport){
+        // Buscar file_id por nro_file si viene
+        let file_id = null;
+        if(ev.nro_file){
+          const f = S.files.find(f=>(f.nro_file||'').toLowerCase()===ev.nro_file.toLowerCase());
+          if(f) file_id = f.id;
+        }
+        const key = `${ev.tipo_evento}|${ev.fecha}|${file_id||''}`;
+        if(existSet.has(key)){ duplicados++; continue; }
+        const {error} = await db.from('eventos').insert({...ev, file_id, nro_file:undefined});
+        if(error){ errores++; console.error(error); }
+        else { insertados++; existSet.add(key); }
+      }
+      status.innerHTML = `✅ <strong>${insertados}</strong> importados · <strong>${duplicados}</strong> duplicados omitidos${errores?` · <span style="color:#E63946">${errores} errores</span>`:''}`;
+      await loadAll();
+    } catch(err){
+      status.innerHTML = `❌ Error: ${err.message}`;
+    }
+    e.target.value='';
+  });
+
+  document.getElementById('btn-export-eventos')?.addEventListener('click',()=>{
+    const rows = S.eventos.map(e=>({
+      tipo_evento: e.tipo_evento,
+      fecha: e.fecha,
+      hora_inicio: e.hora_inicio||'',
+      hora_fin: e.hora_fin||'',
+      prioridad: e.prioridad||'',
+      estado: e.estado||'',
+      nro_file: S.files.find(f=>f.id===e.file_id)?.nro_file||e.nro_file||'',
+      descripcion: e.descripcion||'',
+      pickup_location: e.pickup_location||'',
+      dropoff_location: e.dropoff_location||'',
+      datos_vuelos: e.datos_vuelos||'',
+      link_adjunto: e.link_adjunto||'',
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Eventos');
+    XLSX.writeFile(wb, `eventos_sayhueque_${new Date().toISOString().slice(0,10)}.xlsx`);
+  });
+
+  document.getElementById('btn-download-template-eventos')?.addEventListener('click',()=>{
+    const template = [{
+      tipo_evento:'CITY TOUR (04HS) (Ing-Esp-Por)',
+      fecha:'2026-04-15',
+      hora_inicio:'09:00',
+      hora_fin:'13:00',
+      prioridad:'REGULAR',
+      nro_file:'ALFI123456',
+      descripcion:'Ejemplo de descripción',
+      pickup_location:'Hotel Alvear',
+      dropoff_location:'Hotel Alvear',
+      datos_vuelos:'',
+      link_adjunto:'',
+    }];
+    const ws = XLSX.utils.json_to_sheet(template);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Eventos');
+    XLSX.writeFile(wb, 'plantilla_eventos_sayhueque.xlsx');
+  });
 
   // export CSV
   document.getElementById('btn-export')?.addEventListener('click',()=>{
@@ -4498,6 +4643,10 @@ function attachEvents(){
       return;
     }
 
+    const pickup = document.getElementById('ev-pickup')?.value.trim()||null;
+    const dropoff = document.getElementById('ev-dropoff')?.value.trim()||null;
+    const vuelos = document.getElementById('ev-vuelos')?.value.trim()||null;
+
     const {data,error} = await db.from('eventos').insert({
       file_id: fileId,
       tipo_evento,
@@ -4506,6 +4655,9 @@ function attachEvents(){
       hora_fin: hora_fin || null,
       link_adjunto: link_adjunto || null,
       descripcion: notas,
+      pickup_location: pickup,
+      dropoff_location: dropoff,
+      datos_vuelos: vuelos,
       estado: 'A_ASIGNAR'
     }).select().single();
 
@@ -4650,6 +4802,9 @@ function attachEvents(){
       prioridad:document.getElementById('e-prioridad')?.value,
       descripcion:document.getElementById('e-descripcion')?.value?.trim()||null,
       link_adjunto:document.getElementById('e-link_adjunto')?.value?.trim()||null,
+      pickup_location:document.getElementById('e-pickup_location')?.value?.trim()||null,
+      dropoff_location:document.getElementById('e-dropoff_location')?.value?.trim()||null,
+      datos_vuelos:document.getElementById('e-datos_vuelos')?.value?.trim()||null,
       transportista_id: document.getElementById('e-aplica-transportista')?.value==='si' ? (parseInt(document.getElementById('e-transportista-id')?.value)||null) : null,
       estado: id ? undefined : 'A_ASIGNAR',
     };
