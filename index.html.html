@@ -77,13 +77,13 @@ async function sendInviteEmail(guia, evento, token, expira){
     to_email: guia.email,
     prioridad: prioridad,
     guia_nombre: guia.nombre,
-    tipo_evento: evento.tipo_evento,
-    fecha: fechaStr,
-    horario: evento.hora_inicio + (evento.hora_fin ? ' - ' + evento.hora_fin : ''),
-    descripcion: evento.descripcion || 'Sin descripción',
-    expira: expiraStr,
-    url_aceptar: acceptUrl,
-    url_rechazar: rejectUrl
+    tipo_evento: evento.tipo_evento,     // ✅ FIXED
+    fecha: fechaStr,                      // ✅ FIXED
+    horario: evento.hora_inicio + (evento.hora_fin ? ' - ' + evento.hora_fin : ''),  // ✅ FIXED
+    descripcion: evento.descripcion || 'Sin descripción',  // ✅ FIXED
+    expira: expiraStr,                    // ✅ FIXED
+    url_aceptar: acceptUrl,              // ✅ FIXED
+    url_rechazar: rejectUrl              // ✅ FIXED
   });
 }
 
