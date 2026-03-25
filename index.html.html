@@ -620,6 +620,16 @@ async function responderInvitacion(token, accion){
     await db.from('historial').insert({evento_id:inv.evento_id,guia_id:inv.guia_id,invitacion_id:inv.id,accion:'ACEPTADA',actor:'GUIA'});
     // fetch evento to return for Google Calendar
     const {data:eventoData} = await db.from('eventos').select('*').eq('id',inv.evento_id).single();
+    // Notify admin with acceptance PDF (fire and forget — don't block the response)
+    fetch('/api/send-acceptance-pdf', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        eventoId: inv.evento_id,
+        guiaId: inv.guia_id,
+        acceptedAt: new Date().toISOString()
+      })
+    }).catch(e => console.warn('PDF notify error:', e));
     return {ok:true, msg:'¡Perfecto! Quedaste confirmado para este evento. Te esperamos.', evento: eventoData};
   } else {
     // RECHAZAR
