@@ -887,8 +887,9 @@ async function cancelarEvento(eventoId){
 }
 
 async function bajarseEvento(eventoId){
+  eventoId = parseInt(eventoId); // asegurar que sea número, no string
   const evento = S.eventos.find(e=>e.id===eventoId);
-  if(!evento) return;
+  if(!evento){ console.error('bajarseEvento: evento no encontrado', eventoId); toast('Error: evento no encontrado', T.red); return; }
   if(!confirm('¿Confirmas que querés bajarte de este evento?')) return;
   const motivo = prompt('Motivo (opcional):') || 'Sin especificar';
   const guia = S.myGuia;
@@ -912,25 +913,32 @@ async function bajarseEvento(eventoId){
   });
   
   // ✅ Enviar email al admin
-  const {data:configData} = await db.from('config').select('value').eq('key','email_notificaciones_admin').single();
-  const emailAdmin = configData?.value;
-  
-  if(emailAdmin){
-    const fechaEvento = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-    const horario = evento.hora_inicio + (evento.hora_fin ? ' - '+evento.hora_fin : '');
-    const panelUrl = window.location.origin + window.location.pathname;
-    const file = S.files.find(f=>f.id===evento.file_id);
+  try {
+    const {data:configData} = await db.from('config').select('value').eq('key','email_notificaciones_admin').single();
+    const emailAdmin = configData?.value?.trim();
     
-    await sendEmail('guia_se_bajo', {
-      to_email: emailAdmin,
-      guia_nombre: guia.nombre + ' ' + guia.apellido,
-      tipo_evento: evento.tipo_evento,
-      nro_file: file?.nro_file || '—',
-      fecha: fechaEvento,
-      horario: horario,
-      motivo: motivo,
-      panel_url: panelUrl
-    });
+    if(emailAdmin){
+      const fechaEvento = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+      const horario = evento.hora_inicio + (evento.hora_fin ? ' - '+evento.hora_fin : '');
+      const panelUrl = window.location.origin + window.location.pathname;
+      const file = S.files.find(f=>f.id===evento.file_id);
+      
+      const emailResult = await sendEmail('guia_se_bajo', {
+        to_email: emailAdmin,
+        guia_nombre: guia.nombre + ' ' + guia.apellido,
+        tipo_evento: evento.tipo_evento,
+        nro_file: file?.nro_file || '—',
+        fecha: fechaEvento,
+        horario: horario,
+        motivo: motivo,
+        panel_url: panelUrl
+      });
+      if(!emailResult?.success) console.warn('Email al admin falló:', emailResult);
+    } else {
+      console.warn('bajarseEvento: no hay email de notificaciones configurado en config.email_notificaciones_admin');
+    }
+  } catch(emailErr) {
+    console.error('Error enviando email de notificación:', emailErr);
   }
   
   await loadAll();
@@ -1876,7 +1884,7 @@ function buildViajes(){
                   
                   ${!isAdmin() && e.estado==='CONFIRMADO' && e.guia_id===S.myGuia?.id && !isPast?`
                     <div style="margin-top:10px">
-                      <button onclick="bajarseEvento('${e.id}')" style="padding:6px 12px;border-radius:6px;border:1px solid #fcd5d5;background:#fff5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600;font-family:'DM Sans',sans-serif">🚫 Me bajo del evento</button>
+                      <button data-bajar-evento="${e.id}" style="padding:6px 12px;border-radius:6px;border:1px solid #fcd5d5;background:#fff5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600;font-family:'DM Sans',sans-serif">🚫 Me bajo del evento</button>
                     </div>
                   `:''}
                 </div>
