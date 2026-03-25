@@ -526,8 +526,12 @@ async function saveEvento(data){
       // build list of changes
       const cambiosList = [];
       if(original.fecha !== data.fecha) cambiosList.push(`📅 Fecha: ${original.fecha} -> ${data.fecha}`);
-      if(original.hora_inicio !== data.hora_inicio) cambiosList.push(`🕐 Hora inicio: ${original.hora_inicio} -> ${data.hora_inicio}`);
-      if(original.hora_fin !== data.hora_fin) cambiosList.push(`🕑 Hora fin: ${original.hora_fin||'—'} -> ${data.hora_fin||'—'}`);
+      // Normalizar a HH:MM para comparar (DB guarda HH:MM:SS, input devuelve HH:MM)
+      const normHora = t => t ? String(t).slice(0,5) : null;
+      const origHoraI = normHora(original.hora_inicio), newHoraI = normHora(data.hora_inicio);
+      const origHoraF = normHora(original.hora_fin),   newHoraF = normHora(data.hora_fin);
+      if(origHoraI !== newHoraI) cambiosList.push(`🕐 Hora inicio: ${origHoraI} -> ${newHoraI}`);
+      if(origHoraF !== newHoraF) cambiosList.push(`🕑 Hora fin: ${origHoraF||'—'} -> ${newHoraF||'—'}`);
       if(original.descripcion !== data.descripcion) cambiosList.push(`📝 Descripción actualizada`);
       if(original.link_adjunto !== data.link_adjunto) cambiosList.push(`🔗 Adjunto actualizado`);
       if(original.tipo_evento !== data.tipo_evento) cambiosList.push(`📋 Tipo: ${original.tipo_evento} -> ${data.tipo_evento}`);
@@ -673,12 +677,8 @@ async function procesarReconfirmacionToken(token, accion){
         actor: guia.nombre + ' ' + guia.apellido
       });
       
-      await loadAll();
-      
-      // Limpiar URL para que no se vuelva a procesar
-      window.history.replaceState({}, '', APP_URL);
-      
-      return {ok:true, msg:'¡Evento reconfirmado correctamente! Gracias por confirmar tu disponibilidad.'};
+      // NO llamar loadAll() acá — no hay sesión activa, dispararía un re-render al login
+      return {ok:true, msg:'¡Evento reconfirmado correctamente! Gracias por confirmar tu disponibilidad.', evento: evento};
       
     } else if (accion === 'cancelar_cambio') {
       // Marcar token como usado
@@ -709,11 +709,7 @@ async function procesarReconfirmacionToken(token, accion){
         actor: guia.nombre + ' ' + guia.apellido
       });
       
-      await loadAll();
-      
-      // Limpiar URL para que no se vuelva a procesar
-      window.history.replaceState({}, '', APP_URL);
-      
+      // NO llamar loadAll() acá — no hay sesión activa
       return {ok:true, msg:'Te has bajado del evento. El admin será notificado. Gracias por avisar.'};
     }
     
@@ -3841,6 +3837,8 @@ function attachEvents(){
     const token=params.get('token');
     const accion=params.get('accion') || params.get('action'); // fix: emails usan 'action', reconfirmaciones usan 'accion'
     window.history.replaceState({}, '', APP_URL);
+    // Apagar loading para que loadAll() interno no muestre el spinner eterno
+    S = {...S, loading:false};
     (async()=>{
       let result;
       if(accion==='reconfirmar' || accion==='cancelar_cambio'){
