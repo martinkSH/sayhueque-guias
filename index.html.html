@@ -1396,6 +1396,32 @@ function g2(c){ return `<div style="display:grid;grid-template-columns:1fr 1fr;g
 function full(c){ return `<div style="grid-column:1/-1">${c}</div>`; }
 
 // ── RENDER ────────────────────────────────────────────────────────────────────
+function handleGuiaFotoChange(input){
+  const file = input.files[0];
+  if(!file) return;
+  if(file.size > 5*1024*1024){ alert('La foto no puede superar 5MB'); return; }
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    const img = new Image();
+    img.onload = function(){
+      const MAX = 300;
+      const ratio = Math.min(MAX/img.width, MAX/img.height, 1);
+      const canvas = document.createElement('canvas');
+      canvas.width  = Math.round(img.width  * ratio);
+      canvas.height = Math.round(img.height * ratio);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      window._guiaFotoDataUrl = canvas.toDataURL('image/jpeg', 0.82);
+      const preview = document.getElementById('guia-avatar-preview');
+      if(preview) preview.innerHTML = '<img src="' + window._guiaFotoDataUrl + '" style="width:100%;height:100%;object-fit:cover"/>';
+      const lbl = document.getElementById('btn-pick-guia-foto');
+      if(lbl && lbl.firstChild && lbl.firstChild.nodeType === 3) lbl.firstChild.textContent = '📷 Cambiar foto ';
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+
 function render(){ document.getElementById('root').innerHTML=buildApp(); attachEvents(); }
 
 const isMobile = () => window.innerWidth < 768;
@@ -3673,27 +3699,7 @@ function buildGuiaModal(entry={}){
             <div style="font-size:11px;color:#9E9A93;margin-bottom:8px">JPG o PNG, máx 2MB. Aparece en el perfil y en el sistema.</div>
             <label id="btn-pick-guia-foto" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:7px;border:1.5px solid #E8E4DD;background:white;font-size:12px;font-weight:600;cursor:pointer;color:#555;font-family:'DM Sans',sans-serif">
               📷 ${entry.foto_url ? 'Cambiar foto' : 'Subir foto'}
-              <input id="guia-foto-input" type="file" accept="image/*" style="display:none" onchange="(function(input){
-  const file = input.files[0]; if(!file) return;
-  if(file.size > 5*1024*1024){ alert('La foto no puede superar 5MB'); return; }
-  const reader = new FileReader();
-  reader.onload = function(ev){
-    const img2 = new Image();
-    img2.onload = function(){
-      const MAX=300, r=Math.min(MAX/img2.width,MAX/img2.height,1);
-      const c=document.createElement('canvas');
-      c.width=Math.round(img2.width*r); c.height=Math.round(img2.height*r);
-      c.getContext('2d').drawImage(img2,0,0,c.width,c.height);
-      window._guiaFotoDataUrl=c.toDataURL('image/jpeg',0.82);
-      const prev=document.getElementById('guia-avatar-preview');
-      if(prev) prev.innerHTML='<img src=\''+window._guiaFotoDataUrl+'\' style=\'width:100%;height:100%;object-fit:cover\'/>';
-      const lbl=document.getElementById('btn-pick-guia-foto');
-      if(lbl && lbl.firstChild) lbl.firstChild.textContent='📷 Cambiar foto ';
-    };
-    img2.src=ev.target.result;
-  };
-  reader.readAsDataURL(file);
-})(this)"/>
+              <input id="guia-foto-input" type="file" accept="image/*" style="display:none" onchange="handleGuiaFotoChange(this)"/>
             </label>
           </div>
         </div>
