@@ -215,9 +215,11 @@ let S = {
   calMonth: new Date(),
   calView: 'mensual',     // 'mensual' | 'agenda'
   searchViaje: '',
+  searchGuia: '',
   calWeekStart: null,     // Date — lunes de la semana actual en agenda
   calFiltroGuia: '',      // id de guía para filtrar (admin)
   calFiltroFile: '',      // nro_file para filtrar (admin)
+  calNotas: {},           // {dateStr: texto} notas del admin en el calendario
   expandedEventId: null,
   expandedFileId: null,
   filterEstado:'ACTIVOS',  // ACTIVOS = hide cancelados by default
@@ -413,7 +415,10 @@ async function loadAll(){
       db.from('files').select('*').order('fecha_in',{ascending:false}),
     ]);
     const {data:blqAll} = await db.from('bloqueos_disponibilidad').select('*');
-    set({ guias:g.data||[], eventos:e.data||[], invitaciones:i.data||[], historial:h.data||[], liquidaciones:l.data||[], transportistas:tr.data||[], files:f.data||[], bloqueos:blqAll||[] });
+    // Load calendar notas
+    const {data:notasConfig} = await db.from('config').select('value').eq('key','cal_notas').maybeSingle();
+    const calNotas = notasConfig?.value ? JSON.parse(notasConfig.value) : {};
+    set({ guias:g.data||[], eventos:e.data||[], invitaciones:i.data||[], historial:h.data||[], liquidaciones:l.data||[], transportistas:tr.data||[], files:f.data||[], bloqueos:blqAll||[], calNotas });
   }
 }
 
@@ -1714,7 +1719,10 @@ function buildDashboard(){
         <div style="font-size:12px;font-weight:700;color:${T.dark};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:14px">Guías disponibles</div>
         ${S.guias.filter(g=>g.estado==='ACTIVO').slice(0,6).map(g=>`
           <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F5F3EF">
-            <div style="width:32px;height:32px;border-radius:50%;background:${T.teal}20;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:${T.teal};flex-shrink:0">${esc(g.nombre[0])}</div>
+            ${g.foto_url
+              ? `<img src="${esc(g.foto_url)}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0"/>`
+              : `<div style="width:32px;height:32px;border-radius:50%;background:${T.teal}20;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:${T.teal};flex-shrink:0">${esc(g.nombre[0])}</div>`
+            }
             <div style="flex:1"><div style="font-size:13px;font-weight:600;color:${T.dark}">${esc(g.nombre)} ${esc(g.apellido)}</div>
             ${isAdmin()?`<div style="font-size:11px;color:#9E9A93">${g.tipo} · $${g.valor_hora}/h</div>`:''}</div>
             ${isAdmin()?`<span style="font-size:10px;background:${g.tipo==='SENIOR'?T.teal+'20':'#E9C46A30'};color:${g.tipo==='SENIOR'?T.teal:'#856404'};padding:2px 8px;border-radius:10px;font-weight:600">${g.tipo}</span>`:''} 
@@ -1723,6 +1731,111 @@ function buildDashboard(){
           </div>`).join('')}
       </div>
     </div>
+    
+    ${!isAdmin() ? `
+    <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:20px">
+      <div style="font-size:12px;font-weight:700;color:${T.dark};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:16px">📞 Información Importante · Contactos</div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap">
+        
+        <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:18px;flex:1;min-width:260px">
+          <div style="font-size:12px;font-weight:700;color:#1A1A1A;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px">🚦 Guardias Operativas</div>
+          
+            <a href="https://wa.me/5491150011738" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:#F9F8F6;text-decoration:none;margin-bottom:6px;transition:background 0.15s"
+              onmouseenter="this.style.background='#E8F5E9'" onmouseleave="this.style.background='#F9F8F6'">
+              <div>
+                <div style="font-size:13px;font-weight:600;color:#1A1A1A">Guardia Tráfico</div>
+                <div style="font-size:11px;color:#9E9A93;margin-top:2px">+54 9 11 5001-1738</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;background:#25D366;color:white;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                WhatsApp
+              </div>
+            </a>
+            <a href="https://wa.me/5491169917018" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:#F9F8F6;text-decoration:none;margin-bottom:6px;transition:background 0.15s"
+              onmouseenter="this.style.background='#E8F5E9'" onmouseleave="this.style.background='#F9F8F6'">
+              <div>
+                <div style="font-size:13px;font-weight:600;color:#1A1A1A">Guardia DMC & Aliwen</div>
+                <div style="font-size:11px;color:#9E9A93;margin-top:2px">+54 9 11 6991-7018</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;background:#25D366;color:white;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                WhatsApp
+              </div>
+            </a>
+            <a href="https://wa.me/5491157209905" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:#F9F8F6;text-decoration:none;margin-bottom:6px;transition:background 0.15s"
+              onmouseenter="this.style.background='#E8F5E9'" onmouseleave="this.style.background='#F9F8F6'">
+              <div>
+                <div style="font-size:13px;font-weight:600;color:#1A1A1A">Guardia WEB</div>
+                <div style="font-size:11px;color:#9E9A93;margin-top:2px">+54 9 11 5720-9905</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;background:#25D366;color:white;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                WhatsApp
+              </div>
+            </a>
+            <a href="https://wa.me/5491137704335" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:#F9F8F6;text-decoration:none;margin-bottom:6px;transition:background 0.15s"
+              onmouseenter="this.style.background='#E8F5E9'" onmouseleave="this.style.background='#F9F8F6'">
+              <div>
+                <div style="font-size:13px;font-weight:600;color:#1A1A1A">Guardia GRUPOS</div>
+                <div style="font-size:11px;color:#9E9A93;margin-top:2px">+54 9 11 3770-4335</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;background:#25D366;color:white;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                WhatsApp
+              </div>
+            </a>
+        </div>
+        <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:18px;flex:1;min-width:260px">
+          <div style="font-size:12px;font-weight:700;color:#1A1A1A;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px">🚐 Transportistas</div>
+          
+            <a href="https://wa.me/5491159490412" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:#F9F8F6;text-decoration:none;margin-bottom:6px;transition:background 0.15s"
+              onmouseenter="this.style.background='#E8F5E9'" onmouseleave="this.style.background='#F9F8F6'">
+              <div>
+                <div style="font-size:13px;font-weight:600;color:#1A1A1A">Toscana Transfers</div>
+                <div style="font-size:11px;color:#9E9A93;margin-top:2px">+54 9 11 5949-0412</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;background:#25D366;color:white;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                WhatsApp
+              </div>
+            </a>
+            <a href="https://wa.me/5491162656000" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:#F9F8F6;text-decoration:none;margin-bottom:6px;transition:background 0.15s"
+              onmouseenter="this.style.background='#E8F5E9'" onmouseleave="this.style.background='#F9F8F6'">
+              <div>
+                <div style="font-size:13px;font-weight:600;color:#1A1A1A">Knar Transfers</div>
+                <div style="font-size:11px;color:#9E9A93;margin-top:2px">+54 9 11 6265-6000</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;background:#25D366;color:white;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                WhatsApp
+              </div>
+            </a>
+            <a href="https://wa.me/5491168043333" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:#F9F8F6;text-decoration:none;margin-bottom:6px;transition:background 0.15s"
+              onmouseenter="this.style.background='#E8F5E9'" onmouseleave="this.style.background='#F9F8F6'">
+              <div>
+                <div style="font-size:13px;font-weight:600;color:#1A1A1A">Universal Mobility (Lucas)</div>
+                <div style="font-size:11px;color:#9E9A93;margin-top:2px">+54 9 11 6804-3333</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;background:#25D366;color:white;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                WhatsApp
+              </div>
+            </a>
+            <a href="https://wa.me/5491161884144" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:#F9F8F6;text-decoration:none;margin-bottom:6px;transition:background 0.15s"
+              onmouseenter="this.style.background='#E8F5E9'" onmouseleave="this.style.background='#F9F8F6'">
+              <div>
+                <div style="font-size:13px;font-weight:600;color:#1A1A1A">TTP Transfers</div>
+                <div style="font-size:11px;color:#9E9A93;margin-top:2px">+54 9 11 6188-4144</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;background:#25D366;color:white;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                WhatsApp
+              </div>
+            </a>
+        </div>
+      </div>
+    </div>
+    ` : ''}
   </div>`;
 }
 
@@ -1858,15 +1971,36 @@ function buildWPAgendaModal(guiaId){
 }
 
 function buildGuias(){
+  const searchG = (S.searchGuia||'').toLowerCase().trim();
+  const guiasFiltrados = [...S.guias]
+    .filter(g => !searchG ||
+      (g.nombre+' '+g.apellido).toLowerCase().includes(searchG) ||
+      (g.email||'').toLowerCase().includes(searchG) ||
+      (g.categoria||'').toLowerCase().includes(searchG) ||
+      (g.idiomas||[]).join(' ').toLowerCase().includes(searchG)
+    )
+    .sort((a,b)=>a.nombre.localeCompare(b.nombre));
+
   return `
   <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <div style="position:relative;flex:1;min-width:200px;max-width:360px">
+        <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none">🔍</span>
+        <input id="search-guia" type="text" value="${esc(S.searchGuia||'')}" placeholder="Buscar por nombre, email, idioma..." style="padding:8px 12px 8px 32px;border:1.5px solid #E8E4DD;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;width:100%;color:#1A1A1A;background:white"/>
+      </div>
+      ${(S.searchGuia||'')?`<button id="clear-search-guia" style="padding:8px 14px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;font-size:12px;color:#9E9A93;cursor:pointer;font-family:'DM Sans',sans-serif">✕ Limpiar</button>`:''}
+      <div style="margin-left:auto;font-size:12px;color:#9E9A93">${guiasFiltrados.length} guía(s)</div>
+    </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
-      ${[...S.guias].sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(g=>{
+      ${guiasFiltrados.map(g=>{
         const eventosGuia=S.eventos.filter(e=>e.guia_id===g.id&&e.estado==='CONFIRMADO').length;
         return `
         <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:20px;border-left:4px solid ${g.estado==='ACTIVO'?T.tealMid:'#ccc'}">
           <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">
-            <div style="width:42px;height:42px;border-radius:50%;background:${g.estado==='ACTIVO'?T.teal+'20':'#eee'};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:${g.estado==='ACTIVO'?T.teal:'#999'};flex-shrink:0">${esc(g.nombre[0])}</div>
+            ${g.foto_url
+              ? `<img src="${esc(g.foto_url)}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid ${g.estado==='ACTIVO'?T.teal+'40':'#eee'}"/>`
+              : `<div style="width:42px;height:42px;border-radius:50%;background:${g.estado==='ACTIVO'?T.teal+'20':'#eee'};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:${g.estado==='ACTIVO'?T.teal:'#999'};flex-shrink:0">${esc(g.nombre[0])}</div>`
+            }
             <div style="flex:1">
               <div style="font-size:14px;font-weight:700;color:${T.dark}">${esc(g.nombre)} ${esc(g.apellido)}</div>
               <div style="display:flex;gap:6px;margin-top:4px">
@@ -1888,6 +2022,7 @@ function buildGuias(){
           </div>
         </div>`;
       }).join('')}
+      ${guiasFiltrados.length===0?`<div style="grid-column:1/-1;text-align:center;padding:40px;color:#9E9A93"><div style="font-size:32px;margin-bottom:12px">🔍</div><div style="font-size:14px">Sin resultados para "${esc(S.searchGuia||'')}"</div></div>`:''}
     </div>
   </div>`;
 }
@@ -1993,7 +2128,7 @@ function buildViajes(){
           <div style="flex:1">
             <div style="font-size:18px;font-weight:700;font-family:'Playfair Display',serif;margin-bottom:4px">📁 File ${esc(file.nro_file)}</div>
             <div style="font-size:13px;opacity:0.9">${fechaInStr} → ${fechaOutStr}</div>
-            ${file.operador_nombre||file.dh_gr_nombre?`<div style="font-size:12px;opacity:0.8;margin-top:4px">${file.operador_nombre?'Operador: '+esc(file.operador_nombre):''}${file.operador_nombre&&file.dh_gr_nombre?' · ':''}${file.dh_gr_nombre?'DH/GR: '+esc(file.dh_gr_nombre):''}</div>`:''}
+            ${file.operador_nombre||file.dh_gr_nombre||file.pasajero_principal?`<div style="font-size:12px;opacity:0.8;margin-top:4px">${file.operador_nombre?'Operador: '+esc(file.operador_nombre):''}${file.operador_nombre&&file.dh_gr_nombre?' · ':''}${file.dh_gr_nombre?'DH/GR: '+esc(file.dh_gr_nombre):''}${file.pasajero_principal?' · 👤 '+esc(file.pasajero_principal):''}</div>`:''}
           </div>
           <div style="display:flex;gap:8px;align-items:center">
             <div style="background:rgba(255,255,255,0.2);padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700">${eventos.length} evento${eventos.length!==1?'s':''}</div>
@@ -2338,9 +2473,14 @@ function buildCalendario(){
           const dateStr=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
           const dayEvents=S.eventos.filter(e=>e.fecha===dateStr && eventosFilter(e));
           const isToday=new Date(year,month,d).toDateString()===today;
+          const nota = isAdm ? (S.calNotas[dateStr]||'') : '';
           return `
-          <div style="min-height:72px;border-radius:8px;padding:6px;background:${isToday?T.teal+'15':'#F9F8F6'};border:1.5px solid ${isToday?T.teal:'transparent'}">
-            <div style="font-size:12px;font-weight:${isToday?700:500};color:${isToday?T.teal:T.dark};margin-bottom:4px">${d}</div>
+          <div style="min-height:72px;border-radius:8px;padding:6px;background:${isToday?T.teal+'15':nota?'#FFF9E6':'#F9F8F6'};border:1.5px solid ${isToday?T.teal:nota?'#E9C46A':'transparent'}" ${isAdm?`data-nota-date="${dateStr}" title="${nota?nota:'Clic para agregar nota'}"`:''}>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+              <div style="font-size:12px;font-weight:${isToday?700:500};color:${isToday?T.teal:T.dark}">${d}</div>
+              ${isAdm?`<button data-add-nota="${dateStr}" style="opacity:0;font-size:10px;background:none;border:none;cursor:pointer;color:#9E9A93;padding:0 2px;line-height:1" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0'">✏️</button>`:''}
+            </div>
+            ${nota?`<div style="font-size:9px;color:#856404;background:#FFF3CD;border-radius:3px;padding:2px 4px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%" title="${esc(nota)}">${esc(nota)}</div>`:``}
             ${dayEvents.slice(0,3).map(e=>{
               const color=e.estado==='CONFIRMADO'?T.green:e.prioridad==='URGENTE'?T.red:T.amber;
               const guia=S.guias.find(g=>g.id===e.guia_id);
@@ -3513,6 +3653,23 @@ function buildGuiaModal(entry={}){
         <button id="btn-close-modal" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;color:white;font-size:20px;width:36px;height:36px;cursor:pointer">×</button>
       </div>
       <div style="padding:28px;display:flex;flex-direction:column;gap:18px">
+        <!-- Avatar upload -->
+        <div style="display:flex;align-items:center;gap:16px;padding:16px;background:#F9F8F6;border-radius:10px;border:1.5px solid #E8E4DD">
+          <div id="guia-avatar-preview" style="width:64px;height:64px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2px solid #E8E4DD;background:${T.teal}20;display:flex;align-items:center;justify-content:center">
+            ${entry.foto_url
+              ? `<img src="${esc(entry.foto_url)}" style="width:100%;height:100%;object-fit:cover"/>`
+              : `<span style="font-size:24px;font-weight:700;color:${T.teal}">${entry.nombre?esc(entry.nombre[0]):'?'}</span>`
+            }
+          </div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:#1A1A1A;margin-bottom:4px">Foto del guía</div>
+            <div style="font-size:11px;color:#9E9A93;margin-bottom:8px">JPG o PNG, máx 2MB. Aparece en el perfil y en el sistema.</div>
+            <label id="btn-pick-guia-foto" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:7px;border:1.5px solid #E8E4DD;background:white;font-size:12px;font-weight:600;cursor:pointer;color:#555;font-family:'DM Sans',sans-serif">
+              📷 ${entry.foto_url ? 'Cambiar foto' : 'Subir foto'}
+              <input id="guia-foto-input" type="file" accept="image/jpeg,image/png,image/webp" style="display:none"/>
+            </label>
+          </div>
+        </div>
         ${sec('👤','Datos personales')}
         ${g2(`${fld('Nombre',inp('nombre','nombre','Carlos'),true)} ${fld('Apellido',inp('apellido','apellido','Fernández'),true)}`)}
         ${fld('Email',inp('email','email','carlos@email.com','email'),true)}
@@ -3567,6 +3724,7 @@ function buildEventoModal(entry={}){
           ${fld('¿Aplica transportista?',`<select id="e-aplica-transportista" style="${iStyle}cursor:pointer"><option value="no" ${!entry.transportista_id?'selected':''}>No aplica</option><option value="si" ${entry.transportista_id?'selected':''}>Sí aplica</option></select>`)}
           <div id="e-transportista-select" style="display:${entry.transportista_id?'block':'none'}">
             ${fld('Transportista',`<select id="e-transportista-id" style="${iStyle}cursor:pointer"><option value="">— Seleccionar —</option>${S.transportistas.map(t=>`<option value="${t.id}" ${entry.transportista_id===t.id?'selected':''}>` + esc(t.nombre) + `</option>`).join('')}</select>`)}
+            ${fld('Tipo de vehículo',`<select id="e-tipo-vehiculo" style="${iStyle}cursor:pointer"><option value="">— Tipo de vehículo —</option><option value="Auto Tradicional">${entry.tipo_vehiculo==="Auto Tradicional"?'selected':''}>Auto Tradicional</option><option value="Auto Ejecutivo">${entry.tipo_vehiculo==="Auto Ejecutivo"?'selected':''}>Auto Ejecutivo</option><option value="H1">${entry.tipo_vehiculo==="H1"?'selected':''}>H1</option><option value="Van">${entry.tipo_vehiculo==="Van"?'selected':''}>Van</option><option value="Mini Bus">${entry.tipo_vehiculo==="Mini Bus"?'selected':''}>Mini Bus</option><option value="Bus">${entry.tipo_vehiculo==="Bus"?'selected':''}>Bus</option></select>`)}
           </div>
         </div>
         <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:4px">
@@ -4150,7 +4308,25 @@ function attachEvents(){
         render();
       });
     });
-    // GCal disconnect
+    // Guia foto upload
+  document.getElementById('guia-foto-input')?.addEventListener('change', async(e)=>{
+    const file = e.target.files?.[0]; if(!file) return;
+    if(file.size > 2*1024*1024){ toast('La foto no puede superar 2MB', T.red); return; }
+    const reader = new FileReader();
+    reader.onload = ev=>{
+      const dataUrl = ev.target.result;
+      const preview = document.getElementById('guia-avatar-preview');
+      if(preview) preview.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover"/>`;
+      // Store temporarily in a hidden input for save
+      let hidden = document.getElementById('guia-foto-data');
+      if(!hidden){ hidden=document.createElement('input'); hidden.type='hidden'; hidden.id='guia-foto-data'; document.body.appendChild(hidden); }
+      hidden.value = dataUrl;
+      const btn = document.getElementById('btn-pick-guia-foto');
+      if(btn){ const lbl=btn.querySelector('span')||btn; if(btn.tagName==='LABEL') btn.childNodes[0].textContent='📷 Cambiar foto '; }
+    };
+    reader.readAsDataURL(file);
+  });
+  // GCal disconnect
   document.getElementById('btn-gcal-disconnect')?.addEventListener('click', async()=>{
     if(!confirm('¿Desconectar Google Calendar? Tus eventos no se sincronizarán más.')) return;
     await db.from('guias').update({google_refresh_token:null, google_calendar_event_ids:null}).eq('id',S.myGuia.id);
@@ -4520,6 +4696,8 @@ function attachEvents(){
   // buscador viajes
   document.getElementById('search-viaje')?.addEventListener('input',e=>set({searchViaje:e.target.value}));
   document.getElementById('clear-search-viaje')?.addEventListener('click',()=>set({searchViaje:''}));
+  document.getElementById('search-guia')?.addEventListener('input',e=>set({searchGuia:e.target.value}));
+  document.getElementById('clear-search-guia')?.addEventListener('click',()=>set({searchGuia:''}));
 
   // calendario nav
   document.getElementById('cal-prev')?.addEventListener('click',()=>{
@@ -4534,6 +4712,20 @@ function attachEvents(){
       d.setDate(d.getDate()+7); set({calWeekStart:d});
     } else { const d=new Date(S.calMonth); d.setMonth(d.getMonth()+1); set({calMonth:d}); }
   });
+  // notas de calendario (admin)
+  document.querySelectorAll('[data-add-nota]').forEach(btn=>btn.addEventListener('click', async(e)=>{
+    e.stopPropagation();
+    const dateStr = btn.dataset.addNota;
+    const fechaLabel = new Date(dateStr+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long'});
+    const notaActual = S.calNotas[dateStr]||'';
+    const nueva = prompt(`Nota para ${fechaLabel}:\n(vacío para borrar)`, notaActual);
+    if(nueva===null) return; // canceló
+    const notas = {...S.calNotas};
+    if(nueva.trim()) notas[dateStr]=nueva.trim();
+    else delete notas[dateStr];
+    await db.from('config').upsert({key:'cal_notas', value:JSON.stringify(notas)},{onConflict:'key'});
+    set({calNotas:notas});
+  }));
   // toggle vista
   document.getElementById('cal-view-mensual')?.addEventListener('click',()=>set({calView:'mensual'}));
   document.getElementById('cal-view-agenda')?.addEventListener('click',()=>set({calView:'agenda'}));
@@ -4668,6 +4860,7 @@ function attachEvents(){
     const fecha_out = document.getElementById('v-fecha-out')?.value;
     const operador_nombre = document.getElementById('v-operador')?.value.trim();
     const dh_gr_nombre = document.getElementById('v-dh-gr')?.value.trim();
+    const pasajero_principal = document.getElementById('v-pasajero')?.value?.trim()||null;
 
     if(!nro_file || !fecha_in || !fecha_out){
       toast('Completá Nro File y fechas IN/OUT', T.red);
@@ -4682,7 +4875,7 @@ function attachEvents(){
     if(viajeId){
       // Edit
       const {error} = await db.from('files').update({
-        nro_file, fecha_in, fecha_out, operador_nombre, dh_gr_nombre, updated_at: new Date().toISOString()
+        nro_file, fecha_in, fecha_out, operador_nombre, dh_gr_nombre, pasajero_principal, updated_at: new Date().toISOString()
       }).eq('id',viajeId);
       if(error){
         if(error.code === '23505') toast('Ya existe un viaje con ese Nro File', T.red);
@@ -4692,7 +4885,7 @@ function attachEvents(){
       toast('✅ Viaje actualizado');
     } else {
       // Create
-      const {error} = await db.from('files').insert({nro_file, fecha_in, fecha_out, operador_nombre, dh_gr_nombre});
+      const {error} = await db.from('files').insert({nro_file, fecha_in, fecha_out, operador_nombre, dh_gr_nombre, pasajero_principal});
       if(error){
         if(error.code === '23505') toast('Ya existe un viaje con ese Nro File', T.red);
         else toast('Error: ' + error.message, T.red);
@@ -4867,6 +5060,9 @@ function attachEvents(){
     };
     if(!data.nombre||!data.apellido||!data.email){toast('Nombre, apellido y email son obligatorios',T.red);return;}
     if(id) data.id=parseInt(id);
+    // Include foto if uploaded
+    const fotoData = document.getElementById('guia-foto-data')?.value;
+    if(fotoData) data.foto_url = fotoData;
     const ok=await saveGuia(data);
     if(ok){set({modal:null});toast(id?'✅ Guía actualizado':'✅ Guía creado');}
   });
@@ -4896,6 +5092,7 @@ function attachEvents(){
       dropoff_location:document.getElementById('e-dropoff_location')?.value?.trim()||null,
       datos_vuelos:document.getElementById('e-datos_vuelos')?.value?.trim()||null,
       transportista_id: document.getElementById('e-aplica-transportista')?.value==='si' ? (parseInt(document.getElementById('e-transportista-id')?.value)||null) : null,
+      tipo_vehiculo: document.getElementById('e-aplica-transportista')?.value==='si' ? (document.getElementById('e-tipo-vehiculo')?.value||null) : null,
       estado: id ? undefined : 'A_ASIGNAR',
     };
     if(!data.tipo_evento||!data.fecha||!data.hora_inicio){toast('Tipo, fecha y hora inicio son obligatorios',T.red);btn.disabled=false;btn.textContent=id?'💾 Guardar':'✅ Crear evento';return;}
