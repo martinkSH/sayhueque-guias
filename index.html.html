@@ -211,6 +211,7 @@ let S = {
   toast:null,
   calMonth: new Date(),
   calView: 'mensual',     // 'mensual' | 'agenda'
+  searchViaje: '',
   calWeekStart: null,     // Date — lunes de la semana actual en agenda
   calFiltroGuia: '',      // id de guía para filtrar (admin)
   calFiltroFile: '',      // nro_file para filtrar (admin)
@@ -1721,20 +1722,61 @@ function renderEventosTable(){
 }
 
 function buildViajes(){
-  if(!S.files?.length){
+  const searchViaje = (S.searchViaje||'').toLowerCase().trim();
+
+  // Para guías: solo files donde tienen al menos un evento asignado
+  let filesVisibles = S.files || [];
+  if(!isAdmin() && S.myGuia){
+    const myGuiaId = S.myGuia.id;
+    // IDs de files que tienen eventos asignados a este guía
+    const myFileIds = new Set(
+      S.eventos
+        .filter(e => e.guia_id === myGuiaId && e.estado !== 'CANCELADO')
+        .map(e => e.file_id)
+        .filter(Boolean)
+    );
+    filesVisibles = filesVisibles.filter(f => myFileIds.has(f.id));
+  }
+
+  // Filtro por búsqueda
+  if(searchViaje){
+    filesVisibles = filesVisibles.filter(f =>
+      (f.nro_file||'').toLowerCase().includes(searchViaje) ||
+      (f.operador_nombre||'').toLowerCase().includes(searchViaje) ||
+      (f.dh_gr_nombre||'').toLowerCase().includes(searchViaje)
+    );
+  }
+
+  const sortedFiles = [...filesVisibles].sort((a,b)=> new Date(a.fecha_in) - new Date(b.fecha_in));
+
+  if(!sortedFiles.length && !searchViaje){
     return `
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:400px;color:#9E9A93">
-        <div style="font-size:48px;margin-bottom:16px">📁</div>
-        <div style="font-size:16px;font-weight:600;margin-bottom:8px">No hay viajes creados</div>
-        <div style="font-size:13px;margin-bottom:20px">Creá tu primer viaje para empezar</div>
-        ${isAdmin()?`<button onclick="modalCrearViaje()" style="padding:10px 20px;border-radius:8px;border:none;background:linear-gradient(135deg,#1B6B74,#2A9D8F);color:white;font-size:14px;font-weight:600;cursor:pointer">+ Crear Viaje</button>`:''}
+      <div style="padding:24px">
+        ${buildViajesBuscador()}
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:340px;color:#9E9A93">
+          <div style="font-size:48px;margin-bottom:16px">📁</div>
+          <div style="font-size:16px;font-weight:600;margin-bottom:8px">${isAdmin()?'No hay viajes creados':'No tenés viajes asignados'}</div>
+          <div style="font-size:13px;margin-bottom:20px">${isAdmin()?'Creá tu primer viaje para empezar':'Cuando te asignen a un evento aparecerá acá'}</div>
+          ${isAdmin()?`<button onclick="modalCrearViaje()" style="padding:10px 20px;border-radius:8px;border:none;background:linear-gradient(135deg,#1B6B74,#2A9D8F);color:white;font-size:14px;font-weight:600;cursor:pointer">+ Crear Viaje</button>`:''}
+        </div>
       </div>`;
   }
 
-  const sortedFiles = [...S.files].sort((a,b)=> new Date(a.fecha_in) - new Date(b.fecha_in));
+  if(!sortedFiles.length && searchViaje){
+    return `
+      <div style="padding:24px">
+        ${buildViajesBuscador()}
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:340px;color:#9E9A93">
+          <div style="font-size:32px;margin-bottom:12px">🔍</div>
+          <div style="font-size:15px;font-weight:600">Sin resultados para "${esc(S.searchViaje||'')}"</div>
+          <button onclick="set({searchViaje:''})" style="margin-top:14px;padding:8px 18px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;font-size:13px;cursor:pointer;color:#555">Limpiar búsqueda</button>
+        </div>
+      </div>`;
+  }
 
-  return sortedFiles.map(file=>{
-    const eventos = S.eventos.filter(e=>e.file_id===file.id);
+  return `<div style="padding:24px;display:flex;flex-direction:column;gap:0">${buildViajesBuscador()}${sortedFiles.map(file=>{
+    const myGuiaId = !isAdmin() && S.myGuia ? S.myGuia.id : null;
+    const eventos = S.eventos.filter(e=>e.file_id===file.id && (isAdmin() || e.guia_id===myGuiaId));
     const isExpanded = S.expandedFileId === file.id;
     
     const fechaInStr = new Date(file.fecha_in+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'});
@@ -1844,7 +1886,18 @@ function buildViajes(){
         `:''}
       </div>
     `;
-  }).join('');
+  }).join('')}</div>`;
+}
+
+function buildViajesBuscador(){
+  return `
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+      <div style="position:relative;flex:1;min-width:200px;max-width:360px">
+        <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none">🔍</span>
+        <input id="search-viaje" type="text" value="${esc(S.searchViaje||'')}" placeholder="Buscar por file, operador, DH/GR..." style="padding:8px 12px 8px 32px;border:1.5px solid #E8E4DD;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;width:100%;color:#1A1A1A;background:white"/>
+      </div>
+      ${(S.searchViaje||'')?`<button id="clear-search-viaje" style="padding:8px 14px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;font-size:12px;color:#9E9A93;cursor:pointer;font-family:'DM Sans',sans-serif">✕ Limpiar</button>`:''}
+    </div>`;
 }
 
 function buildEventos(){
@@ -2079,6 +2132,13 @@ function buildCalendario(){
         }).join('')}
       </div>
     </div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding:12px 16px;background:white;border:1.5px solid #E8E4DD;border-radius:10px;align-items:center">
+      <span style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.5px;margin-right:4px">Referencias:</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#555"><span style="width:12px;height:12px;border-radius:3px;background:#52B788;display:inline-block"></span>Confirmado</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#555"><span style="width:12px;height:12px;border-radius:3px;background:#E9C46A;display:inline-block"></span>A asignar / Regular</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#555"><span style="width:12px;height:12px;border-radius:3px;background:#E63946;display:inline-block"></span>Urgente</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#555"><span style="width:12px;height:12px;border-radius:3px;background:#FFF3E0;border:1.5px solid #E76F51;display:inline-block"></span>Reconfirmación pendiente</span>
+    </div>
   </div>`;
 }
 
@@ -2203,6 +2263,13 @@ function buildCalendarioAgenda(toolbar, eventosFilter){
           </div>
         </div>
       </div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding:12px 16px;background:white;border:1.5px solid #E8E4DD;border-radius:10px;align-items:center">
+      <span style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.5px;margin-right:4px">Referencias:</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#555"><span style="width:12px;height:12px;border-radius:3px;background:#52B788;display:inline-block"></span>Confirmado</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#555"><span style="width:12px;height:12px;border-radius:3px;background:#E9C46A;display:inline-block"></span>A asignar / Regular</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#555"><span style="width:12px;height:12px;border-radius:3px;background:#E63946;display:inline-block"></span>Urgente</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#555"><span style="width:12px;height:12px;border-radius:3px;background:#FFF3E0;border:1.5px solid #E76F51;display:inline-block"></span>Reconfirmación pendiente</span>
     </div>
   </div>`;
 }
@@ -4078,6 +4145,10 @@ function attachEvents(){
     dispoSeleccion = new Set();
     render();
   });
+
+  // buscador viajes
+  document.getElementById('search-viaje')?.addEventListener('input',e=>set({searchViaje:e.target.value}));
+  document.getElementById('clear-search-viaje')?.addEventListener('click',()=>set({searchViaje:''}));
 
   // calendario nav
   document.getElementById('cal-prev')?.addEventListener('click',()=>{
