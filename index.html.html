@@ -417,6 +417,31 @@ async function loadAll(){
   }
 }
 
+function buildGCalOAuthUrl(guiaId){
+  const params = new URLSearchParams({
+    client_id:     '222183577921-bhnsc85tl25rb7d779mi0anqk28j2ngf.apps.googleusercontent.com',
+    redirect_uri:  'https://sayhueque-guias.vercel.app/api/google-callback',
+    response_type: 'code',
+    scope:         'https://www.googleapis.com/auth/calendar.events',
+    access_type:   'offline',
+    prompt:        'consent',
+    state:         String(guiaId),
+  });
+  return 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+}
+
+async function syncGoogleCalendar(action, eventoId, guiaId){
+  // Fire and forget — don't block the UI
+  try {
+    await fetch('/api/google-calendar', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action, eventoId, guiaId})
+    });
+  } catch(e){ console.warn('GCal sync error:', e); }
+}
+
+
 async function sendCambioEmail(guia, evento, cambios){
   const fechaEvento = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const horario = evento.hora_inicio + (evento.hora_fin ? ' - '+evento.hora_fin : '');
@@ -550,6 +575,8 @@ async function saveEvento(data){
           sendCambioEmail(guia, data, cambiosList.join('<br/>'));
           toast('✉️ Guía notificado del cambio', T.tealMid);
         }
+        // Update Google Calendar event if guide has connected it
+        syncGoogleCalendar('update', data.id, original.guia_id);
       }
     }
   } else {
@@ -620,6 +647,8 @@ async function responderInvitacion(token, accion){
     await db.from('historial').insert({evento_id:inv.evento_id,guia_id:inv.guia_id,invitacion_id:inv.id,accion:'ACEPTADA',actor:'GUIA'});
     // fetch evento to return for Google Calendar
     const {data:eventoData} = await db.from('eventos').select('*').eq('id',inv.evento_id).single();
+    // Sync to Google Calendar if guide has connected it
+    syncGoogleCalendar('create', inv.evento_id, inv.guia_id);
     // Notify admin with acceptance PDF (fire and forget — don't block the response)
     fetch('/api/send-acceptance-pdf', {
       method: 'POST',
@@ -931,6 +960,9 @@ async function cancelarEvento(eventoId){
   }
 
   // cancel event
+  // Remove from Google Calendar before clearing guia_id
+  const evToCancel = S.eventos.find(e=>e.id===eventoId);
+  if(evToCancel?.guia_id) syncGoogleCalendar('delete', eventoId, evToCancel.guia_id);
   await db.from('eventos').update({estado:'CANCELADO', guia_id:null}).eq('id',eventoId);
 
   // cancel all pending invitations
@@ -2474,9 +2506,21 @@ function buildDisponibilidad(){
   <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
     <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:20px">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap">
-        <div>
+        <div style="flex:1">
           <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:#1A1A1A">Mi disponibilidad</div>
           <div style="font-size:13px;color:#9E9A93;margin-top:4px">Toca uno o varios dias para bloquearlos. Confirma al final.</div>
+          <div style="margin-top:12px">
+            ${S.myGuia?.google_refresh_token
+              ? `<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:#E8F5E9;border:1.5px solid #A5D6A7;font-size:12px;font-weight:600;color:#2E7D32">
+                  <span style="font-size:14px">✅</span> Google Calendar conectado
+                  <button id="btn-gcal-disconnect" style="margin-left:6px;background:none;border:none;color:#E63946;font-size:11px;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif">Desconectar</button>
+                </div>`
+              : `<a href="${buildGCalOAuthUrl(S.myGuia?.id)}" style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:8px;background:#4285F4;color:white;text-decoration:none;font-size:12px;font-weight:700;font-family:'DM Sans',sans-serif;box-shadow:0 2px 6px rgba(66,133,244,0.3)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4s1.79-4 4-4h.71C7.37 7.69 9.48 6 12 6c3.04 0 5.5 2.46 5.5 5.5v.5H19c1.66 0 3 1.34 3 3s-1.34 3-3 3z"/></svg>
+                  Conectar Google Calendar
+                </a>`
+            }
+          </div>
         </div>
         ${haySeleccion ? `
         <div style="display:flex;gap:8px;align-items:center">
@@ -4104,7 +4148,14 @@ function attachEvents(){
         render();
       });
     });
-    document.getElementById('btn-confirmar-bloqueos')?.addEventListener('click',async()=>{
+    // GCal disconnect
+  document.getElementById('btn-gcal-disconnect')?.addEventListener('click', async()=>{
+    if(!confirm('¿Desconectar Google Calendar? Tus eventos no se sincronizarán más.')) return;
+    await db.from('guias').update({google_refresh_token:null, google_calendar_event_ids:null}).eq('id',S.myGuia.id);
+    await loadAll();
+    toast('Google Calendar desconectado', T.amber);
+  });
+  document.getElementById('btn-confirmar-bloqueos')?.addEventListener('click',async()=>{
       if(!dispoSeleccion.size) return;
       const motivo=prompt('Motivo opcional (ej: vacaciones):')||'';
       const rows=[...dispoSeleccion].map(fecha=>({guia_id:S.myGuia.id,fecha,motivo:motivo||null}));
@@ -5272,6 +5323,15 @@ async function init(){
   // y después de render() la URL ya está limpia — params.get(token) sería null.
   const initParams=new URLSearchParams(window.location.search);
   render();
+  // Handle Google Calendar OAuth callback result
+  if(initParams.get('gcal')==='success'){
+    window.history.replaceState({}, '', APP_URL);
+    // Show success toast after loadAll when user data is ready
+  }
+  if(initParams.get('gcal')==='error'){
+    window.history.replaceState({}, '', APP_URL);
+    setTimeout(()=>toast('❌ Error al conectar Google Calendar. Intentá de nuevo.', T.red), 500);
+  }
   const calToken=initParams.get('confirmar_calendario');
   if(calToken){
     set({loading:false});
@@ -5286,6 +5346,10 @@ async function init(){
     set({user:session.user,loading:false});
     await loadRole();
     await loadAll();
+    // Google Calendar connected successfully
+    if(initParams.get('gcal')==='success'){
+      setTimeout(()=>toast('✅ ¡Google Calendar conectado! Tus eventos se sincronizarán automáticamente.', T.tealMid), 100);
+    }
     // Deep link: ?evento=ID — navegar al evento después de que cargó todo
     const eventoDeepLink = initParams.get('evento');
     if(eventoDeepLink){
