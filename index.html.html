@@ -2281,6 +2281,20 @@ function buildCalendario(){
         <button id="cal-view-mensual" style="padding:7px 18px;border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;background:${S.calView==='mensual'?'#1B6B74':'white'};color:${S.calView==='mensual'?'white':'#9E9A93'}">📅 Mensual</button>
         <button id="cal-view-agenda" style="padding:7px 18px;border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;background:${S.calView==='agenda'?'#1B6B74':'white'};color:${S.calView==='agenda'?'white':'#9E9A93'}">📋 Agenda</button>
       </div>
+      ${!isAdm && S.myGuia ? `
+        <div style="margin-left:auto">
+          ${S.myGuia.google_refresh_token
+            ? `<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:#E8F5E9;border:1.5px solid #A5D6A7;font-size:12px;font-weight:600;color:#2E7D32">
+                ✅ Google Calendar conectado
+                <button id="btn-gcal-disconnect" style="margin-left:4px;background:none;border:none;color:#E63946;font-size:11px;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif">Desconectar</button>
+              </div>`
+            : `<a href="${buildGCalOAuthUrl(S.myGuia.id)}" style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:8px;background:#4285F4;color:white;text-decoration:none;font-size:12px;font-weight:700;font-family:'DM Sans',sans-serif;box-shadow:0 2px 6px rgba(66,133,244,0.3)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4s1.79-4 4-4h.71C7.37 7.69 9.48 6 12 6c3.04 0 5.5 2.46 5.5 5.5v.5H19c1.66 0 3 1.34 3 3s-1.34 3-3 3z"/></svg>
+                Conectar Google Calendar
+              </a>`
+          }
+        </div>
+      ` : ''}
       ${isAdm ? `
         <select id="cal-filtro-guia" style="padding:7px 12px;border:1.5px solid #E8E4DD;border-radius:8px;font-size:13px;color:#1A1A1A;background:white;font-family:'DM Sans',sans-serif;cursor:pointer">
           <option value="">👤 Todos los guías</option>
@@ -2506,21 +2520,9 @@ function buildDisponibilidad(){
   <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
     <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:20px">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap">
-        <div style="flex:1">
+        <div>
           <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:#1A1A1A">Mi disponibilidad</div>
           <div style="font-size:13px;color:#9E9A93;margin-top:4px">Toca uno o varios dias para bloquearlos. Confirma al final.</div>
-          <div style="margin-top:12px">
-            ${S.myGuia?.google_refresh_token
-              ? `<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:#E8F5E9;border:1.5px solid #A5D6A7;font-size:12px;font-weight:600;color:#2E7D32">
-                  <span style="font-size:14px">✅</span> Google Calendar conectado
-                  <button id="btn-gcal-disconnect" style="margin-left:6px;background:none;border:none;color:#E63946;font-size:11px;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif">Desconectar</button>
-                </div>`
-              : `<a href="${buildGCalOAuthUrl(S.myGuia?.id)}" style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:8px;background:#4285F4;color:white;text-decoration:none;font-size:12px;font-weight:700;font-family:'DM Sans',sans-serif;box-shadow:0 2px 6px rgba(66,133,244,0.3)">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4s1.79-4 4-4h.71C7.37 7.69 9.48 6 12 6c3.04 0 5.5 2.46 5.5 5.5v.5H19c1.66 0 3 1.34 3 3s-1.34 3-3 3z"/></svg>
-                  Conectar Google Calendar
-                </a>`
-            }
-          </div>
         </div>
         ${haySeleccion ? `
         <div style="display:flex;gap:8px;align-items:center">
