@@ -1188,23 +1188,43 @@ async function eliminarViaje(fileId){
   if(!file) return;
   
   const eventosEnViaje = S.eventos.filter(e=>e.file_id===fileId);
-  
-  if(eventosEnViaje.length > 0){
-    if(!confirm(`Este viaje tiene ${eventosEnViaje.length} evento(s). ¿Eliminar el viaje y todos sus eventos?`)) return;
-  } else {
-    if(!confirm(`¿Eliminar el viaje ${file.nro_file}?`)) return;
+  const eventosConfirmados = eventosEnViaje.filter(e=>e.estado==='CONFIRMADO' && e.guia_id);
+
+  const confirmMsg = eventosEnViaje.length > 0
+    ? `Este viaje tiene ${eventosEnViaje.length} evento(s)${eventosConfirmados.length?' ('+eventosConfirmados.length+' con guía asignado)':''}. ¿Eliminar el viaje y notificar a los guías?`
+    : `¿Eliminar el viaje ${file.nro_file}?`;
+  if(!confirm(confirmMsg)) return;
+
+  // Notify confirmed guides BEFORE deleting
+  for(const ev of eventosConfirmados){
+    const guia = S.guias.find(g=>g.id===ev.guia_id);
+    if(guia?.email){
+      const fechaStr = new Date(ev.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+      sendEmail('cancelacion_evento', {
+        to_email: guia.email,
+        guia_nombre: guia.nombre + ' ' + guia.apellido,
+        tipo_evento: ev.tipo_evento,
+        fecha: fechaStr,
+        horario: ev.hora_inicio + (ev.hora_fin?' - '+ev.hora_fin:''),
+        motivo: `El viaje ${file.nro_file} fue cancelado.`
+      }).catch(e=>console.warn('Cancel email error:', e));
+    }
   }
 
-  // Delete all eventos first (cascade will handle invitaciones, historial, etc)
+  // Delete related records then the file
   for(const e of eventosEnViaje){
+    await db.from('cola_emails').delete().eq('evento_id',e.id);
+    await db.from('historial').delete().eq('evento_id',e.id);
+    await db.from('invitaciones').delete().eq('evento_id',e.id);
+    await db.from('liquidaciones').delete().eq('evento_id',e.id);
     await db.from('eventos').delete().eq('id',e.id);
   }
-  
-  // Delete the file
   await db.from('files').delete().eq('id',fileId);
-  
+
+  // loadAll primero, toast después para que no se pise
   await loadAll();
-  toast(`🗑️ Viaje eliminado`, T.red);
+  // Llamar toast DESPUÉS del render para que aparezca encima del estado actualizado
+  setTimeout(()=>toast(`🗑️ Viaje ${file.nro_file} eliminado${eventosConfirmados.length?' · '+eventosConfirmados.length+' guía(s) notificado(s)':''}`, T.red), 50);
 }
 
 function exportarViajes(){
