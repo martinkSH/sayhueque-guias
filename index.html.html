@@ -2083,11 +2083,9 @@ function buildCalendario(){
 }
 
 function buildCalendarioAgenda(toolbar, eventosFilter){
-  // Semana actual: lunes a domingo
   const weekStart = S.calWeekStart || (() => {
     const d = new Date(); const day = d.getDay();
-    const diff = (day===0?-6:1-day);
-    d.setDate(d.getDate()+diff); d.setHours(0,0,0,0); return d;
+    d.setDate(d.getDate()+(day===0?-6:1-day)); d.setHours(0,0,0,0); return d;
   })();
 
   const weekDays = [];
@@ -2097,14 +2095,20 @@ function buildCalendarioAgenda(toolbar, eventosFilter){
 
   const weekLabel = weekDays[0].toLocaleDateString('es-AR',{day:'2-digit',month:'short'}) +
     ' – ' + weekDays[6].toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'});
-
   const today = new Date().toDateString();
 
-  // Horas a mostrar: 06:00 – 23:00
-  const hours = [];
-  for(let h=6;h<=23;h++) hours.push(h);
+  // Config de layout
+  const HOUR_H  = 56;  // px por hora
+  const START_H = 6;   // primera hora visible
+  const END_H   = 23;  // última hora visible
+  const TOTAL_H = (END_H - START_H) * HOUR_H;
+  const LABEL_W = 52;
 
-  // Agrupar eventos por fecha
+  // Helpers
+  const parseMin = t => { if(!t) return 0; const [h,m]=t.split(':'); return parseInt(h)*60+parseInt(m||0); };
+  function evColor(e){ return e.estado==='CONFIRMADO'?T.green:e.prioridad==='URGENTE'?T.red:T.amber; }
+
+  // Eventos por fecha
   const eventosPorFecha = {};
   weekDays.forEach(d=>{
     const ds = d.toISOString().slice(0,10);
@@ -2112,68 +2116,50 @@ function buildCalendarioAgenda(toolbar, eventosFilter){
       .sort((a,b)=>(a.hora_inicio||'00:00').localeCompare(b.hora_inicio||'00:00'));
   });
 
-  // Color helper
-  function evColor(e){ return e.estado==='CONFIRMADO'?T.green:e.prioridad==='URGENTE'?T.red:T.amber; }
-
-  const CELL_H = 52; // px por hora
-  const LABEL_W = 52; // px columna horaria
-
-  // Calcular posicion top/height de cada evento
-  function evPos(e){
-    const parseMin = t => { if(!t) return 0; const [h,m]=t.split(':'); return parseInt(h)*60+parseInt(m||0); };
-    const startMin = parseMin(e.hora_inicio);
-    const endMin   = e.hora_fin ? parseMin(e.hora_fin) : startMin+60;
-    const topMin   = Math.max(startMin, 6*60);
-    const botMin   = Math.min(endMin, 24*60);
-    const top  = ((topMin-6*60)/60)*CELL_H;
-    const height = Math.max(((botMin-topMin)/60)*CELL_H, 20);
-    return {top, height};
-  }
-
-  // Columnas del header
+  // Header
   const headerCols = weekDays.map(d=>{
     const ds = d.toISOString().slice(0,10);
     const isToday = d.toDateString()===today;
-    const dayName = d.toLocaleDateString('es-AR',{weekday:'short'});
-    const dayNum  = d.getDate();
-    const count   = eventosPorFecha[ds]?.length||0;
+    const count = eventosPorFecha[ds]?.length||0;
     return `<div style="flex:1;text-align:center;padding:10px 4px 8px;border-left:1px solid #E8E4DD">
-      <div style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase">${dayName}</div>
-      <div style="font-size:20px;font-weight:700;color:${isToday?T.teal:T.dark};width:34px;height:34px;border-radius:50%;background:${isToday?T.teal+'18':'transparent'};display:flex;align-items:center;justify-content:center;margin:4px auto 0">${dayNum}</div>
+      <div style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase">${d.toLocaleDateString('es-AR',{weekday:'short'})}</div>
+      <div style="font-size:20px;font-weight:700;color:${isToday?T.teal:T.dark};width:34px;height:34px;border-radius:50%;background:${isToday?T.teal+'18':'transparent'};display:flex;align-items:center;justify-content:center;margin:4px auto 0">${d.getDate()}</div>
       ${count?`<div style="font-size:10px;color:${T.tealMid};font-weight:600;margin-top:2px">${count} evento${count>1?'s':''}</div>`:''}
     </div>`;
   }).join('');
 
-  // Filas por hora con eventos superpuestos
-  const gridRows = hours.map(h=>{
-    const hStr = String(h).padStart(2,'0')+':00';
-    const cols = weekDays.map(d=>{
-      const ds = d.toISOString().slice(0,10);
-      // eventos que caen en esta hora
-      const evs = (eventosPorFecha[ds]||[]).filter(e=>{
-        const parseH = t => t ? parseInt(t.split(':')[0]) : 0;
-        const sh = parseH(e.hora_inicio);
-        const eh = e.hora_fin ? parseH(e.hora_fin) : sh+1;
-        return sh<=h && eh>h;
-      });
-      const pills = evs.map(e=>{
-        const color=evColor(e);
-        const guia=S.guias.find(g=>g.id===e.guia_id);
-        const guiaLabel = isAdmin()&&guia ? `<div style="font-size:9px;opacity:0.85">${esc(guia.nombre)}</div>` : '';
-        const horario = e.hora_inicio+(e.hora_fin?' – '+e.hora_fin:'');
-        return `<div style="background:${color};color:white;border-radius:5px;padding:3px 6px;font-size:10px;font-weight:600;line-height:1.35;cursor:pointer;overflow:hidden" data-toggle-evento="${e.id}" onclick="event.stopPropagation()">
-          <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.tipo_evento)}${e.nro_file?' <span style=\'opacity:0.8\'>'+esc(e.nro_file)+'</span>':''}</div>
-          <div style="font-size:9px;opacity:0.85">${horario}</div>
-          ${guiaLabel}
-        </div>`;
-      }).join('');
-      return `<div style="flex:1;border-left:1px solid #F0EDE8;padding:2px 3px;display:flex;flex-direction:column;gap:2px;min-height:${CELL_H}px">${pills}</div>`;
-    }).join('');
-    const isFullHour = true;
-    return `<div style="display:flex;border-top:1px solid ${h%6===0?'#E8E4DD':'#F5F3EF'}">
-      <div style="width:${LABEL_W}px;flex-shrink:0;padding:4px 8px 0;font-size:10px;font-weight:600;color:#9E9A93;text-align:right">${hStr}</div>
-      ${cols}
+  // Líneas horarias (solo decoración, sin eventos)
+  const hourLines = Array.from({length: END_H-START_H+1},(_,i)=>{
+    const h = START_H+i;
+    const top = i*HOUR_H;
+    return `<div style="position:absolute;top:${top}px;left:0;right:0;border-top:1px solid ${h%3===0?'#E8E4DD':'#F5F3EF'};pointer-events:none">
+      <span style="position:absolute;left:4px;top:-8px;font-size:10px;font-weight:600;color:#B0ABA3">${String(h).padStart(2,'0')}:00</span>
     </div>`;
+  }).join('');
+
+  // Columnas de eventos por día — posicionamiento absoluto
+  const dayColumns = weekDays.map(d=>{
+    const ds = d.toISOString().slice(0,10);
+    const evs = eventosPorFecha[ds]||[];
+
+    const pills = evs.map(e=>{
+      const startMin = parseMin(e.hora_inicio);
+      const endMin   = e.hora_fin ? parseMin(e.hora_fin) : startMin+60;
+      const topPx    = Math.max((startMin - START_H*60)/60 * HOUR_H, 0);
+      const heightPx = Math.max((endMin - startMin)/60 * HOUR_H - 3, 20);
+      const color    = evColor(e);
+      const guia     = S.guias.find(g=>g.id===e.guia_id);
+      const guiaLine = isAdmin()&&guia ? `<div style="font-size:9px;opacity:0.82;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(guia.nombre+' '+guia.apellido)}</div>` : '';
+      const horario  = (e.hora_inicio||'')+(e.hora_fin?' – '+e.hora_fin:'');
+      const fileTag  = e.nro_file?`<span style="opacity:0.8"> · ${esc(e.nro_file)}</span>`:'';
+      return `<div style="position:absolute;left:2px;right:2px;top:${topPx}px;height:${heightPx}px;background:${color};color:white;border-radius:6px;padding:3px 6px;font-size:10px;font-weight:600;line-height:1.3;cursor:pointer;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.15)" data-toggle-evento="${e.id}" onclick="event.stopPropagation()">
+        <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.tipo_evento)}${fileTag}</div>
+        ${heightPx>26?`<div style="font-size:9px;opacity:0.85">${horario}</div>`:''}
+        ${heightPx>42?guiaLine:''}
+      </div>`;
+    }).join('');
+
+    return `<div style="flex:1;position:relative;border-left:1px solid #F0EDE8;height:${TOTAL_H}px">${pills}</div>`;
   }).join('');
 
   return `
@@ -2191,13 +2177,36 @@ function buildCalendarioAgenda(toolbar, eventosFilter){
         <div style="width:${LABEL_W}px;flex-shrink:0"></div>
         ${headerCols}
       </div>
-      <!-- Grid horas -->
+      <!-- Grid principal: etiquetas + columnas -->
       <div style="overflow-y:auto;max-height:calc(100vh - 260px)">
-        ${gridRows}
+        <div style="display:flex">
+          <!-- Columna de horas -->
+          <div style="width:${LABEL_W}px;flex-shrink:0;position:relative;height:${TOTAL_H}px">
+            ${Array.from({length:END_H-START_H+1},(_,i)=>{
+              const h=START_H+i;
+              return `<div style="position:absolute;top:${i*HOUR_H-8}px;right:8px;font-size:10px;font-weight:600;color:#B0ABA3;white-space:nowrap">${String(h).padStart(2,'0')}:00</div>`;
+            }).join('')}
+          </div>
+          <!-- Área de días -->
+          <div style="flex:1;position:relative">
+            <!-- Líneas horizontales -->
+            <div style="position:absolute;inset:0;pointer-events:none">
+              ${Array.from({length:END_H-START_H+1},(_,i)=>{
+                const h=START_H+i;
+                return `<div style="position:absolute;top:${i*HOUR_H}px;left:0;right:0;border-top:1px solid ${h%3===0?'#E8E4DD':'#F5F3EF'}"></div>`;
+              }).join('')}
+            </div>
+            <!-- Columnas días -->
+            <div style="display:flex;height:${TOTAL_H}px">
+              ${dayColumns}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>`;
 }
+
 
 // ── DISPONIBILIDAD ────────────────────────────────────────────────────────────
 let dispoSeleccion = new Set(); // dates selected but not yet confirmed
