@@ -210,6 +210,10 @@ let S = {
   modal:null,
   toast:null,
   calMonth: new Date(),
+  calView: 'mensual',     // 'mensual' | 'agenda'
+  calWeekStart: null,     // Date — lunes de la semana actual en agenda
+  calFiltroGuia: '',      // id de guía para filtrar (admin)
+  calFiltroFile: '',      // nro_file para filtrar (admin)
   expandedEventId: null,
   expandedFileId: null,
   filterEstado:'ACTIVOS',  // ACTIVOS = hide cancelados by default
@@ -1430,7 +1434,7 @@ function buildTopBar(){
         <button onclick="exportarViajes()" style="${btnS}padding:8px 14px;font-size:12px">📤 Exportar</button>
         <button onclick="modalCrearViaje()" style="${btnP(T.teal)}padding:8px 16px">+ Nuevo viaje</button>
       ` : ''}
-      ${S.view==='calendario' && isAdmin() ?`<button data-open="evento-form" style="${btnP(T.teal)}padding:8px 16px">+ Nuevo evento</button>`:''}
+      ${''}<!-- Calendario es solo consulta - crear eventos desde vista Eventos -->
       ${S.view==='usuarios' ?`<button data-open="usuario-form" style="${btnP(T.teal)}padding:8px 16px">+ Nuevo usuario</button>`:''}
     </div>
   </div>`;
@@ -1991,19 +1995,59 @@ function hideCalTooltip(){
 }
 
 function buildCalendario(){
+  const isAdm = isAdmin();
+
+  // ── filtros admin ──────────────────────────────────────────────────────
+  const filtroGuia = S.calFiltroGuia || '';
+  const filtroFile = (S.calFiltroFile || '').toLowerCase().trim();
+
+  function eventosFilter(e){
+    if(e.estado==='CANCELADO') return false;
+    if(!isAdm) return e.estado==='CONFIRMADO' && e.guia_id===S.myGuia?.id;
+    if(filtroGuia && String(e.guia_id) !== filtroGuia) return false;
+    if(filtroFile && !(e.nro_file||'').toLowerCase().includes(filtroFile)) return false;
+    return true;
+  }
+
+  // ── toolbar: toggle + filtros ──────────────────────────────────────────
+  const guiasOptions = isAdm ? S.guias.map(g=>
+    `<option value="${g.id}" ${filtroGuia===String(g.id)?'selected':''}>${esc(g.nombre+' '+g.apellido)}</option>`
+  ).join('') : '';
+
+  const toolbar = `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+      <div style="display:flex;border:1.5px solid #E8E4DD;border-radius:8px;overflow:hidden">
+        <button id="cal-view-mensual" style="padding:7px 18px;border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;background:${S.calView==='mensual'?'#1B6B74':'white'};color:${S.calView==='mensual'?'white':'#9E9A93'}">📅 Mensual</button>
+        <button id="cal-view-agenda" style="padding:7px 18px;border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;background:${S.calView==='agenda'?'#1B6B74':'white'};color:${S.calView==='agenda'?'white':'#9E9A93'}">📋 Agenda</button>
+      </div>
+      ${isAdm ? `
+        <select id="cal-filtro-guia" style="padding:7px 12px;border:1.5px solid #E8E4DD;border-radius:8px;font-size:13px;color:#1A1A1A;background:white;font-family:'DM Sans',sans-serif;cursor:pointer">
+          <option value="">👤 Todos los guías</option>
+          ${guiasOptions}
+        </select>
+        <div style="position:relative">
+          <input id="cal-filtro-file" type="text" value="${esc(S.calFiltroFile||'')}" placeholder="🔍 Buscar file..." style="padding:7px 12px;border:1.5px solid #E8E4DD;border-radius:8px;font-size:13px;color:#1A1A1A;background:white;font-family:'DM Sans',sans-serif;width:160px"/>
+        </div>
+        ${(filtroGuia||filtroFile)?`<button id="cal-clear-filtros" style="padding:7px 12px;border:1.5px solid #E8E4DD;border-radius:8px;font-size:12px;color:#9E9A93;background:white;cursor:pointer;font-family:'DM Sans',sans-serif">✕ Limpiar</button>`:''}
+      ` : ''}
+    </div>`;
+
+  if(S.calView==='agenda') return buildCalendarioAgenda(toolbar, eventosFilter);
+
+  // ── VISTA MENSUAL ──────────────────────────────────────────────────────
   const year=S.calMonth.getFullYear(), month=S.calMonth.getMonth();
   const firstDay=new Date(year,month,1).getDay();
   const daysInMonth=new Date(year,month+1,0).getDate();
   const monthName=new Date(year,month,1).toLocaleDateString('es-AR',{month:'long',year:'numeric'});
   const today=new Date().toDateString();
-
   const cells=[];
-  const offset=(firstDay+6)%7; // Monday start
+  const offset=(firstDay+6)%7;
   for(let i=0;i<offset;i++) cells.push(null);
   for(let d=1;d<=daysInMonth;d++) cells.push(d);
 
   return `
-  <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
+  <div style="padding:24px;display:flex;flex-direction:column;gap:0">
+    ${toolbar}
     <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:20px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
         <button id="cal-prev" style="${btnS}padding:6px 14px">‹</button>
@@ -2017,32 +2061,17 @@ function buildCalendario(){
         ${cells.map(d=>{
           if(!d) return `<div></div>`;
           const dateStr=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-          const dayEvents=S.eventos.filter(e=>{
-            if(e.fecha!==dateStr||e.estado==='CANCELADO') return false;
-            // guia only sees confirmed events where they are assigned
-            if(!isAdmin()) return e.estado==='CONFIRMADO' && e.guia_id===S.myGuia?.id;
-            return true;
-          });
+          const dayEvents=S.eventos.filter(e=>e.fecha===dateStr && eventosFilter(e));
           const isToday=new Date(year,month,d).toDateString()===today;
           return `
           <div style="min-height:72px;border-radius:8px;padding:6px;background:${isToday?T.teal+'15':'#F9F8F6'};border:1.5px solid ${isToday?T.teal:'transparent'}">
             <div style="font-size:12px;font-weight:${isToday?700:500};color:${isToday?T.teal:T.dark};margin-bottom:4px">${d}</div>
             ${dayEvents.slice(0,3).map(e=>{
               const color=e.estado==='CONFIRMADO'?T.green:e.prioridad==='URGENTE'?T.red:T.amber;
-              const label = isAdmin()
-                ? esc(e.tipo_evento)+(e.nro_file?' / '+esc(e.nro_file):'')
-                : esc(e.tipo_evento)+(e.nro_file?' / '+esc(e.nro_file):'')+(e.hora_inicio?' · '+e.hora_inicio:'');
-              const guia = S.guias.find(g=>g.id===e.guia_id);
-              const tr = S.transportistas?.find(t=>t.id===e.transportista_id);
-              const tipData = JSON.stringify({
-                tipo: e.tipo_evento,
-                file: e.nro_file||'',
-                horario: e.hora_inicio?(e.hora_inicio+(e.hora_fin?' → '+e.hora_fin:'')):'',
-                guia: (isAdmin()&&guia)?(guia.nombre+' '+guia.apellido):'',
-                transportista: tr?tr.nombre:'',
-                descripcion: e.descripcion?e.descripcion.slice(0,80):'',
-                estado: e.estado,
-              }).replace(/"/g,'&quot;');
+              const guia=S.guias.find(g=>g.id===e.guia_id);
+              const tr=S.transportistas?.find(t=>t.id===e.transportista_id);
+              const label=esc(e.tipo_evento)+(e.nro_file?' / '+esc(e.nro_file):'');
+              const tipData=JSON.stringify({tipo:e.tipo_evento,file:e.nro_file||'',horario:e.hora_inicio?(e.hora_inicio+(e.hora_fin?' → '+e.hora_fin:'')):'',guia:(isAdm&&guia)?(guia.nombre+' '+guia.apellido):'',transportista:tr?tr.nombre:'',descripcion:e.descripcion?e.descripcion.slice(0,80):'',estado:e.estado}).replace(/"/g,'&quot;');
               return `<div style="font-size:10px;background:${color};color:white;border-radius:4px;padding:2px 5px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer" data-toggle-evento="${e.id}" data-cal-tip="${tipData}" onclick="event.stopPropagation()">${label}</div>`;
             }).join('')}
             ${dayEvents.length>3?`<div style="font-size:9px;color:#9E9A93">+${dayEvents.length-3} más</div>`:''}
@@ -2053,6 +2082,122 @@ function buildCalendario(){
   </div>`;
 }
 
+function buildCalendarioAgenda(toolbar, eventosFilter){
+  // Semana actual: lunes a domingo
+  const weekStart = S.calWeekStart || (() => {
+    const d = new Date(); const day = d.getDay();
+    const diff = (day===0?-6:1-day);
+    d.setDate(d.getDate()+diff); d.setHours(0,0,0,0); return d;
+  })();
+
+  const weekDays = [];
+  for(let i=0;i<7;i++){
+    const d=new Date(weekStart); d.setDate(weekStart.getDate()+i); weekDays.push(d);
+  }
+
+  const weekLabel = weekDays[0].toLocaleDateString('es-AR',{day:'2-digit',month:'short'}) +
+    ' – ' + weekDays[6].toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'});
+
+  const today = new Date().toDateString();
+
+  // Horas a mostrar: 06:00 – 23:00
+  const hours = [];
+  for(let h=6;h<=23;h++) hours.push(h);
+
+  // Agrupar eventos por fecha
+  const eventosPorFecha = {};
+  weekDays.forEach(d=>{
+    const ds = d.toISOString().slice(0,10);
+    eventosPorFecha[ds] = S.eventos.filter(e=>e.fecha===ds && eventosFilter(e))
+      .sort((a,b)=>(a.hora_inicio||'00:00').localeCompare(b.hora_inicio||'00:00'));
+  });
+
+  // Color helper
+  function evColor(e){ return e.estado==='CONFIRMADO'?T.green:e.prioridad==='URGENTE'?T.red:T.amber; }
+
+  const CELL_H = 52; // px por hora
+  const LABEL_W = 52; // px columna horaria
+
+  // Calcular posicion top/height de cada evento
+  function evPos(e){
+    const parseMin = t => { if(!t) return 0; const [h,m]=t.split(':'); return parseInt(h)*60+parseInt(m||0); };
+    const startMin = parseMin(e.hora_inicio);
+    const endMin   = e.hora_fin ? parseMin(e.hora_fin) : startMin+60;
+    const topMin   = Math.max(startMin, 6*60);
+    const botMin   = Math.min(endMin, 24*60);
+    const top  = ((topMin-6*60)/60)*CELL_H;
+    const height = Math.max(((botMin-topMin)/60)*CELL_H, 20);
+    return {top, height};
+  }
+
+  // Columnas del header
+  const headerCols = weekDays.map(d=>{
+    const ds = d.toISOString().slice(0,10);
+    const isToday = d.toDateString()===today;
+    const dayName = d.toLocaleDateString('es-AR',{weekday:'short'});
+    const dayNum  = d.getDate();
+    const count   = eventosPorFecha[ds]?.length||0;
+    return `<div style="flex:1;text-align:center;padding:10px 4px 8px;border-left:1px solid #E8E4DD">
+      <div style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase">${dayName}</div>
+      <div style="font-size:20px;font-weight:700;color:${isToday?T.teal:T.dark};width:34px;height:34px;border-radius:50%;background:${isToday?T.teal+'18':'transparent'};display:flex;align-items:center;justify-content:center;margin:4px auto 0">${dayNum}</div>
+      ${count?`<div style="font-size:10px;color:${T.tealMid};font-weight:600;margin-top:2px">${count} evento${count>1?'s':''}</div>`:''}
+    </div>`;
+  }).join('');
+
+  // Filas por hora con eventos superpuestos
+  const gridRows = hours.map(h=>{
+    const hStr = String(h).padStart(2,'0')+':00';
+    const cols = weekDays.map(d=>{
+      const ds = d.toISOString().slice(0,10);
+      // eventos que caen en esta hora
+      const evs = (eventosPorFecha[ds]||[]).filter(e=>{
+        const parseH = t => t ? parseInt(t.split(':')[0]) : 0;
+        const sh = parseH(e.hora_inicio);
+        const eh = e.hora_fin ? parseH(e.hora_fin) : sh+1;
+        return sh<=h && eh>h;
+      });
+      const pills = evs.map(e=>{
+        const color=evColor(e);
+        const guia=S.guias.find(g=>g.id===e.guia_id);
+        const guiaLabel = isAdmin()&&guia ? `<div style="font-size:9px;opacity:0.85">${esc(guia.nombre)}</div>` : '';
+        const horario = e.hora_inicio+(e.hora_fin?' – '+e.hora_fin:'');
+        return `<div style="background:${color};color:white;border-radius:5px;padding:3px 6px;font-size:10px;font-weight:600;line-height:1.35;cursor:pointer;overflow:hidden" data-toggle-evento="${e.id}" onclick="event.stopPropagation()">
+          <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.tipo_evento)}${e.nro_file?' <span style=\'opacity:0.8\'>'+esc(e.nro_file)+'</span>':''}</div>
+          <div style="font-size:9px;opacity:0.85">${horario}</div>
+          ${guiaLabel}
+        </div>`;
+      }).join('');
+      return `<div style="flex:1;border-left:1px solid #F0EDE8;padding:2px 3px;display:flex;flex-direction:column;gap:2px;min-height:${CELL_H}px">${pills}</div>`;
+    }).join('');
+    const isFullHour = true;
+    return `<div style="display:flex;border-top:1px solid ${h%6===0?'#E8E4DD':'#F5F3EF'}">
+      <div style="width:${LABEL_W}px;flex-shrink:0;padding:4px 8px 0;font-size:10px;font-weight:600;color:#9E9A93;text-align:right">${hStr}</div>
+      ${cols}
+    </div>`;
+  }).join('');
+
+  return `
+  <div style="padding:24px;display:flex;flex-direction:column;gap:0">
+    ${toolbar}
+    <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;overflow:hidden">
+      <!-- Nav semana -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #E8E4DD">
+        <button id="cal-prev" style="${btnS}padding:6px 14px">‹</button>
+        <div style="font-family:'Playfair Display',serif;font-size:16px;font-weight:700;color:${T.dark}">${weekLabel}</div>
+        <button id="cal-next" style="${btnS}padding:6px 14px">›</button>
+      </div>
+      <!-- Header días -->
+      <div style="display:flex;border-bottom:2px solid #E8E4DD">
+        <div style="width:${LABEL_W}px;flex-shrink:0"></div>
+        ${headerCols}
+      </div>
+      <!-- Grid horas -->
+      <div style="overflow-y:auto;max-height:calc(100vh - 260px)">
+        ${gridRows}
+      </div>
+    </div>
+  </div>`;
+}
 
 // ── DISPONIBILIDAD ────────────────────────────────────────────────────────────
 let dispoSeleccion = new Set(); // dates selected but not yet confirmed
@@ -3926,8 +4071,25 @@ function attachEvents(){
   });
 
   // calendario nav
-  document.getElementById('cal-prev')?.addEventListener('click',()=>{ const d=new Date(S.calMonth); d.setMonth(d.getMonth()-1); set({calMonth:d}); });
-  document.getElementById('cal-next')?.addEventListener('click',()=>{ const d=new Date(S.calMonth); d.setMonth(d.getMonth()+1); set({calMonth:d}); });
+  document.getElementById('cal-prev')?.addEventListener('click',()=>{
+    if(S.calView==='agenda'){
+      const d=new Date(S.calWeekStart||(()=>{const n=new Date();const day=n.getDay();n.setDate(n.getDate()+(day===0?-6:1-day));n.setHours(0,0,0,0);return n;})());
+      d.setDate(d.getDate()-7); set({calWeekStart:d});
+    } else { const d=new Date(S.calMonth); d.setMonth(d.getMonth()-1); set({calMonth:d}); }
+  });
+  document.getElementById('cal-next')?.addEventListener('click',()=>{
+    if(S.calView==='agenda'){
+      const d=new Date(S.calWeekStart||(()=>{const n=new Date();const day=n.getDay();n.setDate(n.getDate()+(day===0?-6:1-day));n.setHours(0,0,0,0);return n;})());
+      d.setDate(d.getDate()+7); set({calWeekStart:d});
+    } else { const d=new Date(S.calMonth); d.setMonth(d.getMonth()+1); set({calMonth:d}); }
+  });
+  // toggle vista
+  document.getElementById('cal-view-mensual')?.addEventListener('click',()=>set({calView:'mensual'}));
+  document.getElementById('cal-view-agenda')?.addEventListener('click',()=>set({calView:'agenda'}));
+  // filtros admin
+  document.getElementById('cal-filtro-guia')?.addEventListener('change',e=>set({calFiltroGuia:e.target.value}));
+  document.getElementById('cal-filtro-file')?.addEventListener('input',e=>set({calFiltroFile:e.target.value}));
+  document.getElementById('cal-clear-filtros')?.addEventListener('click',()=>set({calFiltroGuia:'',calFiltroFile:''}));
 
   // config SLA
   document.getElementById('btn-config-sla')?.addEventListener('click',()=>{ set({modal:{type:'config-sla'}}); });
