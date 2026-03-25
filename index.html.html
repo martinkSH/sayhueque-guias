@@ -677,7 +677,7 @@ async function procesarInvitacionViaje(token, accion){
         });
       }
       // Traer datos del file para mostrar en la página de confirmación
-      const {data:file} = await db.from('files').select('*').eq('id',fileId).single().catch(()=>({data:null}));
+      const {data:file} = await db.from('files').select('*').eq('id',fileId).maybeSingle();
       return {
         ok:true,
         esViaje: true,
@@ -991,11 +991,18 @@ async function invitarGuiasViaje(fileId, guiaIds){
       });
     }
 
-    // Construir lista de eventos para el mail
+    // Construir lista de eventos para el mail (con detalle completo)
     const eventosListaTxt = eventosViaje.map((e,i)=>{
       const fechaStr = new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long'});
-      return `${i+1}. ${esc(e.tipo_evento)} — ${fechaStr} — ${e.hora_inicio||''}${e.hora_fin?' → '+e.hora_fin:''}`;
-    }).join('\n');
+      const horario = (e.hora_inicio||'') + (e.hora_fin?' → '+e.hora_fin:'');
+      let lines = [`${i+1}. ${esc(e.tipo_evento)}`];
+      lines.push(`   📅 ${fechaStr}   🕐 ${horario||'—'}`);
+      if(e.pickup_location) lines.push(`   📍 Pick Up: ${e.pickup_location}`);
+      if(e.dropoff_location) lines.push(`   📍 Drop Off: ${e.dropoff_location}`);
+      if(e.datos_vuelos) lines.push(`   ✈️ Vuelos: ${e.datos_vuelos}`);
+      if(e.descripcion) lines.push(`   📝 ${e.descripcion}`);
+      return lines.join('\n');
+    }).join('\n\n');
 
     // Enviar mail de invitación al viaje completo
     await sendEmail('invitacion_viaje', {
