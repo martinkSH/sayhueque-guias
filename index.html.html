@@ -920,7 +920,7 @@ async function bajarseEvento(eventoId){
     if(emailAdmin){
       const fechaEvento = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
       const horario = evento.hora_inicio + (evento.hora_fin ? ' - '+evento.hora_fin : '');
-      const panelUrl = window.location.origin + window.location.pathname;
+      const panelUrl = window.location.origin + window.location.pathname + '?evento=' + eventoId;
       const file = S.files.find(f=>f.id===evento.file_id);
       
       const emailResult = await sendEmail('guia_se_bajo', {
@@ -4863,7 +4863,22 @@ async function init(){
   // No seguir con auth flow — evita que set({loading:false}) re-renderice al login.
   if(initParams.get('token')){ return; }
   const {data:{session}}=await db.auth.getSession();
-  if(session?.user){ set({user:session.user,loading:false}); await loadRole(); await loadAll(); }
+  if(session?.user){
+    set({user:session.user,loading:false});
+    await loadRole();
+    await loadAll();
+    // Deep link: ?evento=ID — navegar al evento después de que cargó todo
+    const eventoDeepLink = initParams.get('evento');
+    if(eventoDeepLink){
+      window.history.replaceState({}, '', APP_URL); // limpiar URL
+      set({view:'eventos', expandedEventId: parseInt(eventoDeepLink)});
+      // Scroll al evento expandido después de que el DOM renderice
+      setTimeout(()=>{
+        const el = document.querySelector(`[data-toggle-evento="${eventoDeepLink}"]`);
+        if(el) el.scrollIntoView({behavior:'smooth', block:'center'});
+      }, 300);
+    }
+  }
   else { set({loading:false}); }
 
   db.auth.onAuthStateChange((event, session)=>{
