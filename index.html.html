@@ -635,25 +635,20 @@ async function responderInvitacion(token, accion){
 
 async function procesarInvitacionViaje(token, accion){
   try {
-    // Buscar el token de invitación a viaje
-    const {data:tokenData} = await db.from('tokens_reconfirmacion')
-      .select('*').eq('token',token).eq('tipo','invitacion_viaje').eq('usado',false).single();
-    if(!tokenData) return {ok:false, msg:'Invitación no encontrada o ya procesada'};
-    if(new Date(tokenData.expires_at) < new Date()) return {ok:false, msg:'Esta invitación expiró'};
+    // Buscar invitaciones de este viaje por prefijo de token (sin usar tokens_reconfirmacion)
+    const {data:todasInvs} = await db.from('invitaciones').select('*')
+      .eq('estado','PENDIENTE').like('token', token + '_%');
+    const misInvs = todasInvs || [];
 
-    const fileId = tokenData.evento_id; // guardamos fileId acá
-    const guiaId = tokenData.guia_id;
+    if(!misInvs.length) return {ok:false, msg:'Invitación no encontrada o ya procesada'};
 
-    // Buscar todas las invitaciones de este guía con tokens que empiecen con este token
-    const {data:invs} = await db.from('invitaciones').select('*,eventos(*)')
-      .eq('guia_id', guiaId).eq('estado','PENDIENTE');
-    // Filtrar las que pertenecen a este viaje (token grupal)
-    const misInvs = (invs||[]).filter(i=>i.token && i.token.startsWith(token+'_'));
+    // Verificar expiración con la primera invitación
+    if(new Date(misInvs[0].expira_at) < new Date()) return {ok:false, msg:'Esta invitación expiró'};
 
-    if(!misInvs.length) return {ok:false, msg:'No se encontraron invitaciones pendientes para este viaje'};
-
-    // Marcar token como usado
-    await db.from('tokens_reconfirmacion').update({usado:true}).eq('id',tokenData.id);
+    const guiaId = misInvs[0].guia_id;
+    // Obtener fileId desde el evento de la primera invitación
+    const {data:primerEv} = await db.from('eventos').select('file_id').eq('id', misInvs[0].evento_id).maybeSingle();
+    const fileId = primerEv?.file_id;
 
     if(accion==='aceptar'){
       // Aceptar todas las invitaciones y confirmar todos los eventos
@@ -944,16 +939,10 @@ async function cancelarEvento(eventoId){
   toast('✅ Evento cancelado y guías notificados');
 }
 
-async function generarTokenViajeInvitacion(fileId, guiaId) {
-  const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  await db.from('tokens_reconfirmacion').insert({
-    token, guia_id: guiaId,
-    evento_id: fileId,   // reutilizamos campo para almacenar fileId
-    tipo: 'invitacion_viaje',
-    expires_at: expiresAt.toISOString()
-  });
-  return token;
+function generarTokenViajeInvitacion() {
+  // Token simple — se guarda en cada invitacion.token como prefijo compartido
+  // No usa tokens_reconfirmacion para evitar la FK constraint en evento_id
+  return 'vj_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
 }
 
 async function invitarGuiasViaje(fileId, guiaIds){
@@ -968,20 +957,21 @@ async function invitarGuiasViaje(fileId, guiaIds){
     const guia = S.guias.find(g=>g.id===gid);
     if(!guia) continue;
 
-    // Generar token único para este guía + viaje
-    const token = await generarTokenViajeInvitacion(fileId, gid);
+    // Token grupal sincrónico — se guarda como prefijo en cada invitacion.token
+    const token = generarTokenViajeInvitacion();
     const aceptarUrl = `${APP_URL}?token=${token}&accion=aceptar_viaje`;
     const rechazarUrl = `${APP_URL}?token=${token}&accion=rechazar_viaje`;
     const expiraStr = new Date(expira).toLocaleString('es-AR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
 
-    // Crear invitaciones individuales por evento (estado PENDIENTE_VIAJE para no mezclar con flujo normal)
+    // Crear invitaciones individuales por evento
     for(const ev of eventosViaje){
+      // maybeSingle() devuelve null si no existe (no tira error 406 como single())
       const {data:invExistente} = await db.from('invitaciones').select('id')
-        .eq('evento_id',ev.id).eq('guia_id',gid).in('estado',['PENDIENTE','ACEPTADA']).single().catch(()=>({data:null}));
+        .eq('evento_id',ev.id).eq('guia_id',gid).in('estado',['PENDIENTE','ACEPTADA']).maybeSingle();
       if(invExistente) continue; // ya tiene una invitación activa
       await db.from('invitaciones').insert({
         evento_id: ev.id, guia_id: gid, expira_at: expira,
-        estado: 'PENDIENTE', token: token + '_' + ev.id // token grupal + evento
+        estado: 'PENDIENTE', token: token + '_' + ev.id
       });
     }
 
