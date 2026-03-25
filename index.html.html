@@ -4313,19 +4313,21 @@ function attachEvents(){
         render();
       });
     });
-    // Guia foto upload
-  document.getElementById('guia-foto-input')?.addEventListener('change', async(e)=>{
-    const file = e.target.files?.[0]; if(!file) return;
+    // Guia foto upload — usar delegación en document para sobrevivir re-renders del modal
+  document.addEventListener('change', function _guiaFotoHandler(e){
+    const input = e.target;
+    if(input.id !== 'guia-foto-input') return;
+    const file = input.files?.[0]; if(!file) return;
     if(file.size > 2*1024*1024){ toast('La foto no puede superar 2MB', T.red); return; }
     const reader = new FileReader();
     reader.onload = ev=>{
-      _guiaFotoDataUrl = ev.target.result; // store in module variable (survives render)
+      _guiaFotoDataUrl = ev.target.result;
+      // Update preview without touching the input
       const preview = document.getElementById('guia-avatar-preview');
       if(preview) preview.innerHTML = `<img src="${_guiaFotoDataUrl}" style="width:100%;height:100%;object-fit:cover"/>`;
       const lbl = document.getElementById('btn-pick-guia-foto');
-      if(lbl) lbl.innerHTML = '📷 Cambiar foto <input id="guia-foto-input" type="file" accept="image/jpeg,image/png,image/webp" style="display:none"/>';
-      // Re-attach listener since we rebuilt the label
-      document.getElementById('guia-foto-input')?.addEventListener('change', arguments.callee.bind(null, {target:{files:[]}}));
+      if(lbl){ const txt = lbl.childNodes[0]; if(txt && txt.nodeType===3) txt.textContent='📷 Cambiar foto '; }
+      toast('✅ Foto lista. Guardá el guía para aplicar.', T.tealMid);
     };
     reader.readAsDataURL(file);
   });
@@ -4719,8 +4721,16 @@ function attachEvents(){
   // buscador viajes
   document.getElementById('search-viaje')?.addEventListener('input',e=>set({searchViaje:e.target.value}));
   document.getElementById('clear-search-viaje')?.addEventListener('click',()=>set({searchViaje:''}));
-  document.getElementById('search-guia')?.addEventListener('input',e=>set({searchGuia:e.target.value}));
-  document.getElementById('clear-search-guia')?.addEventListener('click',()=>set({searchGuia:''}));
+  // search-guia usa oninput inline — NO llamar set() acá para no perder foco
+  document.getElementById('clear-search-guia')?.addEventListener('click',()=>{
+    S.searchGuia='';
+    const input=document.getElementById('search-guia');
+    if(input) input.value='';
+    const grid=document.getElementById('guias-grid');
+    if(grid) [...grid.children].forEach(el=>el.style.display='');
+    const counter=document.getElementById('guias-count');
+    if(counter) counter.textContent=S.guias.length+' guía(s)';
+  });
 
   // calendario nav
   document.getElementById('cal-prev')?.addEventListener('click',()=>{
@@ -5546,8 +5556,13 @@ async function init(){
   render();
   // Handle Google Calendar OAuth callback result
   if(initParams.get('gcal')==='success'){
+    // Reload cleanly so fresh token loads into state properly
+    window.location.replace(APP_URL + '?gcal_ok=1');
+    return;
+  }
+  if(initParams.get('gcal_ok')==='1'){
     window.history.replaceState({}, '', APP_URL);
-    // Show success toast after loadAll when user data is ready
+    // Toast will fire after loadAll below
   }
   if(initParams.get('gcal')==='error'){
     window.history.replaceState({}, '', APP_URL);
@@ -5568,7 +5583,8 @@ async function init(){
     await loadRole();
     await loadAll();
     // Google Calendar connected successfully
-    if(initParams.get('gcal')==='success'){
+    if(initParams.get('gcal_ok')==='1'){
+      window.history.replaceState({}, '', APP_URL);
       setTimeout(()=>toast('✅ ¡Google Calendar conectado! Tus eventos se sincronizarán automáticamente.', T.tealMid), 100);
     }
     // Deep link: ?evento=ID — navegar al evento después de que cargó todo
