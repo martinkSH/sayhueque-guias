@@ -386,13 +386,15 @@ async function checkAlertasAdmin(){
 
 async function loadAll(){
   if(S.role==='guia' && S.myGuia){
+    // Reload fresh guia data (picks up google_refresh_token and other updates)
+    const {data:freshGuia} = await db.from('guias').select('*').eq('id',S.myGuia.id).single();
+    if(freshGuia) { S = {...S, myGuia:freshGuia}; }
+
     // guia only sees their own data
-    // load invitaciones first to know which evento_ids the guia has
     const {data:invData} = await db.from('invitaciones').select('*').eq('guia_id',S.myGuia.id).order('created_at',{ascending:false});
     const invEventoIds = [...new Set((invData||[]).map(i=>i.evento_id))];
     
     const [e,h,l,tr,f] = await Promise.all([
-      // load all eventos where guia is assigned OR has an invitation
       db.from('eventos').select('*').or(
         `guia_id.eq.${S.myGuia.id}${invEventoIds.length?',id.in.('+invEventoIds.join(',')+')'  :''}`
       ).order('fecha',{ascending:false}),
@@ -1986,16 +1988,17 @@ function buildGuias(){
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <div style="position:relative;flex:1;min-width:200px;max-width:360px">
         <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none">🔍</span>
-        <input id="search-guia" type="text" value="${esc(S.searchGuia||'')}" placeholder="Buscar por nombre, email, idioma..." style="padding:8px 12px 8px 32px;border:1.5px solid #E8E4DD;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;width:100%;color:#1A1A1A;background:white"/>
+        <input id="search-guia" type="text" value="${esc(S.searchGuia||'')}" placeholder="Buscar por nombre, email, idioma..." style="padding:8px 12px 8px 32px;border:1.5px solid #E8E4DD;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;width:100%;color:#1A1A1A;background:white"
+          oninput="(()=>{S.searchGuia=this.value;const grid=document.getElementById('guias-grid');if(!grid)return;const q=this.value.toLowerCase().trim();[...grid.children].forEach(el=>{const txt=(el.dataset.searchText||'').toLowerCase();el.style.display=(!q||txt.includes(q))?'':'none';});document.getElementById('guias-count').textContent=(q?[...grid.children].filter(el=>el.style.display!=='none').length:${S.guias.length})+' guía(s)';})()"/>
       </div>
       ${(S.searchGuia||'')?`<button id="clear-search-guia" style="padding:8px 14px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;font-size:12px;color:#9E9A93;cursor:pointer;font-family:'DM Sans',sans-serif">✕ Limpiar</button>`:''}
-      <div style="margin-left:auto;font-size:12px;color:#9E9A93">${guiasFiltrados.length} guía(s)</div>
+      <div id="guias-count" style="margin-left:auto;font-size:12px;color:#9E9A93">${guiasFiltrados.length} guía(s)</div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
+    <div id="guias-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
       ${guiasFiltrados.map(g=>{
         const eventosGuia=S.eventos.filter(e=>e.guia_id===g.id&&e.estado==='CONFIRMADO').length;
         return `
-        <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:20px;border-left:4px solid ${g.estado==='ACTIVO'?T.tealMid:'#ccc'}">
+        <div data-search-text="${esc((g.nombre+' '+g.apellido+' '+(g.email||'')+' '+(g.categoria||'')+' '+(g.idiomas||[]).join(' ')).toLowerCase())}" style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:20px;border-left:4px solid ${g.estado==='ACTIVO'?T.tealMid:'#ccc'}">
           <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">
             ${g.foto_url
               ? `<img src="${esc(g.foto_url)}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid ${g.estado==='ACTIVO'?T.teal+'40':'#eee'}"/>`
@@ -2417,9 +2420,10 @@ function buildCalendario(){
         <button id="cal-view-agenda" style="padding:7px 18px;border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;background:${S.calView==='agenda'?'#1B6B74':'white'};color:${S.calView==='agenda'?'white':'#9E9A93'}">📋 Agenda</button>
       </div>
       ${!isAdm && S.myGuia ? `
-        <div style="margin-left:auto">
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
           ${S.myGuia.google_refresh_token
-            ? `<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:#E8F5E9;border:1.5px solid #A5D6A7;font-size:12px;font-weight:600;color:#2E7D32">
+            ? `<button id="btn-gcal-sync-all" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;border:1.5px solid #4285F4;background:white;font-size:12px;font-weight:600;cursor:pointer;color:#4285F4;font-family:'DM Sans',sans-serif">🔄 Sincronizar</button>
+              <div style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:#E8F5E9;border:1.5px solid #A5D6A7;font-size:12px;font-weight:600;color:#2E7D32">
                 ✅ Google Calendar conectado
                 <button id="btn-gcal-disconnect" style="margin-left:4px;background:none;border:none;color:#E63946;font-size:11px;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif">Desconectar</button>
               </div>`
@@ -2638,7 +2642,8 @@ function buildCalendarioAgenda(toolbar, eventosFilter){
 
 
 // ── DISPONIBILIDAD ────────────────────────────────────────────────────────────
-let dispoSeleccion = new Set(); // dates selected but not yet confirmed
+let dispoSeleccion = new Set();
+let _guiaFotoDataUrl = null; // temporal storage for guia photo upload // dates selected but not yet confirmed
 
 function buildDisponibilidad(){
   const guia = S.myGuia;
@@ -4314,17 +4319,35 @@ function attachEvents(){
     if(file.size > 2*1024*1024){ toast('La foto no puede superar 2MB', T.red); return; }
     const reader = new FileReader();
     reader.onload = ev=>{
-      const dataUrl = ev.target.result;
+      _guiaFotoDataUrl = ev.target.result; // store in module variable (survives render)
       const preview = document.getElementById('guia-avatar-preview');
-      if(preview) preview.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover"/>`;
-      // Store temporarily in a hidden input for save
-      let hidden = document.getElementById('guia-foto-data');
-      if(!hidden){ hidden=document.createElement('input'); hidden.type='hidden'; hidden.id='guia-foto-data'; document.body.appendChild(hidden); }
-      hidden.value = dataUrl;
-      const btn = document.getElementById('btn-pick-guia-foto');
-      if(btn){ const lbl=btn.querySelector('span')||btn; if(btn.tagName==='LABEL') btn.childNodes[0].textContent='📷 Cambiar foto '; }
+      if(preview) preview.innerHTML = `<img src="${_guiaFotoDataUrl}" style="width:100%;height:100%;object-fit:cover"/>`;
+      const lbl = document.getElementById('btn-pick-guia-foto');
+      if(lbl) lbl.innerHTML = '📷 Cambiar foto <input id="guia-foto-input" type="file" accept="image/jpeg,image/png,image/webp" style="display:none"/>';
+      // Re-attach listener since we rebuilt the label
+      document.getElementById('guia-foto-input')?.addEventListener('change', arguments.callee.bind(null, {target:{files:[]}}));
     };
     reader.readAsDataURL(file);
+  });
+  // GCal sync all confirmed events
+  document.getElementById('btn-gcal-sync-all')?.addEventListener('click', async()=>{
+    const btn = document.getElementById('btn-gcal-sync-all');
+    if(!S.myGuia?.google_refresh_token){ toast('Primero conectá Google Calendar', T.red); return; }
+    btn.textContent='⟳ Sincronizando...'; btn.disabled=true;
+    const confirmados = S.eventos.filter(e=>e.estado==='CONFIRMADO' && e.guia_id===S.myGuia.id);
+    let ok=0, err=0;
+    for(const ev of confirmados){
+      try {
+        const r = await fetch('/api/google-calendar',{
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({action:'create', eventoId:ev.id, guiaId:S.myGuia.id})
+        });
+        const d = await r.json();
+        if(d.success && !d.skipped) ok++;
+      } catch(e){ err++; }
+    }
+    btn.textContent='🔄 Sincronizar'; btn.disabled=false;
+    toast(`✅ ${ok} evento(s) sincronizados con Google Calendar${err?` · ${err} error(s)`:''}`, T.tealMid);
   });
   // GCal disconnect
   document.getElementById('btn-gcal-disconnect')?.addEventListener('click', async()=>{
@@ -5060,9 +5083,8 @@ function attachEvents(){
     };
     if(!data.nombre||!data.apellido||!data.email){toast('Nombre, apellido y email son obligatorios',T.red);return;}
     if(id) data.id=parseInt(id);
-    // Include foto if uploaded
-    const fotoData = document.getElementById('guia-foto-data')?.value;
-    if(fotoData) data.foto_url = fotoData;
+    // Include foto if uploaded (stored in module var, survives render)
+    if(_guiaFotoDataUrl) { data.foto_url = _guiaFotoDataUrl; _guiaFotoDataUrl = null; }
     const ok=await saveGuia(data);
     if(ok){set({modal:null});toast(id?'✅ Guía actualizado':'✅ Guía creado');}
   });
