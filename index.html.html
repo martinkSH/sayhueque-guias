@@ -3608,10 +3608,12 @@ function attachEvents(){
   // Response page
   const params=new URLSearchParams(window.location.search);
   if(params.get('token')){
-    const token=params.get('token'), accion=params.get('accion');
+    // Capturar params ANTES de limpiar la URL (así re-renders no reprocesen el token)
+    const token=params.get('token');
+    const accion=params.get('accion') || params.get('action'); // fix: emails usan 'action', reconfirmaciones usan 'accion'
+    window.history.replaceState({}, '', APP_URL);
     (async()=>{
       let result;
-      // Check if it's a reconfirmation token or invitation token
       if(accion==='reconfirmar' || accion==='cancelar_cambio'){
         result = await procesarReconfirmacionToken(token, accion);
       } else {
@@ -3619,20 +3621,63 @@ function attachEvents(){
       }
       
       const box=document.getElementById('response-box');
-      if(box){
-        let gcalBtn = '';
-        if(result.ok && accion==='aceptar' && result.evento){
-          const ev = result.evento;
-          const gcalUrl = buildGCalUrl(ev);
-          gcalBtn = `<a href="${gcalUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:8px;padding:12px 22px;background:#4285F4;color:white;border-radius:9px;font-weight:700;font-size:14px;text-decoration:none;margin-bottom:12px;font-family:'DM Sans',sans-serif">📅 Agregar a Google Calendar</a><br/>`;
-        }
-        const emoji = result.ok ? (accion==='aceptar'||accion==='reconfirmar' ? '✅' : '👍') : '⚠️';
+      if(!box) return;
+
+      const esAceptar = accion==='aceptar' || accion==='reconfirmar';
+      const ev = result.evento;
+
+      // Card con detalles del evento
+      let eventoCard = '';
+      if(ev){
+        const fechaStr = new Date(ev.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+        const horario = ev.hora_inicio + (ev.hora_fin ? ' – ' + ev.hora_fin : '');
+        eventoCard = `
+          <div style="background:#F9F8F6;border-radius:12px;padding:20px;margin-bottom:24px;text-align:left">
+            ${ev.tipo_evento ? `<div style="font-size:17px;font-weight:700;color:#1B6B74;margin-bottom:14px">${esc(ev.tipo_evento)}</div>` : ''}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div>
+                <div style="font-size:10px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">📅 Fecha</div>
+                <div style="font-size:13px;font-weight:600;color:#1A1A1A">${fechaStr}</div>
+              </div>
+              <div>
+                <div style="font-size:10px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">🕐 Horario</div>
+                <div style="font-size:13px;font-weight:600;color:#1A1A1A">${horario}</div>
+              </div>
+              ${ev.nro_file ? `<div style="grid-column:1/-1"><div style="font-size:10px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">📁 Nro. File</div><div style="font-size:13px;font-weight:600;color:#1A1A1A">${esc(ev.nro_file)}</div></div>` : ''}
+              ${ev.descripcion ? `<div style="grid-column:1/-1"><div style="font-size:10px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">📝 Descripción</div><div style="font-size:13px;color:#666">${esc(ev.descripcion)}</div></div>` : ''}
+            </div>
+          </div>`;
+      }
+
+      // Botón Google Calendar
+      let gcalBtn = '';
+      if(result.ok && esAceptar && ev){
+        const gcalUrl = buildGCalUrl(ev);
+        gcalBtn = `<a href="${gcalUrl}" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:10px;padding:14px 24px;background:#4285F4;color:white;border-radius:10px;font-weight:700;font-size:14px;text-decoration:none;margin-bottom:12px;box-shadow:0 2px 8px rgba(66,133,244,0.3)">📅 Agregar a Google Calendar</a>`;
+      }
+
+      if(result.ok && esAceptar){
         box.innerHTML=`
-          <div style="font-size:48px;margin-bottom:16px">${emoji}</div>
-          <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:#1A1A1A;margin-bottom:8px">${result.ok?'¡Listo!':'Lo sentimos'}</div>
-          <div style="font-size:14px;color:#9E9A93;line-height:1.6;margin-bottom:24px">${result.msg}</div>
-          ${gcalBtn}
-          <a href="${APP_URL}" style="display:inline-block;padding:12px 24px;background:#1B6B74;color:white;border-radius:9px;font-weight:700;font-size:14px;text-decoration:none">Ir al panel -></a>`;
+          <div style="font-size:56px;margin-bottom:12px">✅</div>
+          <div style="font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:#1A1A1A;margin-bottom:6px">¡Quedaste confirmado!</div>
+          <div style="font-size:14px;color:#666;margin-bottom:24px;line-height:1.6">Te esperamos para el siguiente evento:</div>
+          ${eventoCard}
+          <div style="display:flex;flex-direction:column;gap:10px">
+            ${gcalBtn}
+            <a href="${APP_URL}" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 24px;background:#1B6B74;color:white;border-radius:10px;font-weight:700;font-size:14px;text-decoration:none;box-shadow:0 2px 8px rgba(27,107,116,0.3)">Ir a la plataforma →</a>
+          </div>`;
+      } else if(result.ok && !esAceptar){
+        box.innerHTML=`
+          <div style="font-size:56px;margin-bottom:12px">👍</div>
+          <div style="font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:#1A1A1A;margin-bottom:8px">Entendido</div>
+          <div style="font-size:14px;color:#666;margin-bottom:28px;line-height:1.6">${result.msg}</div>
+          <a href="${APP_URL}" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 24px;background:#1B6B74;color:white;border-radius:10px;font-weight:700;font-size:14px;text-decoration:none">Ir a la plataforma →</a>`;
+      } else {
+        box.innerHTML=`
+          <div style="font-size:56px;margin-bottom:12px">⚠️</div>
+          <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:#1A1A1A;margin-bottom:8px">Lo sentimos</div>
+          <div style="font-size:14px;color:#9E9A93;margin-bottom:28px;line-height:1.6">${result.msg}</div>
+          <a href="${APP_URL}" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 24px;background:#1B6B74;color:white;border-radius:10px;font-weight:700;font-size:14px;text-decoration:none">Ir a la plataforma →</a>`;
       }
     })();
     return;
@@ -4559,13 +4604,8 @@ async function init(){
     await handleConfirmarCalendario(calToken);
     return;
   }
-// check response token - LIMPIAR URL INMEDIATAMENTE
-if(params.get('token')){ 
-  window.history.replaceState({}, '', APP_URL); // ✅ Limpiar URL ANTES de procesar
-  set({loading:false}); 
-  return; 
-}
-
+  // Si hay token de respuesta en la URL, NO limpiar todavía - dejar que buildApp/attachEvents lo procesen
+  // (limpiar acá causaba redirect a login porque el usuario no está logueado)
   const {data:{session}}=await db.auth.getSession();
   if(session?.user){ set({user:session.user,loading:false}); await loadRole(); await loadAll(); }
   else { set({loading:false}); }
