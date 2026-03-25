@@ -8,7 +8,6 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
@@ -21,7 +20,6 @@ export default async function handler(req, res) {
     const { templateId, variables } = req.body;
     console.log('📧 Procesando email:', { templateId, to: variables?.to_email });
     
-    // Crear transporter de Nodemailer
     const transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
       port: 587,
@@ -35,7 +33,6 @@ export default async function handler(req, res) {
     let emailHtml = '';
     let emailSubject = '';
     
-    // Cargar template desde Supabase
     if (templateId && variables) {
       const supabase = createClient(
         'https://ewxbghnyjvaijpfiygqg.supabase.co',
@@ -50,41 +47,45 @@ export default async function handler(req, res) {
         .eq('id', templateId)
         .single();
       
-      console.log('Resultado Supabase:', { template: template ? 'encontrado' : 'null', error });
-      
-      if (error) {
-        console.error('❌ Error de Supabase:', error);
-        throw new Error(`Error cargando template: ${JSON.stringify(error)}`);
+      if (error || !template) {
+        throw new Error('Template no encontrado: ' + templateId);
       }
       
-      if (!template) {
-        throw new Error('Template no encontrado (data es null): ' + templateId);
-      }
+      // NORMALIZAR saltos de línea (crucial para Windows \r\n)
+      emailHtml = template.html.replace(/\r\n/g, '\n');
+      emailSubject = template.subject.replace(/\r\n/g, '\n');
       
-      emailHtml = template.html;
-      emailSubject = template.subject;
+      console.log('✅ Template cargado');
+      console.log('📝 Variables a reemplazar:', Object.keys(variables));
       
-      console.log('✅ Template cargado, subject:', emailSubject);
-      console.log('📝 Variables recibidas:', Object.keys(variables));
-      
-      // Reemplazar variables {{variable}} - ESCAPAR los caracteres especiales de regex
+      // Reemplazar variables usando REGEX con escape correcto
       Object.keys(variables).forEach(key => {
-        const placeholder = `{{${key}}}`;
-        const value = variables[key] || '';
+        const value = String(variables[key] || '');
+        // Escapar caracteres especiales en la key para regex
+        const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\{\\{${escapedKey}\\}\\}`, 'g');
         
-        // Usar replace con string literal en lugar de regex
-        emailHtml = emailHtml.split(placeholder).join(value);
-        emailSubject = emailSubject.split(placeholder).join(value);
+        const beforeCount = (emailHtml.match(regex) || []).length;
+        emailHtml = emailHtml.replace(regex, value);
+        emailSubject = emailSubject.replace(regex, value);
+        const afterCount = (emailHtml.match(regex) || []).length;
         
-        console.log(`   Reemplazando ${placeholder} → ${value.substring(0, 30)}...`);
+        if (beforeCount > 0) {
+          console.log(`   ✓ Reemplazó ${beforeCount}x {{${key}}} → "${value.substring(0, 40)}${value.length > 40 ? '...' : ''}"`);
+        }
       });
       
-      console.log('✅ Variables reemplazadas');
+      // Verificar si quedaron variables sin reemplazar
+      const unreplacedVars = emailHtml.match(/\{\{[^}]+\}\}/g);
+      if (unreplacedVars) {
+        console.warn('⚠️ Variables sin reemplazar:', [...new Set(unreplacedVars)]);
+      } else {
+        console.log('✅ Todas las variables fueron reemplazadas');
+      }
     }
     
     console.log('📤 Enviando email a:', variables.to_email);
     
-    // Enviar email
     await transporter.sendMail({
       from: 'Say Hueque <tp@sayhueque.com>',
       to: variables.to_email,
@@ -92,12 +93,43 @@ export default async function handler(req, res) {
       html: emailHtml,
     });
     
-    console.log('✅ Email enviado exitosamente a:', variables.to_email);
+    console.log('✅ Email enviado exitosamente');
     
     return res.status(200).json({ success: true, message: 'Email enviado' });
     
   } catch (error) {
-    console.error('❌ Error completo:', error);
+    console.error('❌ Error:', error);
     return res.status(500).json({ success: false, error: error.message });
   }
 }
+```
+
+---
+
+## 🎯 Lo que cambié:
+
+1. **Normalizar `\r\n` → `\n`** antes de reemplazar
+2. **Usar regex correcta** con escape de caracteres especiales  
+3. **Contar reemplazos** para debuggear
+4. **Detectar variables sin reemplazar** al final
+
+---
+
+## 🚀 Pasos:
+
+1. **Reemplazá** `/api/send-email.js` con el código de arriba
+2. **Commit + Push**
+3. **Esperá el deploy**
+4. **Probá** y **revisá los logs de Vercel**
+
+Los logs ahora van a mostrar:
+```
+✓ Reemplazó 1x {{tipo_evento}} → "City Tour"
+✓ Reemplazó 1x {{fecha}} → "jueves, 26 de marzo de 2026"
+...
+✅ Todas las variables fueron reemplazadas
+```
+
+O si algo falla:
+```
+⚠️ Variables sin reemplazar: ['{{tipo_evento}}', '{{fecha}}']
