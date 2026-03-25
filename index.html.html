@@ -388,23 +388,25 @@ async function loadAll(){
   if(S.role==='guia' && S.myGuia){
     // Reload fresh guia data (picks up google_refresh_token and other updates)
     const {data:freshGuia} = await db.from('guias').select('*').eq('id',S.myGuia.id).single();
-    if(freshGuia) { S = {...S, myGuia:freshGuia}; }
+    const guiaActual = freshGuia || S.myGuia; // usar el fresco si existe
+    if(freshGuia) S.myGuia = freshGuia; // actualizar antes de los otros calls
 
     // guia only sees their own data
-    const {data:invData} = await db.from('invitaciones').select('*').eq('guia_id',S.myGuia.id).order('created_at',{ascending:false});
+    const {data:invData} = await db.from('invitaciones').select('*').eq('guia_id',guiaActual.id).order('created_at',{ascending:false});
     const invEventoIds = [...new Set((invData||[]).map(i=>i.evento_id))];
     
     const [e,h,l,tr,f] = await Promise.all([
       db.from('eventos').select('*').or(
-        `guia_id.eq.${S.myGuia.id}${invEventoIds.length?',id.in.('+invEventoIds.join(',')+')'  :''}`
+        `guia_id.eq.${guiaActual.id}${invEventoIds.length?',id.in.('+invEventoIds.join(',')+')'  :''}`
       ).order('fecha',{ascending:false}),
-      db.from('historial').select('*').eq('guia_id',S.myGuia.id).order('created_at',{ascending:false}).limit(100),
-      db.from('liquidaciones').select('*').eq('guia_id',S.myGuia.id).order('created_at',{ascending:false}),
+      db.from('historial').select('*').eq('guia_id',guiaActual.id).order('created_at',{ascending:false}).limit(100),
+      db.from('liquidaciones').select('*').eq('guia_id',guiaActual.id).order('created_at',{ascending:false}),
       db.from('transportistas').select('*').order('nombre'),
       db.from('files').select('*').order('fecha_in',{ascending:false}),
     ]);
-    const {data:blqData} = await db.from('bloqueos_disponibilidad').select('*').eq('guia_id',S.myGuia.id);
-    set({ guias:[S.myGuia], eventos:e.data||[], invitaciones:invData||[], historial:h.data||[], liquidaciones:l.data||[], transportistas:tr.data||[], files:f.data||[], bloqueos:blqData||[] });
+    const {data:blqData} = await db.from('bloqueos_disponibilidad').select('*').eq('guia_id',guiaActual.id);
+    // Pasar guiaActual explícitamente para garantizar que el token fresco llegue al estado
+    set({ myGuia:guiaActual, guias:[guiaActual], eventos:e.data||[], invitaciones:invData||[], historial:h.data||[], liquidaciones:l.data||[], transportistas:tr.data||[], files:f.data||[], bloqueos:blqData||[] });
   } else {
     // admin sees everything
     const [g,e,i,h,l,tr,f] = await Promise.all([
@@ -4313,21 +4315,31 @@ function attachEvents(){
         render();
       });
     });
-    // Guia foto upload — usar delegación en document para sobrevivir re-renders del modal
-  document.addEventListener('change', function _guiaFotoHandler(e){
+    // Guia foto upload — event delegation + compresión a max 300x300 para no superar límite DB
+  document.addEventListener('change', function(e){
     const input = e.target;
     if(input.id !== 'guia-foto-input') return;
     const file = input.files?.[0]; if(!file) return;
-    if(file.size > 2*1024*1024){ toast('La foto no puede superar 2MB', T.red); return; }
+    if(file.size > 5*1024*1024){ toast('La foto no puede superar 5MB', T.red); return; }
     const reader = new FileReader();
     reader.onload = ev=>{
-      _guiaFotoDataUrl = ev.target.result;
-      // Update preview without touching the input
-      const preview = document.getElementById('guia-avatar-preview');
-      if(preview) preview.innerHTML = `<img src="${_guiaFotoDataUrl}" style="width:100%;height:100%;object-fit:cover"/>`;
-      const lbl = document.getElementById('btn-pick-guia-foto');
-      if(lbl){ const txt = lbl.childNodes[0]; if(txt && txt.nodeType===3) txt.textContent='📷 Cambiar foto '; }
-      toast('✅ Foto lista. Guardá el guía para aplicar.', T.tealMid);
+      // Comprimir a max 300x300 usando canvas
+      const img = new Image();
+      img.onload = ()=>{
+        const MAX = 300;
+        const ratio = Math.min(MAX/img.width, MAX/img.height, 1);
+        const canvas = document.createElement('canvas');
+        canvas.width  = Math.round(img.width  * ratio);
+        canvas.height = Math.round(img.height * ratio);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        _guiaFotoDataUrl = canvas.toDataURL('image/jpeg', 0.82);
+        console.log('Foto comprimida:', Math.round(_guiaFotoDataUrl.length/1024)+'KB');
+        // Actualizar preview
+        const preview = document.getElementById('guia-avatar-preview');
+        if(preview) preview.innerHTML = `<img src="${_guiaFotoDataUrl}" style="width:100%;height:100%;object-fit:cover"/>`;
+        toast('✅ Foto cargada. Guardá el guía para aplicar.', T.tealMid);
+      };
+      img.src = ev.target.result;
     };
     reader.readAsDataURL(file);
   });
