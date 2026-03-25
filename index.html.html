@@ -3673,7 +3673,27 @@ function buildGuiaModal(entry={}){
             <div style="font-size:11px;color:#9E9A93;margin-bottom:8px">JPG o PNG, máx 2MB. Aparece en el perfil y en el sistema.</div>
             <label id="btn-pick-guia-foto" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:7px;border:1.5px solid #E8E4DD;background:white;font-size:12px;font-weight:600;cursor:pointer;color:#555;font-family:'DM Sans',sans-serif">
               📷 ${entry.foto_url ? 'Cambiar foto' : 'Subir foto'}
-              <input id="guia-foto-input" type="file" accept="image/jpeg,image/png,image/webp" style="display:none"/>
+              <input id="guia-foto-input" type="file" accept="image/*" style="display:none" onchange="(function(input){
+  const file = input.files[0]; if(!file) return;
+  if(file.size > 5*1024*1024){ alert('La foto no puede superar 5MB'); return; }
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    const img2 = new Image();
+    img2.onload = function(){
+      const MAX=300, r=Math.min(MAX/img2.width,MAX/img2.height,1);
+      const c=document.createElement('canvas');
+      c.width=Math.round(img2.width*r); c.height=Math.round(img2.height*r);
+      c.getContext('2d').drawImage(img2,0,0,c.width,c.height);
+      window._guiaFotoDataUrl=c.toDataURL('image/jpeg',0.82);
+      const prev=document.getElementById('guia-avatar-preview');
+      if(prev) prev.innerHTML='<img src=\''+window._guiaFotoDataUrl+'\' style=\'width:100%;height:100%;object-fit:cover\'/>';
+      const lbl=document.getElementById('btn-pick-guia-foto');
+      if(lbl && lbl.firstChild) lbl.firstChild.textContent='📷 Cambiar foto ';
+    };
+    img2.src=ev.target.result;
+  };
+  reader.readAsDataURL(file);
+})(this)"/>
             </label>
           </div>
         </div>
@@ -4315,34 +4335,7 @@ function attachEvents(){
         render();
       });
     });
-    // Guia foto upload — event delegation + compresión a max 300x300 para no superar límite DB
-  document.addEventListener('change', function(e){
-    const input = e.target;
-    if(input.id !== 'guia-foto-input') return;
-    const file = input.files?.[0]; if(!file) return;
-    if(file.size > 5*1024*1024){ toast('La foto no puede superar 5MB', T.red); return; }
-    const reader = new FileReader();
-    reader.onload = ev=>{
-      // Comprimir a max 300x300 usando canvas
-      const img = new Image();
-      img.onload = ()=>{
-        const MAX = 300;
-        const ratio = Math.min(MAX/img.width, MAX/img.height, 1);
-        const canvas = document.createElement('canvas');
-        canvas.width  = Math.round(img.width  * ratio);
-        canvas.height = Math.round(img.height * ratio);
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        _guiaFotoDataUrl = canvas.toDataURL('image/jpeg', 0.82);
-        console.log('Foto comprimida:', Math.round(_guiaFotoDataUrl.length/1024)+'KB');
-        // Actualizar preview
-        const preview = document.getElementById('guia-avatar-preview');
-        if(preview) preview.innerHTML = `<img src="${_guiaFotoDataUrl}" style="width:100%;height:100%;object-fit:cover"/>`;
-        toast('✅ Foto cargada. Guardá el guía para aplicar.', T.tealMid);
-      };
-      img.src = ev.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
+    // Foto guia: handled inline via onchange on the input element
   // GCal sync all confirmed events
   document.getElementById('btn-gcal-sync-all')?.addEventListener('click', async()=>{
     const btn = document.getElementById('btn-gcal-sync-all');
@@ -5106,7 +5099,7 @@ function attachEvents(){
     if(!data.nombre||!data.apellido||!data.email){toast('Nombre, apellido y email son obligatorios',T.red);return;}
     if(id) data.id=parseInt(id);
     // Include foto if uploaded (stored in module var, survives render)
-    if(_guiaFotoDataUrl) { data.foto_url = _guiaFotoDataUrl; _guiaFotoDataUrl = null; }
+    if(window._guiaFotoDataUrl) { data.foto_url = window._guiaFotoDataUrl; window._guiaFotoDataUrl = null; }
     const ok=await saveGuia(data);
     if(ok){set({modal:null});toast(id?'✅ Guía actualizado':'✅ Guía creado');}
   });
