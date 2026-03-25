@@ -4153,7 +4153,10 @@ function attachEvents(){
   });
 
   // save evento
-  document.getElementById('btn-save-evento')?.addEventListener('click',async()=>{
+  document.getElementById('btn-save-evento')?.addEventListener('click',async(e)=>{
+    const btn=e.currentTarget;
+    if(btn.disabled) return; // evitar doble click / doble submit
+    btn.disabled=true; btn.textContent='⟳ Guardando...';
     const id=document.getElementById('btn-save-evento').dataset.id;
     const data={
       tipo_evento:(()=>{
@@ -4173,10 +4176,11 @@ function attachEvents(){
       transportista_id: document.getElementById('e-aplica-transportista')?.value==='si' ? (parseInt(document.getElementById('e-transportista-id')?.value)||null) : null,
       estado: id ? undefined : 'A_ASIGNAR',
     };
-    if(!data.tipo_evento||!data.fecha||!data.hora_inicio){toast('Tipo, fecha y hora inicio son obligatorios',T.red);return;}
+    if(!data.tipo_evento||!data.fecha||!data.hora_inicio){toast('Tipo, fecha y hora inicio son obligatorios',T.red);btn.disabled=false;btn.textContent=id?'💾 Guardar':'✅ Crear evento';return;}
     if(id){data.id=parseInt(id);delete data.estado;}
     const eid=await saveEvento(data);
     if(eid){set({modal:null});toast(id?'✅ Evento actualizado':'✅ Evento creado');}
+    else{btn.disabled=false;btn.textContent=id?'💾 Guardar':'✅ Crear evento';}
   });
 
   // enviar invitaciones
@@ -4595,17 +4599,19 @@ async function init(){
     return;
   }
 
+  // Capturar params ANTES de render(): attachEvents() hace replaceState() sincrónicamente
+  // y después de render() la URL ya está limpia — params.get(token) sería null.
+  const initParams=new URLSearchParams(window.location.search);
   render();
-  // check confirmar_calendario BEFORE auth - no login needed
-  const params=new URLSearchParams(window.location.search);
-  const calToken=params.get('confirmar_calendario');
+  const calToken=initParams.get('confirmar_calendario');
   if(calToken){
     set({loading:false});
     await handleConfirmarCalendario(calToken);
     return;
   }
-  // Si hay token de respuesta en la URL, NO limpiar todavía - dejar que buildApp/attachEvents lo procesen
-  // (limpiar acá causaba redirect a login porque el usuario no está logueado)
+  // Si había token de invitación, attachEvents() ya lo procesa en background.
+  // No seguir con auth flow — evita que set({loading:false}) re-renderice al login.
+  if(initParams.get('token')){ return; }
   const {data:{session}}=await db.auth.getSession();
   if(session?.user){ set({user:session.user,loading:false}); await loadRole(); await loadAll(); }
   else { set({loading:false}); }
