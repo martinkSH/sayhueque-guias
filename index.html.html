@@ -542,29 +542,6 @@ async function saveEvento(data){
   return data.id || result?.id;
 }
 
-async function sendInviteEmail(guia, evento, token, expira){
-  const file = S.files.find(f=>f.id===evento.file_id);
-  const acceptUrl = `${window.location.origin}?action=aceptar&token=${token}`;
-  const rejectUrl = `${window.location.origin}?action=rechazar&token=${token}`;
-  
-  const fechaStr = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-  const expiraStr = new Date(expira).toLocaleString('es-AR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
-  
-  return await sendEmail('invitacion_evento', {
-    to_email: guia.email,
-    guia_nombre: guia.nombre,
-    evento_tipo: evento.tipo_evento,
-    evento_fecha: fechaStr,
-    evento_hora: evento.hora_inicio + (evento.hora_fin ? ' - ' + evento.hora_fin : ''),
-    file_nro: file?.nro_file || '—',
-    evento_descripcion: evento.descripcion || 'Sin descripción',
-    link_adjunto: evento.link_adjunto || '',
-    expira_fecha: expiraStr,
-    accept_url: acceptUrl,
-    reject_url: rejectUrl
-  });
-}
-
 async function invitarGuias(eventoId, guiaIds){
   const evento = S.eventos.find(e=>e.id===eventoId);
   if(!evento) return;
