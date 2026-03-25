@@ -417,6 +417,9 @@ async function loadAll(){
 async function sendCambioEmail(guia, evento, cambios){
   const fechaEvento = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const horario = evento.hora_inicio + (evento.hora_fin ? ' - '+evento.hora_fin : '');
+  // Buscar nro_file desde S.files (el campo no está en el objeto evento directamente)
+  const file = S.files?.find(f=>f.id===evento.file_id);
+  const nroFile = file?.nro_file || evento.nro_file || '—';
 
   // Generar token de reconfirmación (7 días)
   const tokenReconfirmar = await generarTokenReconfirmacion(evento.id, guia.id);
@@ -427,7 +430,7 @@ async function sendCambioEmail(guia, evento, cambios){
     to_email: guia.email,
     guia_nombre: guia.nombre + ' ' + guia.apellido,
     tipo_evento: evento.tipo_evento,
-    nro_file: evento.nro_file || '—',
+    nro_file: nroFile,
     fecha: fechaEvento,
     horario: horario,
     cambios: cambios,
@@ -629,6 +632,65 @@ async function responderInvitacion(token, accion){
     return {ok:true, msg:'Entendemos, quedó registrado. ¡Hasta la próxima!'};
   }
 }
+
+async function procesarInvitacionViaje(token, accion){
+  try {
+    // Buscar el token de invitación a viaje
+    const {data:tokenData} = await db.from('tokens_reconfirmacion')
+      .select('*').eq('token',token).eq('tipo','invitacion_viaje').eq('usado',false).single();
+    if(!tokenData) return {ok:false, msg:'Invitación no encontrada o ya procesada'};
+    if(new Date(tokenData.expires_at) < new Date()) return {ok:false, msg:'Esta invitación expiró'};
+
+    const fileId = tokenData.evento_id; // guardamos fileId acá
+    const guiaId = tokenData.guia_id;
+
+    // Buscar todas las invitaciones de este guía con tokens que empiecen con este token
+    const {data:invs} = await db.from('invitaciones').select('*,eventos(*)')
+      .eq('guia_id', guiaId).eq('estado','PENDIENTE');
+    // Filtrar las que pertenecen a este viaje (token grupal)
+    const misInvs = (invs||[]).filter(i=>i.token && i.token.startsWith(token+'_'));
+
+    if(!misInvs.length) return {ok:false, msg:'No se encontraron invitaciones pendientes para este viaje'};
+
+    // Marcar token como usado
+    await db.from('tokens_reconfirmacion').update({usado:true}).eq('id',tokenData.id);
+
+    if(accion==='aceptar'){
+      // Aceptar todas las invitaciones y confirmar todos los eventos
+      for(const inv of misInvs){
+        await db.from('invitaciones').update({estado:'ACEPTADA', respondido_at: new Date().toISOString()}).eq('id',inv.id);
+        await db.from('eventos').update({estado:'CONFIRMADO', guia_id: guiaId}).eq('id',inv.evento_id);
+        await db.from('historial').insert({
+          evento_id: inv.evento_id, guia_id: guiaId, invitacion_id: inv.id,
+          accion:'ACEPTADA', actor:'GUIA', detalle:'Aceptado como parte de invitación a viaje completo'
+        });
+      }
+      // Traer datos del file para mostrar en la página de confirmación
+      const {data:file} = await db.from('files').select('*').eq('id',fileId).single().catch(()=>({data:null}));
+      return {
+        ok:true,
+        esViaje: true,
+        cantEventos: misInvs.length,
+        nroFile: file?.nro_file || '',
+        msg:`¡Confirmado! Quedaste asignado a los ${misInvs.length} eventos del viaje.`
+      };
+    } else {
+      // Rechazar todas
+      for(const inv of misInvs){
+        await db.from('invitaciones').update({estado:'RECHAZADA', respondido_at: new Date().toISOString()}).eq('id',inv.id);
+        await db.from('historial').insert({
+          evento_id: inv.evento_id, guia_id: guiaId, invitacion_id: inv.id,
+          accion:'RECHAZADA', actor:'GUIA', detalle:'Rechazado como parte de invitación a viaje completo'
+        });
+      }
+      return {ok:true, msg:'Entendemos, quedó registrado tu rechazo. ¡Hasta la próxima!'};
+    }
+  } catch(e){
+    console.error('procesarInvitacionViaje error:', e);
+    return {ok:false, msg:'Error procesando la invitación: '+e.message};
+  }
+}
+
 
 // ── RECONFIRMACIÓN DE CAMBIOS ─────────────────────────────────────────────
 async function procesarReconfirmacionToken(token, accion){
@@ -881,6 +943,79 @@ async function cancelarEvento(eventoId){
   await loadAll();
   toast('✅ Evento cancelado y guías notificados');
 }
+
+async function generarTokenViajeInvitacion(fileId, guiaId) {
+  const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  await db.from('tokens_reconfirmacion').insert({
+    token, guia_id: guiaId,
+    evento_id: fileId,   // reutilizamos campo para almacenar fileId
+    tipo: 'invitacion_viaje',
+    expires_at: expiresAt.toISOString()
+  });
+  return token;
+}
+
+async function invitarGuiasViaje(fileId, guiaIds){
+  const file = S.files.find(f=>f.id===fileId);
+  const eventosViaje = S.eventos.filter(e=>e.file_id===fileId && e.estado!=='CANCELADO')
+    .sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  if(!eventosViaje.length){ toast('No hay eventos en este viaje', T.red); return; }
+  const horas = 48;
+  const expira = new Date(Date.now() + horas*60*60*1000).toISOString();
+
+  for(const gid of guiaIds){
+    const guia = S.guias.find(g=>g.id===gid);
+    if(!guia) continue;
+
+    // Generar token único para este guía + viaje
+    const token = await generarTokenViajeInvitacion(fileId, gid);
+    const aceptarUrl = `${APP_URL}?token=${token}&accion=aceptar_viaje`;
+    const rechazarUrl = `${APP_URL}?token=${token}&accion=rechazar_viaje`;
+    const expiraStr = new Date(expira).toLocaleString('es-AR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+
+    // Crear invitaciones individuales por evento (estado PENDIENTE_VIAJE para no mezclar con flujo normal)
+    for(const ev of eventosViaje){
+      const {data:invExistente} = await db.from('invitaciones').select('id')
+        .eq('evento_id',ev.id).eq('guia_id',gid).in('estado',['PENDIENTE','ACEPTADA']).single().catch(()=>({data:null}));
+      if(invExistente) continue; // ya tiene una invitación activa
+      await db.from('invitaciones').insert({
+        evento_id: ev.id, guia_id: gid, expira_at: expira,
+        estado: 'PENDIENTE', token: token + '_' + ev.id // token grupal + evento
+      });
+    }
+
+    // Construir lista de eventos para el mail
+    const eventosListaTxt = eventosViaje.map((e,i)=>{
+      const fechaStr = new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long'});
+      return `${i+1}. ${esc(e.tipo_evento)} — ${fechaStr} — ${e.hora_inicio||''}${e.hora_fin?' → '+e.hora_fin:''}`;
+    }).join('\n');
+
+    // Enviar mail de invitación al viaje completo
+    await sendEmail('invitacion_viaje', {
+      to_email: guia.email,
+      guia_nombre: guia.nombre + ' ' + guia.apellido,
+      nro_file: file?.nro_file || '—',
+      operador: file?.operador_nombre || '—',
+      fecha_in: file?.fecha_in ? new Date(file.fecha_in+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'long',year:'numeric'}) : '—',
+      fecha_out: file?.fecha_out ? new Date(file.fecha_out+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'long',year:'numeric'}) : '—',
+      cant_eventos: String(eventosViaje.length),
+      eventos_lista: eventosListaTxt,
+      expira: expiraStr,
+      url_aceptar: aceptarUrl,
+      url_rechazar: rechazarUrl
+    });
+
+    await db.from('historial').insert({
+      evento_id: eventosViaje[0].id, guia_id: gid,
+      accion: 'INVITACION_VIAJE_ENVIADA', actor: 'ADMIN',
+      detalle: `Invitación a viaje completo ${file?.nro_file} (${eventosViaje.length} eventos)`
+    });
+  }
+  await loadAll();
+  toast(`✅ Invitación al viaje enviada a ${guiaIds.length} guía(s)`, T.tealMid);
+}
+
 
 async function bajarseEvento(eventoId){
   eventoId = parseInt(eventoId); // asegurar que sea número, no string
@@ -1798,6 +1933,7 @@ function buildViajes(){
           <div style="display:flex;gap:8px;align-items:center">
             <div style="background:rgba(255,255,255,0.2);padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700">${eventos.length} evento${eventos.length!==1?'s':''}</div>
             ${isAdmin()?`
+              <button data-invitar-viaje="${file.id}" onclick="event.stopPropagation()" style="padding:6px 12px;border-radius:6px;border:none;background:rgba(255,255,255,0.9);color:#1B6B74;font-size:11px;cursor:pointer;font-weight:700">📨 Invitar guía al viaje</button>
               <button onclick="event.stopPropagation();modalEditarViaje('${file.id}')" style="padding:6px 12px;border-radius:6px;border:none;background:rgba(255,255,255,0.2);color:white;font-size:11px;cursor:pointer;font-weight:600">✏️ Editar</button>
               <button onclick="event.stopPropagation();eliminarViaje('${file.id}')" style="padding:6px 12px;border-radius:6px;border:none;background:rgba(230,57,70,0.9);color:white;font-size:11px;cursor:pointer;font-weight:600">🗑️ Eliminar</button>
             `:''}
@@ -3107,6 +3243,7 @@ function buildModal(){
   if(m.type==='evento-en-viaje') return buildEventoEnViajeModal(m.fileId);
   if(m.type==='evento-form')  return buildEventoModal(m.entry);
   if(m.type==='invitar')      return buildInvitarModal(m.eventoId);
+  if(m.type==='invitar-viaje') return buildInvitarViajeModal(m.fileId);
   if(m.type==='register')     return buildRegModal();
   if(m.type==='usuario-form')    return buildUsuarioModal(m.entry);
   if(m.type==='import-preview')  return buildImportPreviewModal(m.entity, m.rows, m.file);
@@ -3406,6 +3543,86 @@ function buildInvitarModal(eventoId){
     </div>
   </div>`;
 }
+
+function buildInvitarViajeModal(fileId){
+  const file = S.files.find(f=>f.id===fileId);
+  const eventosViaje = S.eventos.filter(e=>e.file_id===fileId && e.estado!=='CANCELADO')
+    .sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const guiasActivos = [...S.guias].filter(g=>g.estado==='ACTIVO').sort((a,b)=>a.nombre.localeCompare(b.nombre));
+
+  if(!eventosViaje.length){
+    return `<div id="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px">
+      <div style="background:white;border-radius:16px;padding:36px;max-width:420px;text-align:center">
+        <div style="font-size:32px;margin-bottom:12px">📋</div>
+        <div style="font-size:16px;font-weight:700;margin-bottom:8px">No hay eventos en este viaje</div>
+        <button id="btn-close-modal" style="${btnS}margin-top:12px">Cerrar</button>
+      </div>
+    </div>`;
+  }
+
+  const eventosListHtml = eventosViaje.map(e=>{
+    const fechaStr = new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'short'});
+    const estadoC = ESTADO_EVENT_COLOR[e.estado]||{};
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:#F9F8F6;border-radius:7px;margin-bottom:5px">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:#1A1A1A">${esc(e.tipo_evento)}</div>
+        <div style="font-size:11px;color:#9E9A93">${fechaStr} · ${e.hora_inicio||'—'}${e.hora_fin?' – '+e.hora_fin:''}</div>
+      </div>
+      <span style="font-size:10px;background:${estadoC.bg||'#eee'};color:${estadoC.fg||'#555'};padding:2px 8px;border-radius:10px;font-weight:600">${estadoC.label||e.estado}</span>
+    </div>`;
+  }).join('');
+
+  const guiasHtml = guiasActivos.map(g=>{
+    // Verificar si tiene conflictos en alguna fecha del viaje
+    const conflictos = eventosViaje.filter(e=>{
+      const ev=S.eventos.find(x=>x.guia_id===g.id&&x.fecha===e.fecha&&x.id!==e.id&&['CONFIRMADO','ASIGNADO'].includes(x.estado));
+      const bloq=S.bloqueos.find(b=>b.guia_id===g.id&&b.fecha===e.fecha);
+      return ev||bloq;
+    });
+    const disabled = conflictos.length>0;
+    const conflictoLabel = disabled ? `⛔ Conflicto en ${conflictos.length} fecha(s)` : '';
+    return '<label style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;border:1.5px solid '+(disabled?'#fcd5d5':'#E8E4DD')+';cursor:'+(disabled?'not-allowed':'pointer')+';opacity:'+(disabled?0.6:1)+';background:'+(disabled?'#fff8f8':'white')+'" '+(disabled?'':' onmouseenter="this.style.borderColor=\'#2A9D8F\'" onmouseleave="this.style.borderColor=\'#E8E4DD\'"')+'>'
+      +'<input type="checkbox" value="'+g.id+'" '+(disabled?'disabled':'')+' style="width:16px;height:16px;accent-color:'+T.tealMid+';cursor:pointer"/>'
+      +'<div style="width:34px;height:34px;border-radius:50%;background:'+(disabled?'#fcd5d520':T.teal+'20')+';display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:'+(disabled?'#E63946':T.teal)+';flex-shrink:0">'+esc(g.nombre[0])+'</div>'
+      +'<div style="flex:1">'
+        +'<div style="font-size:13px;font-weight:600;color:'+T.dark+'">'+esc(g.nombre)+' '+esc(g.apellido)+'</div>'
+        +'<div style="font-size:11px;color:#9E9A93">'+esc(g.email)+'</div>'
+        +(disabled?'<div style="font-size:11px;color:#E63946;font-weight:600;margin-top:2px">'+conflictoLabel+'</div>':'')
+      +'</div>'
+      +'</label>';
+  }).join('');
+
+  return `
+  <div id="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px">
+    <div style="background:white;border-radius:16px;width:100%;max-width:560px;max-height:92vh;overflow:auto;box-shadow:0 24px 80px rgba(0,0,0,0.25);animation:slideIn 0.2s ease">
+      <div style="background:linear-gradient(135deg,#1B6B74,#2A9D8F);padding:20px 28px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="color:rgba(255,255,255,0.7);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">Invitar guías al viaje completo</div>
+          <div style="color:white;font-size:18px;font-weight:700;font-family:'Playfair Display',serif">📁 File ${esc(file?.nro_file||'')}</div>
+        </div>
+        <button id="btn-close-modal" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;color:white;font-size:20px;width:36px;height:36px;cursor:pointer">×</button>
+      </div>
+      <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
+        <div style="background:#FFF9E6;border:1.5px solid #E9C46A;border-radius:8px;padding:12px 16px;font-size:13px;color:#856404">
+          ⚠️ <strong>El guía debe aceptar todos los eventos del viaje.</strong> Si rechaza, queda fuera de todos. No se puede aceptar solo algunos.
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Eventos incluidos (${eventosViaje.length})</div>
+          <div style="max-height:180px;overflow:auto">${eventosListHtml}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Seleccioná guías a invitar</div>
+          <div style="display:flex;flex-direction:column;gap:6px;max-height:240px;overflow:auto">${guiasHtml}</div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button id="btn-close-modal2" style="${btnS}">Cancelar</button>
+          <button id="btn-enviar-invitaciones-viaje" data-file-id="${fileId}" style="${btnP(T.tealMid)}box-shadow:0 4px 14px ${T.tealMid}50">📧 Enviar invitación al viaje</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
 
 function buildUsuarioModal(entry={}){
   const isEdit=!!entry.user_id;
@@ -3843,6 +4060,8 @@ function attachEvents(){
       let result;
       if(accion==='reconfirmar' || accion==='cancelar_cambio'){
         result = await procesarReconfirmacionToken(token, accion);
+      } else if(accion==='aceptar_viaje' || accion==='rechazar_viaje'){
+        result = await procesarInvitacionViaje(token, accion==='aceptar_viaje'?'aceptar':'rechazar');
       } else {
         result = await responderInvitacion(token, accion==='aceptar'?'aceptar':'rechazar');
       }
@@ -3884,15 +4103,23 @@ function attachEvents(){
       }
 
       if(result.ok && esAceptar){
-        box.innerHTML=`
-          <div style="font-size:56px;margin-bottom:12px">✅</div>
-          <div style="font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:#1A1A1A;margin-bottom:6px">¡Quedaste confirmado!</div>
-          <div style="font-size:14px;color:#666;margin-bottom:24px;line-height:1.6">Te esperamos para el siguiente evento:</div>
-          ${eventoCard}
-          <div style="display:flex;flex-direction:column;gap:10px">
-            ${gcalBtn}
-            <a href="${APP_URL}" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 24px;background:#1B6B74;color:white;border-radius:10px;font-weight:700;font-size:14px;text-decoration:none;box-shadow:0 2px 8px rgba(27,107,116,0.3)">Ir a la plataforma →</a>
-          </div>`;
+        if(result.esViaje){
+          box.innerHTML=`
+            <div style="font-size:56px;margin-bottom:12px">🎉</div>
+            <div style="font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:#1A1A1A;margin-bottom:6px">¡Viaje confirmado!</div>
+            <div style="font-size:14px;color:#666;margin-bottom:20px;line-height:1.6">Quedaste asignado a <strong>${result.cantEventos} eventos</strong>${result.nroFile?' del viaje <strong>'+result.nroFile+'</strong>':''}.</div>
+            <a href="${APP_URL}" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 24px;background:#1B6B74;color:white;border-radius:10px;font-weight:700;font-size:14px;text-decoration:none;box-shadow:0 2px 8px rgba(27,107,116,0.3)">Ir a la plataforma →</a>`;
+        } else {
+          box.innerHTML=`
+            <div style="font-size:56px;margin-bottom:12px">✅</div>
+            <div style="font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:#1A1A1A;margin-bottom:6px">¡Quedaste confirmado!</div>
+            <div style="font-size:14px;color:#666;margin-bottom:24px;line-height:1.6">Te esperamos para el siguiente evento:</div>
+            ${eventoCard}
+            <div style="display:flex;flex-direction:column;gap:10px">
+              ${gcalBtn}
+              <a href="${APP_URL}" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 24px;background:#1B6B74;color:white;border-radius:10px;font-weight:700;font-size:14px;text-decoration:none;box-shadow:0 2px 8px rgba(27,107,116,0.3)">Ir a la plataforma →</a>
+            </div>`;
+        }
       } else if(result.ok && !esAceptar){
         box.innerHTML=`
           <div style="font-size:56px;margin-bottom:12px">👍</div>
@@ -4052,6 +4279,18 @@ function attachEvents(){
 
   // invitar
   document.querySelectorAll('[data-invitar]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();set({modal:{type:'invitar',eventoId:parseInt(btn.dataset.invitar)}});}));
+  document.querySelectorAll('[data-invitar-viaje]').forEach(btn=>btn.addEventListener('click',e=>{
+    e.stopPropagation(); set({modal:{type:'invitar-viaje',fileId:btn.dataset.invitarViaje}});
+  }));
+  document.getElementById('btn-enviar-invitaciones-viaje')?.addEventListener('click',async()=>{
+    const btn=document.getElementById('btn-enviar-invitaciones-viaje');
+    const fileId=btn?.dataset.fileId;
+    const checked=[...document.querySelectorAll('#modal-overlay input[type=checkbox]:checked:not(:disabled)')].map(cb=>parseInt(cb.value));
+    if(!checked.length){toast('Seleccioná al menos un guía',T.red);return;}
+    btn.textContent='⟳ Enviando...'; btn.disabled=true;
+    await invitarGuiasViaje(fileId,checked);
+    set({modal:null});
+  });
 
   // cancelar invitacion
   document.querySelectorAll('[data-cancelar-inv]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();if(confirm('¿Cancelar esta invitación?'))cancelarInvitacion(parseInt(btn.dataset.cancelarInv));}));
