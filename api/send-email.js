@@ -65,13 +65,21 @@ export default async function handler(req, res) {
       emailSubject = template.subject;
       
       console.log('✅ Template cargado, subject:', emailSubject);
+      console.log('📝 Variables recibidas:', Object.keys(variables));
       
-      // Reemplazar variables {{variable}}
+      // Reemplazar variables {{variable}} - ESCAPAR los caracteres especiales de regex
       Object.keys(variables).forEach(key => {
-        const regex = new RegExp(`{{${key}}}`, 'g');
-        emailHtml = emailHtml.replace(regex, variables[key] || '');
-        emailSubject = emailSubject.replace(regex, variables[key] || '');
+        const placeholder = `{{${key}}}`;
+        const value = variables[key] || '';
+        
+        // Usar replace con string literal en lugar de regex
+        emailHtml = emailHtml.split(placeholder).join(value);
+        emailSubject = emailSubject.split(placeholder).join(value);
+        
+        console.log(`   Reemplazando ${placeholder} → ${value.substring(0, 30)}...`);
       });
+      
+      console.log('✅ Variables reemplazadas');
     }
     
     console.log('📤 Enviando email a:', variables.to_email);
