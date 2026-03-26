@@ -3627,6 +3627,10 @@ function buildViajeModal(entry={}){
           <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">DH / GR</label>
           <input id="v-dh-gr" type="text" value="${esc(entry.dh_gr_nombre||'')}" placeholder="Nombre del DH/GR" style="${iStyle}"/>
         </div>
+        <div>
+          <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">👤 Pasajero Principal</label>
+          <input id="v-pasajero" type="text" value="${esc(entry.pasajero_principal||'')}" placeholder="Nombre del pasajero principal" style="${iStyle}"/>
+        </div>
         <div style="display:flex;gap:10px;margin-top:10px">
           <button id="btn-close-modal2" style="flex:1;padding:12px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;font-size:14px;font-weight:600;cursor:pointer;color:#555">Cancelar</button>
           <button id="btn-save-viaje" data-viaje-id="${entry.id||''}" style="flex:1;padding:12px;border-radius:8px;border:none;background:linear-gradient(135deg,#1B6B74,#2A9D8F);color:white;font-size:14px;font-weight:700;cursor:pointer">${isEdit?'Guardar Cambios':'Crear Viaje'}</button>
