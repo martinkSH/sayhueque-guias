@@ -217,6 +217,7 @@ let S = {
   searchViaje: '',
   searchGuia: '',
   liqFileExpanded: {},
+  liqAdminExpanded: {},
   calWeekStart: null,     // Date — lunes de la semana actual en agenda
   calFiltroGuia: '',      // id de guía para filtrar (admin)
   calFiltroFile: '',      // nro_file para filtrar (admin)
@@ -1119,6 +1120,39 @@ async function invitarGuiasViaje(fileId, guiaIds){
   }
   await loadAll();
   toast(`✅ Invitación al viaje enviada a ${guiaIds.length} guía(s)`, T.tealMid);
+}
+
+
+function toggleLiqAdmin(fileId){
+  const exp = {...(S.liqAdminExpanded||{})};
+  exp[fileId] = !exp[fileId];
+  set({liqAdminExpanded: exp});
+}
+
+async function aprobarViajeLiqs(fileId){
+  if(!confirm('¿Aprobar todas las liquidaciones pendientes de este viaje?')) return;
+  const liqsPend = S.liquidaciones.filter(l=>{
+    const ev = S.eventos.find(e=>e.id===l.evento_id);
+    return ev?.file_id===fileId && l.estado==='PENDIENTE';
+  });
+  for(const l of liqsPend){
+    await db.from('liquidaciones').update({estado:'APROBADA'}).eq('id',l.id);
+  }
+  await loadAll();
+  toast(`✅ ${liqsPend.length} liquidación(es) aprobadas`);
+}
+
+async function pagarViajeLiqs(fileId){
+  if(!confirm('¿Marcar como pagadas todas las liquidaciones aprobadas de este viaje?')) return;
+  const liqsAprob = S.liquidaciones.filter(l=>{
+    const ev = S.eventos.find(e=>e.id===l.evento_id);
+    return ev?.file_id===fileId && l.estado==='APROBADA';
+  });
+  for(const l of liqsAprob){
+    await db.from('liquidaciones').update({estado:'PAGADA'}).eq('id',l.id);
+  }
+  await loadAll();
+  toast(`💰 ${liqsAprob.length} liquidación(es) marcadas como pagadas`);
 }
 
 
@@ -3555,72 +3589,129 @@ function buildLiquidacionesGuia(){
 function buildLiquidacionesAdmin(){
   const allLiqs = S.liquidaciones || [];
   const total = allLiqs.reduce((s,l)=>s+l.total,0);
-  const pendientes = allLiqs.filter(l=>l.estado==='PENDIENTE').length;
+  const pendientesCount = allLiqs.filter(l=>l.estado==='PENDIENTE').length;
+  const aprobadas = allLiqs.filter(l=>l.estado==='APROBADA').length;
+  const pagadas = allLiqs.filter(l=>l.estado==='PAGADA').length;
+
+  // Group liquidaciones by file
+  // Build a map: fileId -> {file, guia, liqs[]}
+  const porFile = {};
+  const sinFile = [];
+
+  allLiqs.forEach(l=>{
+    const evento = S.eventos.find(e=>e.id===l.evento_id);
+    const fileId = evento?.file_id;
+    const file = fileId ? S.files.find(f=>f.id===fileId) : null;
+    if(file){
+      if(!porFile[fileId]) porFile[fileId] = {file, liqs:[]};
+      porFile[fileId].liqs.push({l, evento});
+    } else {
+      sinFile.push({l, evento});
+    }
+  });
+
+  const estadoColor = st => st==='PAGADA'?{bg:'#D4EDDA',fg:'#155724'}:st==='APROBADA'?{bg:'#D1ECF1',fg:'#0c5460'}:{bg:'#FFF3CD',fg:'#856404'};
+
+  const renderLiqRow = (l, evento) => {
+    const guia = S.guias.find(g=>g.id===l.guia_id);
+    const fecha = evento?.fecha ? new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short'}) : '—';
+    const ec = estadoColor(l.estado);
+    return `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid #F0EDE8;background:white">
+      <div style="width:24px;height:24px;border-radius:50%;background:${T.teal}20;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:${T.teal};flex-shrink:0">${guia?esc(guia.nombre[0]):'?'}</div>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:600;color:#1A1A1A">${guia?esc(guia.nombre+' '+guia.apellido):'—'} · <span style="font-weight:400;color:#555">${evento?esc(evento.tipo_evento):'—'}</span></div>
+        <div style="font-size:11px;color:#9E9A93">${fecha} · ${l.horas}h · $${(l.valor_hora||0).toLocaleString('es-AR')}/h</div>
+      </div>
+      ${l.gastos_extras?`<div style="font-size:11px;color:#555">+$${l.gastos_extras.toLocaleString('es-AR')} extras</div>`:''}
+      <div style="font-size:13px;font-weight:700;color:${T.teal};min-width:70px;text-align:right">$${l.total.toLocaleString('es-AR')}</div>
+      <span style="font-size:9px;font-weight:700;padding:3px 8px;border-radius:8px;background:${ec.bg};color:${ec.fg};white-space:nowrap">${l.estado}</span>
+      <div style="display:flex;gap:4px">
+        <button onclick="verLiquidacion(${l.id})" style="padding:4px 8px;border-radius:6px;border:1px solid #E8E4DD;background:white;font-size:10px;cursor:pointer;color:${T.tealMid};font-weight:600">👁</button>
+        ${l.estado==='PENDIENTE'?`<button onclick="cambiarEstadoLiq(${l.id},'APROBADA')" style="padding:4px 8px;border-radius:6px;border:none;background:#D1ECF1;font-size:10px;cursor:pointer;color:#0c5460;font-weight:600">✓ Aprobar</button>`:''}
+        ${l.estado==='APROBADA'?`<button onclick="cambiarEstadoLiq(${l.id},'PAGADA')" style="padding:4px 8px;border-radius:6px;border:none;background:#D4EDDA;font-size:10px;cursor:pointer;color:#155724;font-weight:600">✓ Pagar</button>`:''}
+      </div>
+    </div>`;
+  };
+
+  const renderFileBlock = (fileId) => {
+    const {file, liqs} = porFile[fileId];
+    const totalFile = liqs.reduce((s,{l})=>s+l.total,0);
+    const pendFile = liqs.filter(({l})=>l.estado==='PENDIENTE');
+    const aprobFile = liqs.filter(({l})=>l.estado==='APROBADA');
+    const todoPagado = liqs.every(({l})=>l.estado==='PAGADA');
+    const todoAprobado = liqs.every(({l})=>l.estado==='APROBADA'||l.estado==='PAGADA');
+    const expanded = S.liqAdminExpanded?.[fileId];
+    const headerBg = todoPagado ? 'linear-gradient(135deg,#2E7D32,#52B788)' : todoAprobado ? 'linear-gradient(135deg,#0c5460,#17a2b8)' : 'linear-gradient(135deg,#1B6B74,#2A9D8F)';
+
+    return `
+    <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;overflow:hidden;margin-bottom:12px">
+      <div style="background:${headerBg};padding:14px 18px;display:flex;align-items:center;gap:12px;cursor:pointer" onclick="toggleLiqAdmin('${fileId}')">
+        <div style="flex:1">
+          <div style="color:white;font-size:14px;font-weight:700">
+            ${todoPagado?'✅':todoAprobado?'☑️':'📁'} ${esc(file.nro_file)}
+            ${todoPagado?'<span style="font-size:11px;opacity:0.8;margin-left:6px">— Pagado</span>':todoAprobado?'<span style="font-size:11px;opacity:0.8;margin-left:6px">— Aprobado</span>':''}
+          </div>
+          <div style="color:rgba(255,255,255,0.75);font-size:11px;margin-top:2px">
+            ${liqs.length} liquidación(es) · $${totalFile.toLocaleString('es-AR')}
+            ${pendFile.length?` · <strong>${pendFile.length} pendiente(s)</strong>`:''}
+            ${aprobFile.length?` · ${aprobFile.length} aprobada(s)`:''}
+          </div>
+        </div>
+        ${pendFile.length>0?`
+          <button onclick="event.stopPropagation();aprobarViajeLiqs('${fileId}')" style="padding:6px 12px;border-radius:7px;border:2px solid rgba(255,255,255,0.7);background:rgba(255,255,255,0.15);color:white;font-size:11px;cursor:pointer;font-weight:700;font-family:'DM Sans',sans-serif">
+            ✓ Aprobar viaje
+          </button>
+        `:''}
+        ${aprobFile.length>0&&!todoPagado?`
+          <button onclick="event.stopPropagation();pagarViajeLiqs('${fileId}')" style="padding:6px 12px;border-radius:7px;border:2px solid rgba(255,255,255,0.7);background:rgba(255,255,255,0.15);color:white;font-size:11px;cursor:pointer;font-weight:700;font-family:'DM Sans',sans-serif">
+            💰 Pagar viaje
+          </button>
+        `:''}
+        <div style="color:white;font-size:16px">${expanded?'▾':'▸'}</div>
+      </div>
+      ${expanded?`<div>${liqs.sort((a,b)=>(a.evento?.fecha||'').localeCompare(b.evento?.fecha||'')).map(({l,evento})=>renderLiqRow(l,evento)).join('')}</div>`:''}
+    </div>`;
+  };
 
   return `
-  <div style="padding:24px;display:flex;flex-direction:column;gap:20px;max-width:900px">
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
-      <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:18px">
-        <div style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Total liquidaciones</div>
-        <div style="font-size:26px;font-weight:700;color:${T.teal}">$${total.toLocaleString('es-AR')}</div>
+  <div style="padding:24px;display:flex;flex-direction:column;gap:16px;max-width:1000px">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+      <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:16px">
+        <div style="font-size:10px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Total</div>
+        <div style="font-size:24px;font-weight:700;color:${T.teal}">$${total.toLocaleString('es-AR')}</div>
       </div>
-      <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:18px">
-        <div style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Pendientes de pago</div>
-        <div style="font-size:26px;font-weight:700;color:#E9C46A">${pendientes}</div>
+      <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:16px">
+        <div style="font-size:10px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Pendientes</div>
+        <div style="font-size:24px;font-weight:700;color:#E9C46A">${pendientesCount}</div>
       </div>
-      <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:18px">
-        <div style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Total pagadas</div>
-        <div style="font-size:26px;font-weight:700;color:#52B788">${allLiqs.filter(l=>l.estado==='PAGADA').length}</div>
+      <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:16px">
+        <div style="font-size:10px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Aprobadas</div>
+        <div style="font-size:24px;font-weight:700;color:#0c5460">${aprobadas}</div>
+      </div>
+      <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:16px">
+        <div style="font-size:10px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Pagadas</div>
+        <div style="font-size:24px;font-weight:700;color:#2E7D32">${pagadas}</div>
       </div>
     </div>
 
-    <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;overflow:hidden">
-      <div style="padding:16px 20px;border-bottom:1px solid #E8E4DD;display:flex;align-items:center;justify-content:space-between">
-        <div style="font-size:12px;font-weight:700;color:#1A1A1A;text-transform:uppercase;letter-spacing:0.08em">Todas las liquidaciones</div>
-        <button onclick="exportLiquidaciones()" style="${btnS}padding:6px 14px;font-size:12px">⬇ Exportar cuenta corriente</button>
-      </div>
-      ${allLiqs.length===0?`<div style="padding:32px;text-align:center;color:#9E9A93">Sin liquidaciones cargadas aún</div>`:`
-      <table style="width:100%;border-collapse:collapse">
-        <thead>
-          <tr style="background:#F5F3EF">
-            <th style="padding:10px 16px;text-align:left;font-size:10px;font-weight:700;color:#9E9A93;text-transform:uppercase">Guía</th>
-            <th style="padding:10px 16px;text-align:left;font-size:10px;font-weight:700;color:#9E9A93;text-transform:uppercase">Evento</th>
-            <th style="padding:10px 16px;text-align:left;font-size:10px;font-weight:700;color:#9E9A93;text-transform:uppercase">Fecha</th>
-            <th style="padding:10px 16px;text-align:right;font-size:10px;font-weight:700;color:#9E9A93;text-transform:uppercase">Horas</th>
-            <th style="padding:10px 16px;text-align:right;font-size:10px;font-weight:700;color:#9E9A93;text-transform:uppercase">Extras</th>
-            <th style="padding:10px 16px;text-align:right;font-size:10px;font-weight:700;color:#9E9A93;text-transform:uppercase">Total</th>
-            <th style="padding:10px 16px;text-align:center;font-size:10px;font-weight:700;color:#9E9A93;text-transform:uppercase">Estado</th>
-            <th style="padding:10px 16px;text-align:center;font-size:10px;font-weight:700;color:#9E9A93;text-transform:uppercase">Acción</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${allLiqs.map(l=>{
-            const guia = S.guias.find(g=>g.id===l.guia_id);
-            const evento = S.eventos.find(e=>e.id===l.evento_id);
-            const fecha = evento?.fecha ? new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-            return `
-            <tr style="border-bottom:1px solid #F5F3EF">
-              <td style="padding:10px 16px;font-size:13px;font-weight:600">${guia?esc(guia.nombre+' '+guia.apellido):'—'}</td>
-              <td style="padding:10px 16px;font-size:12px;color:#555">${evento?esc(evento.tipo_evento):'—'}${evento?.nro_file?' · '+esc(evento.nro_file):''}</td>
-              <td style="padding:10px 16px;font-size:12px;color:#9E9A93">${fecha}</td>
-              <td style="padding:10px 16px;font-size:12px;text-align:right">${l.horas}h</td>
-              <td style="padding:10px 16px;font-size:12px;text-align:right;color:#555">$${(l.gastos_extras||0).toLocaleString('es-AR')}</td>
-              <td style="padding:10px 16px;font-size:13px;font-weight:700;text-align:right;color:${T.teal}">$${l.total.toLocaleString('es-AR')}</td>
-              <td style="padding:10px 16px;text-align:center">
-                <span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:10px;background:${l.estado==='PAGADA'?'#D4EDDA':l.estado==='APROBADA'?'#D1ECF1':'#FFF3CD'};color:${l.estado==='PAGADA'?'#155724':l.estado==='APROBADA'?'#0c5460':'#856404'}">${l.estado}</span>
-              </td>
-              <td style="padding:10px 16px;text-align:center">
-                <div style="display:flex;gap:6px;justify-content:center">
-                  <button onclick="verLiquidacion(${l.id})" style="padding:4px 10px;border-radius:6px;border:1px solid #E8E4DD;background:white;font-size:11px;cursor:pointer;color:${T.tealMid};font-weight:600;font-family:'DM Sans',sans-serif">👁</button>
-                  ${l.estado==='PENDIENTE'?`<button onclick="cambiarEstadoLiq(${l.id},'APROBADA')" style="padding:4px 10px;border-radius:6px;border:none;background:#D1ECF1;font-size:11px;cursor:pointer;color:#0c5460;font-weight:600;font-family:'DM Sans',sans-serif">✓ Aprobar</button>`:''}
-                  ${l.estado==='APROBADA'?`<button onclick="cambiarEstadoLiq(${l.id},'PAGADA')" style="padding:4px 10px;border-radius:6px;border:none;background:#D4EDDA;font-size:11px;cursor:pointer;color:#155724;font-weight:600;font-family:'DM Sans',sans-serif">✓ Pagar</button>`:''}
-                </div>
-              </td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>`}
+    <div style="display:flex;justify-content:flex-end">
+      <button onclick="exportLiquidaciones()" style="${btnS}padding:7px 16px;font-size:12px">⬇ Exportar cuenta corriente</button>
     </div>
+
+    ${allLiqs.length===0?`
+      <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:48px;text-align:center;color:#9E9A93">
+        <div style="font-size:40px;margin-bottom:12px">💰</div>
+        <div>Sin liquidaciones cargadas aún</div>
+      </div>
+    `:Object.keys(porFile).map(fileId=>renderFileBlock(fileId)).join('')}
+
+    ${sinFile.length>0?`
+      <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;overflow:hidden">
+        <div style="background:#F5F3EF;padding:12px 18px;font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em">Sin viaje asignado</div>
+        ${sinFile.map(({l,evento})=>renderLiqRow(l,evento)).join('')}
+      </div>
+    `:''}
   </div>`;
 }
 
