@@ -152,6 +152,99 @@ export default async function handler(req, res) {
       }
     }
 
+    // ── Reconfirmation requests ──────────────────────────────────────────
+    // 7 days out: send reconf request to guide
+    // 48h out: send urgent alert to guide AND admin
+
+    const in7days = new Date(nowAR); in7days.setDate(in7days.getDate() + 7);
+    const in7Str = in7days.toISOString().slice(0, 10);
+    const in2days = new Date(nowAR); in2days.setDate(in2days.getDate() + 2);
+    const in2Str = in2days.toISOString().slice(0, 10);
+
+    // Fetch admin email
+    const { data: adminEmailCfg } = await supabase.from('config').select('value').eq('key','email_notificaciones_admin').single();
+    const adminEmail = adminEmailCfg?.value?.trim();
+
+    // Reconf request at 7 days
+    const { data: ev7 } = await supabase
+      .from('eventos').select('*, guias(*), files(*)')
+      .eq('fecha', in7Str).eq('estado', 'CONFIRMADO').not('guia_id', 'is', null);
+
+    for(const ev of (ev7||[])){
+      if(ev.reconfirmado_at) continue;
+      const guia = ev.guias;
+      if(!guia?.email) continue;
+      const fechaStr = new Date(ev.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+      try {
+        await transporter.sendMail({
+          from: 'Say Hueque <tp@sayhueque.com>',
+          to: guia.email,
+          subject: `⏳ Reconfirmá tu servicio del ${fechaStr} — ${ev.tipo_evento}`,
+          html: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px">
+            <h2 style="color:#1B6B74">⏳ Recordatorio de reconfirmación</h2>
+            <p>Hola <strong>${guia.nombre} ${guia.apellido}</strong>,</p>
+            <p>Faltan <strong>7 días</strong> para tu evento y necesitamos que confirmes que podés estar presente:</p>
+            <div style="background:#F9F8F6;border-left:4px solid #1B6B74;padding:16px;border-radius:4px;margin:16px 0">
+              <strong>${ev.tipo_evento}</strong><br/>
+              📅 ${fechaStr}${ev.hora_inicio?' · 🕐 '+ev.hora_inicio:''}<br/>
+              ${ev.files?.nro_file?'📁 '+ev.files.nro_file:''}
+            </div>
+            <p>Por favor ingresá a la plataforma y hacé clic en <strong>Reconfirmar</strong>:</p>
+            <a href="https://sayhueque-guias.vercel.app" style="display:inline-block;padding:12px 24px;background:#1B6B74;color:white;text-decoration:none;border-radius:8px;font-weight:bold">Ir a la plataforma →</a>
+            <p style="font-size:12px;color:#9E9A93;margin-top:24px">Say Hueque · Sistema de Gestión de Guías</p>
+          </div>`
+        });
+        console.log(`📩 Reconf 7d sent to ${guia.email} for evento ${ev.id}`);
+      } catch(e){ console.error('Reconf 7d error:', e.message); }
+    }
+
+    // Urgent reconf alert at 48h
+    const { data: ev2 } = await supabase
+      .from('eventos').select('*, guias(*), files(*)')
+      .eq('fecha', in2Str).eq('estado', 'CONFIRMADO').not('guia_id', 'is', null);
+
+    for(const ev of (ev2||[])){
+      if(ev.reconfirmado_at) continue;
+      const guia = ev.guias;
+      const fechaStr = new Date(ev.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+      const urgentHtml = (email, nombre) => `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px">
+        <h2 style="color:#E63946">🔴 Reconfirmación urgente — 48 horas</h2>
+        <p>Hola <strong>${nombre}</strong>,</p>
+        <p>Faltan <strong>48 horas</strong> para el evento y <strong>aún no fue reconfirmado</strong>:</p>
+        <div style="background:#FFF5F5;border-left:4px solid #E63946;padding:16px;border-radius:4px;margin:16px 0">
+          <strong>${ev.tipo_evento}</strong><br/>
+          📅 ${fechaStr}${ev.hora_inicio?' · 🕐 '+ev.hora_inicio:''}<br/>
+          ${ev.files?.nro_file?'📁 '+ev.files.nro_file+'<br/>':''}
+          👤 Guía: ${guia?.nombre||''} ${guia?.apellido||''}
+        </div>
+        <a href="https://sayhueque-guias.vercel.app" style="display:inline-block;padding:12px 24px;background:#E63946;color:white;text-decoration:none;border-radius:8px;font-weight:bold">Ir a la plataforma →</a>
+        <p style="font-size:12px;color:#9E9A93;margin-top:24px">Say Hueque · Sistema de Gestión de Guías</p>
+      </div>`;
+
+      if(guia?.email){
+        try {
+          await transporter.sendMail({
+            from: 'Say Hueque <tp@sayhueque.com>',
+            to: guia.email,
+            subject: `🔴 URGENTE: Reconfirmá tu servicio de mañana — ${ev.tipo_evento}`,
+            html: urgentHtml(guia.email, guia.nombre+' '+guia.apellido)
+          });
+          console.log(`🚨 Urgent reconf sent to ${guia.email} for evento ${ev.id}`);
+        } catch(e){ console.error('Urgent reconf error:', e.message); }
+      }
+      if(adminEmail){
+        try {
+          await transporter.sendMail({
+            from: 'Say Hueque <tp@sayhueque.com>',
+            to: adminEmail,
+            subject: `🔴 Alerta: ${guia?.nombre||''} ${guia?.apellido||''} no reconfirmó — ${ev.tipo_evento} mañana`,
+            html: urgentHtml(adminEmail, 'Admin')
+          });
+        } catch(e){ console.error('Admin alert error:', e.message); }
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
     console.log(`📊 Results: ${results.sent} sent, ${results.skipped} skipped, ${results.errors.length} errors`);
     return res.status(200).json({ success: true, date: tomorrowStr, ...results });
 
