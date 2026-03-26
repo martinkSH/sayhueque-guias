@@ -1762,6 +1762,7 @@ function buildMain(){
     : S.view==='historial'    ? buildHistorial()
     : S.view==='disponibilidad' ? buildDisponibilidad()
     : S.view==='invitaciones' ? buildMisInvitaciones()
+    : S.view==='reconfirmaciones'? buildReconfirmaciones()
     : S.view==='liquidaciones'? buildLiquidaciones()
     : S.view==='usuarios'     ? buildUsuarios()
     : buildDashboard();
@@ -1791,6 +1792,7 @@ function buildSidebar(pendInv){
     {id:'invitaciones', icon:'📨', label:'Mis invitaciones', admin:false, guiaOnly:true, badge: S.invitaciones.filter(i=>i.estado==='PENDIENTE').length},
     {id:'historial', icon:'📜', label:'Historial',  admin:false},
     {id:'liquidaciones', icon:'💰', label:'Liquidaciones', admin:false},
+    {id:'reconfirmaciones', icon:'⚠️', label:'Reconfirmaciones', admin:true, badge:(()=>{const hoy=new Date();return S.eventos.filter(e=>e.estado==='CONFIRMADO'&&e.guia_id&&!e.reconfirmado_at&&new Date(e.fecha+'T12:00:00')>=hoy&&(new Date(e.fecha+'T12:00:00')-hoy)<=7*24*60*60*1000).length||0;})()},
     {id:'transportistas',icon:'🚐', label:'Transportistas', admin:true},
     {id:'usuarios',      icon:'🔑', label:'Config',         admin:true},
   ];
@@ -1832,6 +1834,7 @@ function buildMobileDrawer(pendInv){
     {id:'invitaciones', icon:'📨', label:'Mis invitaciones',admin:false, guiaOnly:true, badge: S.invitaciones.filter(i=>i.estado==='PENDIENTE').length},
     {id:'historial',    icon:'📜', label:'Historial',       admin:false},
     {id:'liquidaciones',icon:'💰', label:'Liquidaciones',   admin:false},
+    {id:'reconfirmaciones', icon:'⚠️', label:'Reconfirmaciones', admin:true, badge:(()=>{const hoy=new Date();return S.eventos.filter(e=>e.estado==='CONFIRMADO'&&e.guia_id&&!e.reconfirmado_at&&new Date(e.fecha+'T12:00:00')>=hoy&&(new Date(e.fecha+'T12:00:00')-hoy)<=7*24*60*60*1000).length||0;})()},
     {id:'usuarios',     icon:'🔑', label:'Config',          admin:true},
   ];
   const items = allItems.filter(i => (!i.admin || isAdmin()) && (!i.guiaOnly || !isAdmin()));
@@ -1914,6 +1917,29 @@ function buildTopBar(){
 }
 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
+// Returns: 'ok' | 'warning' (7-2 days) | 'urgent' (<48h) | null (no action needed)
+function reconfStatus(evento){
+  if(evento.estado !== 'CONFIRMADO' || !evento.guia_id) return null;
+  if(evento.reconfirmado_at) return 'ok';
+  const hoy = new Date();
+  const fechaEv = new Date(evento.fecha + 'T12:00:00');
+  const diffHrs = (fechaEv - hoy) / (1000 * 60 * 60);
+  if(diffHrs < 0) return null; // pasado
+  if(diffHrs <= 48) return 'urgent';
+  if(diffHrs <= 168) return 'warning'; // 7 días
+  return null;
+}
+
+async function reconfirmarEvento2(eventoId){
+  const {error} = await db.from('eventos')
+    .update({reconfirmado_at: new Date().toISOString()})
+    .eq('id', eventoId);
+  if(error){ toast('Error: '+error.message, T.red); return; }
+  await loadAll();
+  toast('✅ Evento reconfirmado. ¡Gracias!', T.tealMid);
+}
+
+
 function buildDashboard(){
   // process email queue every time dashboard is viewed
   if(isAdmin()) setTimeout(procesarColaEmails, 1000);
@@ -1996,6 +2022,18 @@ function buildDashboard(){
     </div>
     
     ${!isAdmin() ? `
+    ${(()=>{
+      const hoy=new Date();
+      const pendReconf=S.eventos.filter(e=>{
+        if(e.estado!=='CONFIRMADO'||e.guia_id!==S.myGuia?.id||e.reconfirmado_at) return false;
+        const fechaEv=new Date(e.fecha+'T12:00:00');
+        const diffHrs=(fechaEv-hoy)/(1000*60*60);
+        return diffHrs>=0 && diffHrs<=168;
+      }).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+      if(!pendReconf.length) return '';
+      const tieneUrgentes=pendReconf.some(e=>(new Date(e.fecha+'T12:00:00')-hoy)/(1000*60*60)<=48);
+      return '<div style="background:'+(tieneUrgentes?'#FFF5F5':'#FFFDF0')+';border:2px solid '+(tieneUrgentes?'#E63946':'#E9C46A')+';border-radius:12px;padding:20px"><div style="font-size:13px;font-weight:700;color:'+(tieneUrgentes?'#E63946':'#856404')+';margin-bottom:12px">'+(tieneUrgentes?'🔴 ¡Urgente! Necesitás reconfirmar estos eventos':'⏳ Estos eventos necesitan tu reconfirmación')+'</div><div style="display:flex;flex-direction:column;gap:8px">'+pendReconf.map(e=>{const fechaStr=new Date(e.fecha+'T12:00:00').toLocaleDateString("es-AR",{weekday:"short",day:"2-digit",month:"short"});const diffHrs=Math.round((new Date(e.fecha+"T12:00:00")-hoy)/(1000*60*60));const isUrg=diffHrs<=48;const file=S.files.find(f=>f.id===e.file_id);return "<div style='display:flex;align-items:center;gap:10px;background:white;padding:10px 14px;border-radius:8px;border:1px solid "+(isUrg?"#fcd5d5":"#E8E4DD")+"'><div style='flex:1'><div style='font-size:13px;font-weight:600;color:#1A1A1A'>"+esc(e.tipo_evento)+"</div><div style='font-size:11px;color:#9E9A93'>"+fechaStr+(e.hora_inicio?" · "+String(e.hora_inicio).slice(0,5):"")+(file?" · 📁 "+esc(file.nro_file):"")+"</div></div><div style='font-size:13px;font-weight:700;color:"+(isUrg?"#E63946":"#856404")+"'>"+(diffHrs<24?diffHrs+"hs":Math.floor(diffHrs/24)+"d")+"</div><button onclick='reconfirmarEvento2("+e.id+")' style='padding:6px 12px;border-radius:7px;border:none;background:"+(isUrg?"#E63946":"#2A9D8F")+";color:white;font-size:11px;font-weight:700;cursor:pointer;font-family:DM Sans,sans-serif'>✅ Reconfirmar</button></div>";}).join('')+'</div></div>';
+    })()}
     <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:20px">
       <div style="font-size:12px;font-weight:700;color:${T.dark};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:16px">📞 Información Importante · Contactos</div>
       <div style="display:flex;gap:14px;flex-wrap:wrap">
@@ -2485,8 +2523,9 @@ function buildViajes(){
                   })():''}
                   
                   ${!isAdmin() && e.estado==='CONFIRMADO' && e.guia_id===S.myGuia?.id && !isPast?`
-                    <div style="margin-top:10px">
-                      <button data-bajar-evento="${e.id}" style="padding:6px 12px;border-radius:6px;border:1px solid #fcd5d5;background:#fff5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600;font-family:'DM Sans',sans-serif">🚫 Me bajo del evento</button>
+                    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+                      ${(()=>{const rs=reconfStatus(e);if(rs==='urgent')return '<button onclick="reconfirmarEvento2('+e.id+')" style="padding:6px 12px;border-radius:6px;border:none;background:#E63946;color:white;font-size:11px;cursor:pointer;font-weight:700;font-family:DM Sans,sans-serif">🔴 Reconfirmar urgente</button>';if(rs==='warning')return '<button onclick="reconfirmarEvento2('+e.id+')" style="padding:6px 12px;border-radius:6px;border:none;background:#E9C46A;color:#856404;font-size:11px;cursor:pointer;font-weight:700;font-family:DM Sans,sans-serif">⏳ Reconfirmar</button>';if(rs==='ok')return '<span style="font-size:11px;color:#2E7D32;font-weight:600">✅ Reconfirmado</span>';return '';})()}
+                      <button data-bajar-evento="${e.id}" style="padding:6px 12px;border-radius:6px;border:1px solid #fcd5d5;background:#fff5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600;font-family:'DM Sans',sans-serif">🚫 Me bajo</button>
                     </div>
                   `:''}
                   ${!isAdmin() && e.estado==='RECONFIRMACION_PENDIENTE' && e.guia_id===S.myGuia?.id?`
@@ -3500,6 +3539,108 @@ function buildHistorial(){
 }
 
 // ── LIQUIDACIONES ────────────────────────────────────────────────────────────
+function buildReconfirmaciones(){
+  const hoy = new Date();
+  const en7dias = new Date(hoy.getTime() + 7*24*60*60*1000);
+
+  const eventos = S.eventos
+    .filter(e => {
+      if(e.estado !== 'CONFIRMADO' || !e.guia_id) return false;
+      const fechaEv = new Date(e.fecha + 'T12:00:00');
+      return fechaEv >= hoy && fechaEv <= en7dias;
+    })
+    .sort((a,b) => a.fecha.localeCompare(b.fecha));
+
+  const urgentes  = eventos.filter(e => reconfStatus(e) === 'urgent');
+  const warnings  = eventos.filter(e => reconfStatus(e) === 'warning');
+  const reconfOk  = eventos.filter(e => reconfStatus(e) === 'ok');
+
+  const renderCard = (e, nivel) => {
+    const guia  = S.guias.find(g=>g.id===e.guia_id);
+    const file  = S.files.find(f=>f.id===e.file_id);
+    const fechaStr = new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long'});
+    const hoy2 = new Date();
+    const diffHrs = Math.round((new Date(e.fecha+'T12:00:00') - hoy2) / (1000*60*60));
+    const diffLabel = diffHrs < 24 ? diffHrs+'hs' : Math.floor(diffHrs/24)+'d';
+    const isUrgent = nivel === 'urgent';
+    const isOk     = nivel === 'ok';
+    const borderColor = isOk?'#52B788':isUrgent?'#E63946':'#E9C46A';
+    const bgColor     = isOk?'#F8FFF9':isUrgent?'#FFF5F5':'#FFFDF0';
+
+    return `
+    <div style="background:${bgColor};border:1.5px solid ${borderColor};border-radius:10px;padding:14px 18px;display:flex;align-items:center;gap:14px">
+      <div style="flex-shrink:0;width:44px;height:44px;border-radius:50%;overflow:hidden;border:2px solid ${borderColor}">
+        ${guia?.foto_url
+          ? `<img src="${esc(guia.foto_url)}" style="width:100%;height:100%;object-fit:cover"/>`
+          : `<div style="width:100%;height:100%;background:${borderColor}20;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:${borderColor}">${guia?esc(guia.nombre[0]):'?'}</div>`
+        }
+      </div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:#1A1A1A">${esc(e.tipo_evento)}</div>
+        <div style="font-size:11px;color:#555;margin-top:2px">
+          📅 ${fechaStr}${e.hora_inicio?' · 🕐 '+String(e.hora_inicio).slice(0,5):''}
+          ${file?' · 📁 '+esc(file.nro_file):''}
+        </div>
+        <div style="font-size:11px;margin-top:3px">
+          👤 <strong>${guia?esc(guia.nombre+' '+guia.apellido):'—'}</strong>
+          ${guia?.telefono?` · <a href="https://wa.me/${guia.telefono.replace(/[^0-9]/g,'')}" target="_blank" style="color:#25D366;font-weight:600;text-decoration:none">📲 WhatsApp</a>`:''}
+        </div>
+        ${isOk?`<div style="font-size:10px;color:#2E7D32;font-weight:600;margin-top:3px">✅ Reconfirmado el ${new Date(e.reconfirmado_at).toLocaleDateString('es-AR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>`:''}
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:20px;font-weight:700;color:${borderColor}">${diffLabel}</div>
+        <div style="font-size:9px;color:#9E9A93;text-transform:uppercase">para el evento</div>
+        ${!isOk?`<div style="font-size:9px;font-weight:700;color:${borderColor};margin-top:2px">${isUrgent?'⚠️ URGENTE':'⏳ PENDIENTE'}</div>`:''}
+      </div>
+    </div>`;
+  };
+
+  return `
+  <div style="padding:24px;max-width:860px;display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:#1A1A1A">⚠️ Reconfirmaciones</div>
+        <div style="font-size:13px;color:#9E9A93;margin-top:4px">Eventos de los próximos 7 días que requieren reconfirmación del guía</div>
+      </div>
+      <div style="display:flex;gap:10px">
+        ${urgentes.length?`<div style="background:#FFF5F5;border:1.5px solid #E63946;border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:20px;font-weight:700;color:#E63946">${urgentes.length}</div><div style="font-size:10px;color:#E63946;font-weight:700">URGENTES</div></div>`:''}
+        ${warnings.length?`<div style="background:#FFFDF0;border:1.5px solid #E9C46A;border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:20px;font-weight:700;color:#856404">${warnings.length}</div><div style="font-size:10px;color:#856404;font-weight:700">PENDIENTES</div></div>`:''}
+        ${reconfOk.length?`<div style="background:#F8FFF9;border:1.5px solid #52B788;border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:20px;font-weight:700;color:#2E7D32">${reconfOk.length}</div><div style="font-size:10px;color:#2E7D32;font-weight:700">CONFIRMADOS</div></div>`:''}
+      </div>
+    </div>
+
+    ${urgentes.length===0 && warnings.length===0 && reconfOk.length===0 ? `
+      <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:48px;text-align:center;color:#9E9A93">
+        <div style="font-size:40px;margin-bottom:12px">✅</div>
+        <div style="font-size:15px;font-weight:600">Todo en orden</div>
+        <div style="font-size:13px;margin-top:6px">No hay eventos que requieran reconfirmación esta semana</div>
+      </div>
+    ` : ''}
+
+    ${urgentes.length>0?`
+      <div>
+        <div style="font-size:11px;font-weight:700;color:#E63946;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">🔴 Menos de 48hs — Contactar urgente</div>
+        <div style="display:flex;flex-direction:column;gap:8px">${urgentes.map(e=>renderCard(e,'urgent')).join('')}</div>
+      </div>
+    `:''}
+
+    ${warnings.length>0?`
+      <div>
+        <div style="font-size:11px;font-weight:700;color:#856404;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">⏳ Entre 48hs y 7 días — Esperando reconfirmación</div>
+        <div style="display:flex;flex-direction:column;gap:8px">${warnings.map(e=>renderCard(e,'warning')).join('')}</div>
+      </div>
+    `:''}
+
+    ${reconfOk.length>0?`
+      <div>
+        <div style="font-size:11px;font-weight:700;color:#2E7D32;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">✅ Reconfirmados</div>
+        <div style="display:flex;flex-direction:column;gap:8px">${reconfOk.map(e=>renderCard(e,'ok')).join('')}</div>
+      </div>
+    `:''}
+  </div>`;
+}
+
+
 function buildLiquidaciones(){
   if(isAdmin()) return buildLiquidacionesAdmin();
   return buildLiquidacionesGuia();
