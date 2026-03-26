@@ -1720,6 +1720,42 @@ function buildLoading(){
 
 // ── LOGIN ─────────────────────────────────────────────────────────────────────
 function buildLogin(){
+  const isMob = window.innerWidth < 768;
+  const iStyle2 = 'width:100%;padding:14px 16px;border-radius:12px;border:1.5px solid #E8E4DD;font-size:16px;font-family:"DM Sans",sans-serif;background:white;color:#1A1A1A;-webkit-appearance:none;box-sizing:border-box';
+
+  if(isMob){
+    return `
+    <div style="min-height:100vh;background:linear-gradient(160deg,${T.teal} 0%,${T.tealMid} 45%,#F5F3EF 45%);display:flex;flex-direction:column;font-family:'DM Sans',sans-serif">
+      <div style="padding:60px 32px 40px;text-align:center">
+        <div style="display:inline-flex;align-items:center;justify-content:center;width:80px;height:80px;border-radius:20px;background:rgba(255,255,255,0.2);margin-bottom:20px">
+          <img src="/icon-192.png" style="width:60px;height:60px;border-radius:12px" onerror="this.style.display='none'"/>
+        </div>
+        <div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:white">Say Hueque</div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.75);margin-top:6px">Sistema de Gestión de Guías</div>
+      </div>
+      <div style="flex:1;background:#F5F3EF;border-radius:28px 28px 0 0;padding:32px 24px 48px">
+        <div style="max-width:400px;margin:0 auto">
+          <div style="font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:#1A1A1A;margin-bottom:6px">Bienvenido</div>
+          <div style="font-size:14px;color:#9E9A93;margin-bottom:28px">Iniciá sesión para continuar</div>
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div>
+              <label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:8px">Email</label>
+              <input id="login-email" type="email" autocomplete="email" placeholder="tucuenta@sayhueque.com" style="${iStyle2}"/>
+            </div>
+            <div>
+              <label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:8px">Contraseña</label>
+              <input id="login-pass" type="password" autocomplete="current-password" placeholder="••••••••" style="${iStyle2}"/>
+            </div>
+            <button id="btn-login" style="width:100%;padding:16px;border-radius:14px;border:none;background:linear-gradient(135deg,${T.teal},${T.tealMid});color:white;font-size:16px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:4px;box-shadow:0 4px 20px ${T.teal}50">
+              Ingresar →
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    ${buildToast()}`;
+  }
+
   return `
   <div style="display:flex;height:100vh">
     <div style="width:380px;background:linear-gradient(160deg,${T.teal},${T.tealMid});display:flex;flex-direction:column;justify-content:center;padding:52px 44px;flex-shrink:0">
@@ -1744,7 +1780,6 @@ function buildLogin(){
   ${S.modal?.type==='register'?buildRegModal():''}
   ${buildToast()}`;
 }
-
 function buildRegModal(){
   return `
   <div id="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px">
@@ -6362,6 +6397,31 @@ async function darDeBajaUsuario(userId, nombre){
 
 function editUsuario(userId, role, guiaId, email=''){
   set({modal:{type:'usuario-form', entry:{user_id:userId, role, guia_id:guiaId, email}}});
+}
+
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+async function login(email, pass){
+  const {data, error} = await db.auth.signInWithPassword({email, password: pass});
+  if(error){
+    toast('❌ ' + (error.message.includes('Invalid') ? 'Email o contraseña incorrectos' : error.message), T.red);
+    return false;
+  }
+  set({user: data.user, loading: false});
+  await loadRole();
+  await loadAll();
+  return true;
+}
+
+async function logout(){
+  await db.auth.signOut();
+  set({user:null, role:null, myGuia:null, guias:[], eventos:[], invitaciones:[], historial:[], liquidaciones:[], transportistas:[], files:[], bloqueos:[]});
+}
+
+async function register(email, pass){
+  const {data, error} = await db.auth.signUp({email, password: pass});
+  if(error){ toast('Error: '+error.message, T.red); return; }
+  toast('✅ Usuario creado. Revisá tu email para confirmar.', T.tealMid);
+  set({modal:null});
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
