@@ -4,8 +4,8 @@
   "description": "Sistema de gestión de guías Say Hueque",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1B6B74",
-  "theme_color": "#1B6B74",
+  "background_color": "#4A5568",
+  "theme_color": "#4A5568",
   "orientation": "portrait-primary",
   "icons": [
     {
@@ -19,6 +19,12 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
     }
   ],
   "categories": ["business", "productivity"],
