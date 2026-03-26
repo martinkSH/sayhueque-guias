@@ -581,7 +581,7 @@ async function saveEvento(data){
       if(cambiosList.length > 0){
         const guia = S.guias.find(g=>g.id===original.guia_id);
         if(guia?.email){
-          sendCambioEmail(guia, data, cambiosList.join('<br/>'));
+          sendCambioEmail(guia, {...original, ...data}, cambiosList.join('<br/>'));
           toast('✉️ Guía notificado del cambio', T.tealMid);
         }
         // Update Google Calendar event if guide has connected it
@@ -3754,7 +3754,7 @@ function buildGuiaModal(entry={}){
         ${g2(`${fld('Estado',sel('estado','estado',['ACTIVO','INACTIVO']))} ${fld('Prioridad',sel('prioridad_guia','prioridad_guia',['','Aliwen - Say','Aliwen','Say - Aliwen','Say','Jewish','Aliwen; Say - Francés','Say; Grupos','B2C - GRUPOS','B2C','Say Alemán']))}`)}
         ${sec('🌐','Idiomas')}
         <div style="display:flex;gap:12px;flex-wrap:wrap">
-          ${['ING','ALE','ITA','FRA','POR','JUDIO'].map(lang=>`
+          ${['ING','ALE','ITA','FRA','POR','RUS','OTROS'].map(lang=>`
             <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif">
               <input type="checkbox" id="g-lang-${lang}" ${(entry.idiomas||[]).includes(lang)?'checked':''} style="width:15px;height:15px;cursor:pointer"/>
               ${lang}
@@ -5209,7 +5209,7 @@ function attachEvents(){
   // save guia
   document.getElementById('btn-save-guia')?.addEventListener('click',async()=>{
     const id=document.getElementById('btn-save-guia').dataset.id;
-    const idiomasSelec = ['ING','ALE','ITA','FRA','POR','JUDIO'].filter(l=>document.getElementById('g-lang-'+l)?.checked);
+    const idiomasSelec = ['ING','ALE','ITA','FRA','POR','RUS','OTROS'].filter(l=>document.getElementById('g-lang-'+l)?.checked);
     const data={
       nombre:document.getElementById('g-nombre')?.value?.trim(),
       apellido:document.getElementById('g-apellido')?.value?.trim(),
