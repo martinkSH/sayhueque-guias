@@ -1433,6 +1433,97 @@ function g2(c){ return `<div style="display:grid;grid-template-columns:1fr 1fr;g
 function full(c){ return `<div style="grid-column:1/-1">${c}</div>`; }
 
 // ── RENDER ────────────────────────────────────────────────────────────────────
+function generarAgendaExcel(){
+  const desde = document.getElementById('agenda-desde')?.value;
+  const hasta = document.getElementById('agenda-hasta')?.value;
+  const guiaFiltroId = document.getElementById('agenda-guia')?.value || '';
+  const inclConfirmados = document.getElementById('ag-confirmados')?.checked;
+  const inclAsignar = document.getElementById('ag-asignar')?.checked;
+  const inclCancelados = document.getElementById('ag-cancelados')?.checked;
+
+  if(!desde || !hasta){ toast('Seleccioná ambas fechas', T.red); return; }
+  if(desde > hasta){ toast('La fecha desde no puede ser mayor a la hasta', T.red); return; }
+
+  // Filter eventos
+  let eventos = S.eventos.filter(e=>{
+    if(e.fecha < desde || e.fecha > hasta) return false;
+    if(guiaFiltroId && String(e.guia_id) !== guiaFiltroId) return false;
+    if(!isAdmin() && S.myGuia) {
+      // guia solo ve los suyos
+      if(e.guia_id !== S.myGuia.id) return false;
+    }
+    if(e.estado==='CONFIRMADO' && inclConfirmados) return true;
+    if((e.estado==='A_ASIGNAR'||e.estado==='ASIGNADO'||e.estado==='RECONFIRMACION_PENDIENTE'||e.estado==='EXPIRADO') && inclAsignar) return true;
+    if(e.estado==='CANCELADO' && inclCancelados) return true;
+    return false;
+  }).sort((a,b)=>a.fecha.localeCompare(b.fecha)||( a.hora_inicio||'').localeCompare(b.hora_inicio||''));
+
+  if(!eventos.length){ toast('No hay eventos en ese rango con los filtros seleccionados', T.amber); return; }
+
+  // Build rows with all details
+  const rows = eventos.map(e=>{
+    const guia = S.guias.find(g=>g.id===e.guia_id);
+    const file = S.files.find(f=>f.id===e.file_id);
+    const tr = S.transportistas.find(t=>t.id===e.transportista_id);
+    const fechaStr = new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+    return {
+      'Fecha':             fechaStr,
+      'Día':               new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long'}),
+      'Hora Inicio':       e.hora_inicio||'',
+      'Hora Fin':          e.hora_fin||'',
+      'Tipo de Evento':    e.tipo_evento||'',
+      'Estado':            e.estado||'',
+      'Nro File':          file?.nro_file||e.nro_file||'',
+      'Pasajero Principal':file?.pasajero_principal||'',
+      'Operador':          file?.operador_nombre||'',
+      'DH/GR':             file?.dh_gr_nombre||'',
+      'Guía':              guia ? guia.nombre+' '+guia.apellido : '',
+      'Pick Up':           e.pickup_location||'',
+      'Drop Off':          e.dropoff_location||'',
+      'Vuelos':            e.datos_vuelos||'',
+      'Transportista':     tr?.nombre||'',
+      'Tipo Vehículo':     e.tipo_vehiculo||'',
+      'Descripción':       e.descripcion||'',
+      'Link Adjunto':      e.link_adjunto||'',
+    };
+  });
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+
+  // Column widths
+  ws['!cols'] = [
+    {wch:28},{wch:12},{wch:10},{wch:10},{wch:38},{wch:18},
+    {wch:16},{wch:22},{wch:20},{wch:16},{wch:22},
+    {wch:28},{wch:28},{wch:22},{wch:20},{wch:16},
+    {wch:40},{wch:40},
+  ];
+
+  // Header style (bold + teal background) — XLSX.utils doesn't support styles natively
+  // but we can use the range to freeze the header row
+  ws['!freeze'] = {xSplit:0, ySplit:1};
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Agenda');
+
+  // Add metadata sheet
+  const meta = [
+    ['Agenda Say Hueque', ''],
+    ['Generado:', new Date().toLocaleString('es-AR')],
+    ['Período:', `${desde} al ${hasta}`],
+    ['Eventos:', rows.length],
+  ];
+  const wsMeta = XLSX.utils.aoa_to_sheet(meta);
+  wsMeta['!cols'] = [{wch:20},{wch:30}];
+  XLSX.utils.book_append_sheet(wb, wsMeta, 'Info');
+
+  const guiaNombre = guiaFiltroId ? (S.guias.find(g=>String(g.id)===guiaFiltroId)?.nombre||'guia') : (S.myGuia?.nombre||'todos');
+  const filename = `agenda_${guiaNombre}_${desde}_${hasta}.xlsx`.replace(/ /g,'_');
+  XLSX.writeFile(wb, filename);
+  toast(`✅ Agenda descargada · ${rows.length} eventos`, T.tealMid);
+  set({modal:null});
+}
+
+
 function handleGuiaFotoChange(input){
   const file = input.files[0];
   if(!file) return;
@@ -2517,6 +2608,12 @@ function buildCalendario(){
           <input id="cal-filtro-file" type="text" value="${esc(S.calFiltroFile||'')}" placeholder="🔍 Buscar file..." style="padding:7px 12px;border:1.5px solid #E8E4DD;border-radius:8px;font-size:13px;color:#1A1A1A;background:white;font-family:'DM Sans',sans-serif;width:160px"/>
         </div>
         ${(filtroGuia||filtroFile)?`<button id="cal-clear-filtros" style="padding:7px 12px;border:1.5px solid #E8E4DD;border-radius:8px;font-size:12px;color:#9E9A93;background:white;cursor:pointer;font-family:'DM Sans',sans-serif">✕ Limpiar</button>`:''}
+        <button id="btn-descargar-agenda" style="padding:7px 14px;border:1.5px solid #1B6B74;border-radius:8px;font-size:12px;font-weight:700;color:#1B6B74;background:white;cursor:pointer;font-family:'DM Sans',sans-serif;display:inline-flex;align-items:center;gap:6px">📥 Descargar agenda</button>
+      ` : ''}
+      ${!isAdm ? `
+        <div style="margin-left:auto">
+          <button id="btn-descargar-agenda" style="padding:7px 14px;border:1.5px solid #1B6B74;border-radius:8px;font-size:12px;font-weight:700;color:#1B6B74;background:white;cursor:pointer;font-family:'DM Sans',sans-serif;display:inline-flex;align-items:center;gap:6px">📥 Descargar agenda</button>
+        </div>
       ` : ''}
     </div>`;
 
@@ -3565,6 +3662,7 @@ function buildModal(){
   if(m.type==='viaje-form')   return buildViajeModal(m.entry);
   if(m.type==='evento-en-viaje') return buildEventoEnViajeModal(m.fileId);
   if(m.type==='evento-form')  return buildEventoModal(m.entry);
+  if(m.type==='descargar-agenda') return buildDescargarAgendaModal();
   if(m.type==='invitar')      return buildInvitarModal(m.eventoId);
   if(m.type==='invitar-viaje') return buildInvitarViajeModal(m.fileId);
   if(m.type==='register')     return buildRegModal();
@@ -3903,6 +4001,58 @@ function buildInvitarModal(eventoId){
     </div>
   </div>`;
 }
+
+function buildDescargarAgendaModal(){
+  const isAdm = isAdmin();
+  const hoy = new Date().toISOString().slice(0,10);
+  const en30 = new Date(Date.now()+30*24*60*60*1000).toISOString().slice(0,10);
+  const guiasOpts = isAdm ? S.guias.map(g=>`<option value="${g.id}">${esc(g.nombre+' '+g.apellido)}</option>`).join('') : '';
+  return `
+  <div id="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px">
+    <div style="background:white;border-radius:16px;width:100%;max-width:440px;box-shadow:0 24px 80px rgba(0,0,0,0.25);animation:slideIn 0.2s ease">
+      <div style="background:linear-gradient(135deg,#1B6B74,#2A9D8F);padding:20px 28px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="color:rgba(255,255,255,0.7);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">Exportar</div>
+          <div style="color:white;font-size:18px;font-weight:700;font-family:'Playfair Display',serif">📥 Descargar Agenda</div>
+        </div>
+        <button id="btn-close-modal" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;color:white;font-size:20px;width:36px;height:36px;cursor:pointer">×</button>
+      </div>
+      <div style="padding:28px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">📅 Desde</label>
+            <input id="agenda-desde" type="date" value="${hoy}" style="${iStyle}"/>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">📅 Hasta</label>
+            <input id="agenda-hasta" type="date" value="${en30}" style="${iStyle}"/>
+          </div>
+        </div>
+        ${isAdm ? `
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">👤 Guía</label>
+          <select id="agenda-guia" style="${iStyle}cursor:pointer">
+            <option value="">Todos los guías</option>
+            ${guiasOpts}
+          </select>
+        </div>` : ''}
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">📋 Incluir</label>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="ag-confirmados" checked style="accent-color:#1B6B74"/> Confirmados</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="ag-asignar" checked style="accent-color:#1B6B74"/> A Asignar</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="ag-cancelados" style="accent-color:#1B6B74"/> Cancelados</label>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:4px">
+          <button id="btn-close-modal2" style="${btnS}">Cancelar</button>
+          <button id="btn-generar-agenda" style="${btnP(T.teal)}box-shadow:0 4px 14px ${T.teal}50">📥 Generar Excel</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
 
 function buildInvitarViajeModal(fileId){
   const file = S.files.find(f=>f.id===fileId);
@@ -4446,6 +4596,9 @@ function attachEvents(){
     document.querySelectorAll('[data-cancelar-por-cambios]').forEach(btn=>btn.addEventListener('click',e=>{
       e.stopPropagation(); cancelarPorCambios(parseInt(btn.dataset.cancelarPorCambios));
     }));
+    // descargar agenda (mobile)
+    document.getElementById('btn-descargar-agenda')?.addEventListener('click',()=>set({modal:{type:'descargar-agenda'}}));
+    document.getElementById('btn-generar-agenda')?.addEventListener('click', generarAgendaExcel);
     // GCal buttons — need to work for both mobile and desktop guia views
     document.getElementById('btn-gcal-sync-all')?.addEventListener('click', async()=>{
       const btn = document.getElementById('btn-gcal-sync-all');
@@ -4900,6 +5053,9 @@ function attachEvents(){
     await loadAll();
     toast('Google Calendar desconectado', T.amber);
   });
+  // descargar agenda
+  document.getElementById('btn-descargar-agenda')?.addEventListener('click',()=>set({modal:{type:'descargar-agenda'}}));
+  document.getElementById('btn-generar-agenda')?.addEventListener('click', generarAgendaExcel);
   // toggle vista
   document.getElementById('cal-view-mensual')?.addEventListener('click',()=>set({calView:'mensual'}));
   document.getElementById('cal-view-agenda')?.addEventListener('click',()=>set({calView:'agenda'}));
