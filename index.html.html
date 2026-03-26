@@ -216,6 +216,7 @@ let S = {
   calView: 'mensual',     // 'mensual' | 'agenda'
   searchViaje: '',
   searchGuia: '',
+  liqFileExpanded: {},
   calWeekStart: null,     // Date — lunes de la semana actual en agenda
   calFiltroGuia: '',      // id de guía para filtrar (admin)
   calFiltroFile: '',      // nro_file para filtrar (admin)
@@ -849,6 +850,56 @@ function calcularTotal(){
   if(el) el.textContent = '$' + total.toLocaleString('es-AR');
 }
 
+function calcularTotalViaje(){
+  const btn = document.getElementById('btn-save-liq-viaje');
+  if(!btn) return;
+  const valorHora = parseFloat(btn.dataset.valorHora||0);
+  const ids = btn.dataset.eventoIds.split(',').filter(Boolean);
+  let totalHoras = 0;
+  ids.forEach(id=>{ totalHoras += parseFloat(document.getElementById('viaje-liq-horas-'+id)?.value||0); });
+  const extras = parseFloat(document.getElementById('viaje-liq-extras')?.value||0);
+  const total = (totalHoras * valorHora) + extras;
+  const el = document.getElementById('viaje-liq-total-display');
+  if(el) el.textContent = '$' + total.toLocaleString('es-AR');
+}
+
+async function saveLiquidacionViaje(fileId, valorHora, eventoIds){
+  const guia = S.myGuia;
+  const extras = parseFloat(document.getElementById('viaje-liq-extras')?.value||0);
+  const detalle = document.getElementById('viaje-liq-detalle')?.value?.trim()||null;
+  const obs = document.getElementById('viaje-liq-obs')?.value?.trim()||null;
+
+  const rows = eventoIds.map(id=>{
+    const horas = parseFloat(document.getElementById('viaje-liq-horas-'+id)?.value||0);
+    return {id, horas};
+  }).filter(r=>r.horas>0);
+
+  if(!rows.length){ toast('Ingresá al menos una hora', T.red); return; }
+
+  // Distribute extras evenly across events
+  const extrasXEvento = extras / rows.length;
+
+  for(const r of rows){
+    const total = (r.horas * valorHora) + extrasXEvento;
+    const {error} = await db.from('liquidaciones').insert({
+      evento_id: r.id,
+      guia_id: guia.id,
+      horas: r.horas,
+      valor_hora: valorHora,
+      gastos_extras: extrasXEvento||0,
+      detalle_extras: detalle,
+      observaciones: obs,
+      total,
+      estado: 'PENDIENTE',
+    });
+    if(error){ toast('Error: '+error.message, T.red); return; }
+  }
+
+  await loadAll();
+  set({modal:null});
+  toast(`✅ ${rows.length} liquidación(es) enviadas`);
+}
+
 async function saveLiquidacion(eventoId, valorHora){
   const horas   = parseFloat(document.getElementById('liq-horas')?.value||0);
   const extras  = parseFloat(document.getElementById('liq-extras')?.value||0);
@@ -1068,6 +1119,26 @@ async function invitarGuiasViaje(fileId, guiaIds){
   }
   await loadAll();
   toast(`✅ Invitación al viaje enviada a ${guiaIds.length} guía(s)`, T.tealMid);
+}
+
+
+function toggleLiqFile(fileId){
+  const exp = {...(S.liqFileExpanded||{})};
+  exp[fileId] = !exp[fileId];
+  set({liqFileExpanded: exp});
+}
+
+async function liquidarViaje(fileId){
+  const guia = S.myGuia;
+  const valorHora = guia?.valor_hora || 0;
+  const evsSinLiq = S.eventos.filter(e=>
+    e.file_id===fileId && e.estado==='CONFIRMADO' && e.guia_id===guia?.id &&
+    !S.liquidaciones?.find(l=>l.evento_id===e.id && l.guia_id===guia.id)
+  ).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+
+  if(!evsSinLiq.length){ toast('Todos los eventos ya están liquidados', T.amber); return; }
+
+  set({modal:{type:'liquidar-viaje', fileId, evsSinLiq, valorHora}});
 }
 
 
@@ -2283,9 +2354,9 @@ function buildViajes(){
     return `
       <div style="background:white;border-radius:12px;border:1.5px solid #E8E4DD;margin-bottom:16px;overflow:hidden;animation:fadeIn 0.3s ease">
         <!-- File Header -->
-        <div style="padding:16px 20px;background:linear-gradient(135deg,#1B6B74,#2A9D8F);color:white;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="set({expandedFileId:S.expandedFileId==='${file.id}'?null:'${file.id}'})">
+        <div style="padding:16px 20px;background:${(()=>{const evF=S.eventos.filter(e=>e.file_id===file.id&&e.estado==='CONFIRMADO');return evF.length>0&&evF.every(e=>S.liquidaciones?.find(l=>l.evento_id===e.id))?'linear-gradient(135deg,#2E7D32,#52B788)':'linear-gradient(135deg,#1B6B74,#2A9D8F)'})()};color:white;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="set({expandedFileId:S.expandedFileId==='${file.id}'?null:'${file.id}'})">
           <div style="flex:1">
-            <div style="font-size:18px;font-weight:700;font-family:'Playfair Display',serif;margin-bottom:4px">📁 File ${esc(file.nro_file)}</div>
+            <div style="font-size:18px;font-weight:700;font-family:'Playfair Display',serif;margin-bottom:4px">${(()=>{const evF=S.eventos.filter(e=>e.file_id===file.id&&e.estado==='CONFIRMADO');return evF.length>0&&evF.every(e=>S.liquidaciones?.find(l=>l.evento_id===e.id))?'✅':'📁';})()} File ${esc(file.nro_file)}${(()=>{const evF=S.eventos.filter(e=>e.file_id===file.id&&e.estado==='CONFIRMADO');return evF.length>0&&evF.every(e=>S.liquidaciones?.find(l=>l.evento_id===e.id))?'<span style="font-size:12px;opacity:0.8;margin-left:8px">— Liquidado</span>':''})()}</div>
             <div style="font-size:13px;opacity:0.9">${fechaInStr} → ${fechaOutStr}</div>
             ${file.operador_nombre||file.dh_gr_nombre||file.pasajero_principal?`<div style="font-size:12px;opacity:0.8;margin-top:4px">${file.operador_nombre?'Operador: '+esc(file.operador_nombre):''}${file.operador_nombre&&file.dh_gr_nombre?' · ':''}${file.dh_gr_nombre?'DH/GR: '+esc(file.dh_gr_nombre):''}${file.pasajero_principal?' · 👤 '+esc(file.pasajero_principal):''}</div>`:''}
           </div>
@@ -3393,40 +3464,91 @@ function buildLiquidaciones(){
 }
 
 function buildLiquidacionesGuia(){
-  // eventos confirmados del guía actual
-  const misEventos = S.eventos.filter(e=>e.estado==='CONFIRMADO' && e.guia_id===S.myGuia?.id)
-    .sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
+  const guiaId = S.myGuia?.id;
+  const valorHora = S.myGuia?.valor_hora || 0;
+
+  // Agrupar eventos confirmados del guía por file_id
+  const misEventos = S.eventos.filter(e=>e.estado==='CONFIRMADO' && e.guia_id===guiaId);
+
+  // Archivos con al menos un evento mío
+  const misFiles = S.files.filter(f=> misEventos.some(e=>e.file_id===f.id));
+  // Eventos sin file (standalone)
+  const sinFile = misEventos.filter(e=>!e.file_id);
+
+  // Helper: liq de un evento
+  const liqDeEvento = e => S.liquidaciones?.find(l=>l.evento_id===e.id && l.guia_id===guiaId);
+
+  const renderEvento = (e, compact=false) => {
+    const liq = liqDeEvento(e);
+    const fecha = new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'short'});
+    return `
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #F0EDE8;background:${liq?'#F8FFF9':'white'}">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600;color:#1A1A1A">${esc(e.tipo_evento)}</div>
+        <div style="font-size:11px;color:#9E9A93">${fecha}${e.hora_inicio?' · '+String(e.hora_inicio).slice(0,5):''}</div>
+      </div>
+      ${liq ? `
+        <div style="text-align:right;margin-right:4px">
+          <div style="font-size:13px;font-weight:700;color:#2E7D32">$${liq.total.toLocaleString('es-AR')}</div>
+          <div style="font-size:9px;color:#9E9A93;text-transform:uppercase">${liq.estado}</div>
+        </div>
+        <button onclick="verLiquidacion(${liq.id})" style="padding:5px 10px;border-radius:6px;border:1px solid #D4EDDA;background:white;font-size:11px;cursor:pointer;color:#2E7D32;font-weight:600;font-family:'DM Sans',sans-serif">👁</button>
+      ` : `
+        <button onclick="nuevaLiquidacion(${e.id})" style="padding:5px 12px;border-radius:6px;border:none;background:${T.tealMid};color:white;font-size:11px;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif">+ Liquidar</button>
+      `}
+    </div>`;
+  };
+
+  const renderFile = (file) => {
+    const evs = misEventos.filter(e=>e.file_id===file.id).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+    const liqs = evs.map(e=>liqDeEvento(e)).filter(Boolean);
+    const todosLiquidados = evs.length>0 && liqs.length===evs.length;
+    const algunoLiquidado = liqs.length>0;
+    const totalLiqs = liqs.reduce((s,l)=>s+(l.total||0),0);
+    const sinLiquidar = evs.filter(e=>!liqDeEvento(e));
+    const expanded = S.liqFileExpanded?.[file.id];
+
+    return `
+    <div style="background:white;border:1.5px solid ${todosLiquidados?'#A5D6A7':'#E8E4DD'};border-radius:12px;overflow:hidden;margin-bottom:12px">
+      <div style="background:${todosLiquidados?'linear-gradient(135deg,#2E7D32,#52B788)':'linear-gradient(135deg,#1B6B74,#2A9D8F)'};padding:14px 18px;display:flex;align-items:center;gap:12px;cursor:pointer"
+           onclick="toggleLiqFile('${file.id}')">
+        <div style="flex:1">
+          <div style="color:white;font-size:14px;font-weight:700">
+            ${todosLiquidados?'✅ ':'📁 '}${esc(file.nro_file)}
+            ${todosLiquidados?'<span style="font-size:11px;opacity:0.8;margin-left:6px">— Liquidado</span>':''}
+          </div>
+          <div style="color:rgba(255,255,255,0.75);font-size:11px;margin-top:2px">
+            ${evs.length} evento(s) · ${algunoLiquidado?liqs.length+' liquidado(s)':'Sin liquidar'}
+            ${algunoLiquidado?' · $'+totalLiqs.toLocaleString('es-AR'):''}
+          </div>
+        </div>
+        ${!todosLiquidados && sinLiquidar.length>0 ? `
+          <button onclick="event.stopPropagation();liquidarViaje('${file.id}')" style="padding:6px 12px;border-radius:7px;border:2px solid rgba(255,255,255,0.7);background:rgba(255,255,255,0.15);color:white;font-size:11px;cursor:pointer;font-weight:700;font-family:'DM Sans',sans-serif">
+            💰 Liquidar viaje
+          </button>
+        ` : ''}
+        <div style="color:white;font-size:16px">${expanded?'▾':'▸'}</div>
+      </div>
+      ${expanded ? `<div>${evs.map(e=>renderEvento(e)).join('')}</div>` : ''}
+    </div>`;
+  };
 
   return `
-  <div style="padding:24px;display:flex;flex-direction:column;gap:20px;max-width:800px">
-    <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:20px">
-      <div style="font-size:12px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:16px">💰 Mis eventos — cargar liquidación</div>
-      ${misEventos.length===0?`<div style="text-align:center;padding:32px;color:#9E9A93"><div style="font-size:32px;margin-bottom:8px">💰</div><div>No tenés eventos confirmados para liquidar</div></div>`:`
-      <div style="display:flex;flex-direction:column;gap:10px">
-        ${misEventos.map(e=>{
-          const fecha = new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
-          const liq = S.liquidaciones?.find(l=>l.evento_id===e.id && l.guia_id===S.myGuia?.id);
-          return `
-          <div style="border:1.5px solid ${liq?'#D4EDDA':'#E8E4DD'};border-radius:10px;padding:16px;background:${liq?'#F8FFF9':'white'}">
-            <div style="display:flex;align-items:center;gap:12px">
-              <div style="flex:1">
-                <div style="font-size:13px;font-weight:700;color:#1A1A1A">${esc(e.tipo_evento)}</div>
-                <div style="font-size:11px;color:#9E9A93">${fecha}${e.nro_file?' · 📁 '+esc(e.nro_file):''}${e.hora_inicio?' · '+e.hora_inicio:''}</div>
-              </div>
-              ${liq?`
-                <div style="text-align:right">
-                  <div style="font-size:14px;font-weight:700;color:#2E7D32">$${liq.total.toLocaleString('es-AR')}</div>
-                  <div style="font-size:10px;color:#9E9A93">${liq.estado}</div>
-                </div>
-                <button onclick="verLiquidacion(${liq.id})" style="padding:6px 12px;border-radius:6px;border:1px solid #D4EDDA;background:white;font-size:11px;cursor:pointer;color:#2E7D32;font-weight:600;font-family:'DM Sans',sans-serif">👁 Ver</button>
-              `:`
-                <button onclick="nuevaLiquidacion(${e.id})" style="padding:6px 14px;border-radius:6px;border:none;background:${T.tealMid};color:white;font-size:11px;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif">+ Liquidar</button>
-              `}
-            </div>
-          </div>`;
-        }).join('')}
-      </div>`}
-    </div>
+  <div style="padding:24px;display:flex;flex-direction:column;gap:4px;max-width:860px">
+    <div style="font-size:12px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px">💰 Mis liquidaciones</div>
+    ${misFiles.length===0 && sinFile.length===0 ? `
+      <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;padding:48px;text-align:center;color:#9E9A93">
+        <div style="font-size:40px;margin-bottom:12px">💰</div>
+        <div style="font-size:15px">No tenés eventos confirmados para liquidar</div>
+      </div>
+    ` : ''}
+    ${misFiles.map(f=>renderFile(f)).join('')}
+    ${sinFile.length>0 ? `
+      <div style="background:white;border:1.5px solid #E8E4DD;border-radius:12px;overflow:hidden;margin-bottom:12px">
+        <div style="background:#F5F3EF;padding:12px 18px;font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em">Eventos sin viaje</div>
+        ${sinFile.map(e=>renderEvento(e)).join('')}
+      </div>
+    ` : ''}
   </div>`;
 }
 
@@ -3670,6 +3792,7 @@ function buildModal(){
   if(m.type==='import-preview')  return buildImportPreviewModal(m.entity, m.rows, m.file);
   if(m.type==='calendario-guia')   return buildCalendarioGuiaModal(m.guiaId);
   if(m.type==='feedback')          return buildFeedbackModal(m.eventoId);
+  if(m.type==='liquidar-viaje')     return buildLiquidarViajeModal(m.fileId, m.evsSinLiq, m.valorHora);
   if(m.type==='nueva-liq')         return buildNuevaLiquidacionModal(m.eventoId);
   if(m.type==='ver-liq')           return buildVerLiquidacionModal(m.liqId);
   if(m.type==='config-sla')        return buildSLAModal();
@@ -4237,6 +4360,62 @@ function buildImportPreviewModal(entity, rows, filename){
     </div>
   </div>`;
 }
+
+function buildLiquidarViajeModal(fileId, evsSinLiq, valorHora){
+  const file = S.files.find(f=>f.id===fileId)||{};
+  const iStyle = 'width:100%;padding:8px 12px;border-radius:8px;border:1.5px solid #E8E4DD;font-size:13px;font-family:"DM Sans",sans-serif;text-align:center';
+  return `
+  <div id="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px">
+    <div style="background:white;border-radius:16px;width:100%;max-width:520px;max-height:90vh;overflow:auto;box-shadow:0 24px 80px rgba(0,0,0,0.25);animation:slideIn 0.2s ease">
+      <div style="background:linear-gradient(135deg,#E9C46A,#F4A261);padding:20px 28px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="color:rgba(255,255,255,0.8);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">Liquidar viaje completo</div>
+          <div style="color:white;font-size:17px;font-weight:700">📁 ${esc(file.nro_file||'')}</div>
+          <div style="color:rgba(255,255,255,0.75);font-size:12px;margin-top:2px">${evsSinLiq.length} evento(s) a liquidar · $${valorHora.toLocaleString('es-AR')}/h</div>
+        </div>
+        <button id="btn-close-modal" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;color:white;font-size:20px;width:36px;height:36px;cursor:pointer">×</button>
+      </div>
+      <div style="padding:24px;display:flex;flex-direction:column;gap:14px">
+        <div style="font-size:12px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">⏱ Horas trabajadas por evento</div>
+        ${evsSinLiq.map((e,i)=>{
+          const fecha = new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'short'});
+          return `
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:#F9F8F6;border-radius:8px;border:1.5px solid #E8E4DD">
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:600;color:#1A1A1A">${esc(e.tipo_evento)}</div>
+              <div style="font-size:11px;color:#9E9A93">${fecha}${e.hora_inicio?' · '+String(e.hora_inicio).slice(0,5):''}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input id="viaje-liq-horas-${e.id}" type="number" min="0.5" max="24" step="0.5" value="1" style="width:72px;padding:7px 10px;border-radius:7px;border:1.5px solid #E8E4DD;font-size:13px;font-family:'DM Sans',sans-serif;text-align:center" oninput="calcularTotalViaje()"/>
+              <span style="font-size:12px;color:#9E9A93">hs</span>
+            </div>
+          </div>`;
+        }).join('')}
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">💸 Gastos extras del viaje ($)</label>
+          <input id="viaje-liq-extras" type="number" min="0" step="100" value="0" style="${iStyle}" oninput="calcularTotalViaje()"/>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">📝 Detalle extras</label>
+          <input id="viaje-liq-detalle" type="text" placeholder="ej: taxi, estacionamiento..." style="${iStyle.replace('text-align:center','')}"/>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">💬 Observaciones</label>
+          <textarea id="viaje-liq-obs" rows="2" placeholder="Notas adicionales..." style="${iStyle.replace('text-align:center','')};resize:vertical"></textarea>
+        </div>
+        <div id="viaje-liq-total-box" style="background:linear-gradient(135deg,#1B6B74,#2A9D8F);border-radius:10px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
+          <div style="color:rgba(255,255,255,0.8);font-size:13px;font-weight:600">TOTAL A COBRAR</div>
+          <div id="viaje-liq-total-display" style="color:white;font-size:24px;font-weight:700">$${valorHora.toLocaleString('es-AR')}</div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button id="btn-close-modal2" style="${btnS}">Cancelar</button>
+          <button id="btn-save-liq-viaje" data-file-id="${fileId}" data-valor-hora="${valorHora}" data-evento-ids="${evsSinLiq.map(e=>e.id).join(',')}" style="${btnP(T.tealMid)}">💾 Enviar liquidación</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
 
 function buildNuevaLiquidacionModal(eventoId){
   const evento = S.eventos.find(e=>e.id===eventoId)||{};
@@ -5558,6 +5737,15 @@ function attachEvents(){
   });
 
   // liquidacion listeners
+  document.getElementById('btn-save-liq-viaje')?.addEventListener('click', async()=>{
+    const btn = document.getElementById('btn-save-liq-viaje');
+    const fileId = btn?.dataset.fileId;
+    const valorHora = parseFloat(btn?.dataset.valorHora||0);
+    const ids = (btn?.dataset.eventoIds||'').split(',').filter(Boolean).map(Number);
+    btn.disabled=true; btn.textContent='Enviando...';
+    await saveLiquidacionViaje(fileId, valorHora, ids);
+    btn.disabled=false; btn.textContent='💾 Enviar liquidación';
+  });
   document.getElementById('btn-save-liq')?.addEventListener('click', async()=>{
     const eventoId  = parseInt(document.getElementById('btn-save-liq').dataset.eventoId);
     const valorHora = parseFloat(document.getElementById('btn-save-liq').dataset.valorHora||0);
