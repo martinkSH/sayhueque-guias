@@ -5019,19 +5019,12 @@ function attachEvents(){
   // GCal disconnect
   document.getElementById('btn-gcal-disconnect')?.addEventListener('click', async()=>{
     if(!confirm('¿Desconectar Google Calendar? Tus eventos no se sincronizarán más.')) return;
-    const {error: discErr, data: discData} = await db.from('guias')
+    // Update without .select() — avoids PGRST116 RLS issue
+    const {error: discErr} = await db.from('guias')
       .update({google_refresh_token:null, google_calendar_event_ids:null})
-      .eq('id',S.myGuia.id)
-      .select('id,google_refresh_token')
-      .single();
-    console.log('Disconnect result:', discErr, discData);
+      .eq('id',S.myGuia.id);
     if(discErr){ toast('Error al desconectar: '+discErr.message, T.red); return; }
-    if(discData?.google_refresh_token !== null){
-      toast('Error: el token no se limpió en la DB', T.red);
-      console.error('Token still present after update:', discData);
-      return;
-    }
-    // Update state — token confirmed null in DB
+    // Update local state immediately, then reload in background
     S.myGuia = {...S.myGuia, google_refresh_token:null, google_calendar_event_ids:null};
     render();
     toast('Google Calendar desconectado', T.amber);
@@ -5509,19 +5502,12 @@ function attachEvents(){
   });
   document.getElementById('btn-gcal-disconnect')?.addEventListener('click', async()=>{
     if(!confirm('¿Desconectar Google Calendar?')) return;
-    const {error: discErr, data: discData} = await db.from('guias')
+    // Update without .select() — avoids PGRST116 RLS issue
+    const {error: discErr} = await db.from('guias')
       .update({google_refresh_token:null, google_calendar_event_ids:null})
-      .eq('id',S.myGuia.id)
-      .select('id,google_refresh_token')
-      .single();
-    console.log('Disconnect result:', discErr, discData);
+      .eq('id',S.myGuia.id);
     if(discErr){ toast('Error al desconectar: '+discErr.message, T.red); return; }
-    if(discData?.google_refresh_token !== null){
-      toast('Error: el token no se limpió en la DB', T.red);
-      console.error('Token still present after update:', discData);
-      return;
-    }
-    // Update state — token confirmed null in DB
+    // Update local state immediately, then reload in background
     S.myGuia = {...S.myGuia, google_refresh_token:null, google_calendar_event_ids:null};
     render();
     toast('Google Calendar desconectado', T.amber);
