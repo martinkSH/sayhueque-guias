@@ -2,8 +2,16 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover"/>
+
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1B6B74">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SH Guías">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png">
 <title>Say Hueque · Guías</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -3099,7 +3107,10 @@ function buildMobileApp(){
         <div style="color:rgba(255,255,255,0.7);font-size:11px;font-weight:600;letter-spacing:0.08em">SAY HUEQUE</div>
         <div style="color:white;font-size:17px;font-weight:700;font-family:'Playfair Display',serif">${esc(S.myGuia?.nombre||'')} ${esc(S.myGuia?.apellido||'')}</div>
       </div>
-      <button id="btn-mobile-logout" style="background:rgba(255,255,255,0.15);border:none;border-radius:8px;color:white;font-size:11px;font-weight:600;padding:6px 12px;cursor:pointer">Salir</button>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button id="btn-install-pwa" onclick="window.installPWA()" style="display:none;align-items:center;gap:4px;background:rgba(255,255,255,0.2);border:none;border-radius:8px;color:white;font-size:11px;font-weight:600;padding:6px 10px;cursor:pointer">⬇ Instalar</button>
+        <button id="btn-mobile-logout" style="background:rgba(255,255,255,0.15);border:none;border-radius:8px;color:white;font-size:11px;font-weight:600;padding:6px 12px;cursor:pointer">Salir</button>
+      </div>
     </div>
 
     <!-- CONTENT -->
@@ -6424,5 +6435,28 @@ async function init(){
 }
 init();
 </script>
+  <script>
+    if('serviceWorker' in navigator){
+      window.addEventListener('load', ()=>{
+        navigator.serviceWorker.register('/service-worker.js')
+          .then(reg => console.log('SW registered:', reg.scope))
+          .catch(err => console.warn('SW failed:', err));
+      });
+    }
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault(); deferredPrompt = e;
+      const btn = document.getElementById('btn-install-pwa');
+      if(btn) btn.style.display = 'flex';
+    });
+    window.installPWA = async () => {
+      if(!deferredPrompt) return;
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      const btn = document.getElementById('btn-install-pwa');
+      if(btn) btn.style.display = 'none';
+    };
+  </script>
 </body>
 </html>
