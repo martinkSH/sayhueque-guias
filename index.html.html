@@ -4808,6 +4808,36 @@ function attachEvents(){
     await db.from('config').upsert({key:'cal_notas', value:JSON.stringify(notas)},{onConflict:'key'});
     set({calNotas:notas});
   }));
+  // GCal buttons (desktop guia)
+  document.getElementById('btn-gcal-sync-all')?.addEventListener('click', async()=>{
+    const btn = document.getElementById('btn-gcal-sync-all');
+    if(!S.myGuia?.google_refresh_token){ toast('Primero conectá Google Calendar', T.red); return; }
+    btn.textContent='⟳ Sincronizando...'; btn.disabled=true;
+    const confirmados = S.eventos.filter(e=>e.estado==='CONFIRMADO' && e.guia_id===S.myGuia.id);
+    let ok=0, err=0;
+    for(const ev of confirmados){
+      try {
+        const r = await fetch('/api/google-calendar',{
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({action:'create', eventoId:ev.id, guiaId:S.myGuia.id})
+        });
+        const d = await r.json();
+        console.log('GCal sync', ev.id, d);
+        if(d.success && !d.skipped) ok++;
+        else if(!d.success) err++;
+      } catch(e){ console.error('GCal sync error:', e); err++; }
+    }
+    btn.textContent='🔄 Sincronizar'; btn.disabled=false;
+    if(confirmados.length===0) toast('No tenés eventos confirmados para sincronizar', T.amber);
+    else if(ok>0) toast(`✅ ${ok} evento(s) sincronizados${err?' · '+err+' error(s)':''}`, T.tealMid);
+    else toast('❌ No se pudo sincronizar. Revisá la consola.', T.red);
+  });
+  document.getElementById('btn-gcal-disconnect')?.addEventListener('click', async()=>{
+    if(!confirm('¿Desconectar Google Calendar?')) return;
+    await db.from('guias').update({google_refresh_token:null, google_calendar_event_ids:null}).eq('id',S.myGuia.id);
+    await loadAll();
+    toast('Google Calendar desconectado', T.amber);
+  });
   // toggle vista
   document.getElementById('cal-view-mensual')?.addEventListener('click',()=>set({calView:'mensual'}));
   document.getElementById('cal-view-agenda')?.addEventListener('click',()=>set({calView:'agenda'}));
