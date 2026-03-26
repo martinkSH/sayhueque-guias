@@ -1313,7 +1313,8 @@ function exportarViajes(){
     'Fecha IN': f.fecha_in,
     'Fecha OUT': f.fecha_out,
     'Operador': f.operador_nombre || '',
-    'DH/GR': f.dh_gr_nombre || ''
+    'DH/GR': f.dh_gr_nombre || '',
+    'Pasajero Principal': f.pasajero_principal || ''
   }));
 
   const ws = XLSX.utils.json_to_sheet(data);
@@ -1353,6 +1354,7 @@ function importarViajes(){
           const fecha_out = row['Fecha OUT'];
           const operador_nombre = row['Operador']?.toString().trim() || null;
           const dh_gr_nombre = row['DH/GR']?.toString().trim() || null;
+          const pasajero_principal = row['Pasajero Principal']?.toString().trim() || null;
           
           if(!nro_file || !fecha_in || !fecha_out){
             errors++;
@@ -1377,7 +1379,8 @@ function importarViajes(){
             fecha_in: parsedIn,
             fecha_out: parsedOut,
             operador_nombre,
-            dh_gr_nombre
+            dh_gr_nombre,
+            pasajero_principal
           });
           
           if(error){
