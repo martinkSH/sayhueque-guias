@@ -1071,6 +1071,40 @@ async function invitarGuiasViaje(fileId, guiaIds){
 }
 
 
+async function reconfirmarEvento(eventoId){
+  if(!confirm('¿Confirmás que podés continuar con este evento?')) return;
+  const guia = S.myGuia;
+  await db.from('eventos').update({estado:'CONFIRMADO'}).eq('id',eventoId);
+  // Marcar tokens como usados
+  await db.from('tokens_reconfirmacion').update({usado:true})
+    .eq('evento_id',eventoId).eq('guia_id',guia.id).eq('usado',false);
+  await db.from('historial').insert({
+    evento_id:eventoId, guia_id:guia.id,
+    accion:'EVENTO_RECONFIRMADO', actor:'GUIA',
+    detalle:'Guía reconfirmó desde la plataforma'
+  });
+  await loadAll();
+  toast('✅ Evento reconfirmado', T.tealMid);
+}
+
+async function cancelarPorCambios(eventoId){
+  if(!confirm('¿Confirmás que no podés continuar con este evento?')) return;
+  const guia = S.myGuia;
+  await db.from('eventos').update({estado:'RECHAZADO_POR_GUIA', guia_id:null}).eq('id',eventoId);
+  await db.from('invitaciones').update({estado:'CANCELADA',respondido_at:new Date().toISOString()})
+    .eq('evento_id',eventoId).eq('estado','PENDIENTE');
+  await db.from('tokens_reconfirmacion').update({usado:true})
+    .eq('evento_id',eventoId).eq('guia_id',guia.id).eq('usado',false);
+  await db.from('historial').insert({
+    evento_id:eventoId, guia_id:guia.id,
+    accion:'GUIA_SE_BAJO', actor:'GUIA',
+    detalle:'Guía canceló por cambios en evento (desde plataforma)'
+  });
+  await loadAll();
+  toast('Quedó registrado. El admin fue notificado.', T.coral);
+}
+
+
 async function bajarseEvento(eventoId){
   eventoId = parseInt(eventoId); // asegurar que sea número, no string
   const evento = S.eventos.find(e=>e.id===eventoId);
@@ -2251,6 +2285,15 @@ function buildViajes(){
                   ${!isAdmin() && e.estado==='CONFIRMADO' && e.guia_id===S.myGuia?.id && !isPast?`
                     <div style="margin-top:10px">
                       <button data-bajar-evento="${e.id}" style="padding:6px 12px;border-radius:6px;border:1px solid #fcd5d5;background:#fff5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600;font-family:'DM Sans',sans-serif">🚫 Me bajo del evento</button>
+                    </div>
+                  `:''}
+                  ${!isAdmin() && e.estado==='RECONFIRMACION_PENDIENTE' && e.guia_id===S.myGuia?.id?`
+                    <div style="margin-top:10px;padding:12px;background:#FFF3E0;border-radius:8px;border:1.5px solid #E9C46A">
+                      <div style="font-size:11px;font-weight:700;color:#856404;margin-bottom:8px">⚠️ Se realizaron cambios en este evento. ¿Podés continuar?</div>
+                      <div style="display:flex;gap:8px">
+                        <button data-reconfirmar-evento="${e.id}" style="flex:1;padding:7px 12px;border-radius:6px;border:none;background:#2A9D8F;color:white;font-size:11px;cursor:pointer;font-weight:700;font-family:'DM Sans',sans-serif">✅ Reconfirmar</button>
+                        <button data-cancelar-por-cambios="${e.id}" style="flex:1;padding:7px 12px;border-radius:6px;border:2px solid #E63946;background:white;color:#E63946;font-size:11px;cursor:pointer;font-weight:700;font-family:'DM Sans',sans-serif">❌ No puedo</button>
+                      </div>
                     </div>
                   `:''}
                 </div>
@@ -4390,6 +4433,12 @@ function attachEvents(){
     document.querySelectorAll('[data-bajar-evento]').forEach(btn=>btn.addEventListener('click',e=>{
       e.stopPropagation(); bajarseEvento(parseInt(btn.dataset.bajarEvento));
     }));
+    document.querySelectorAll('[data-reconfirmar-evento]').forEach(btn=>btn.addEventListener('click',e=>{
+      e.stopPropagation(); reconfirmarEvento(parseInt(btn.dataset.reconfirmarEvento));
+    }));
+    document.querySelectorAll('[data-cancelar-por-cambios]').forEach(btn=>btn.addEventListener('click',e=>{
+      e.stopPropagation(); cancelarPorCambios(parseInt(btn.dataset.cancelarPorCambios));
+    }));
     // GCal buttons — need to work for both mobile and desktop guia views
     document.getElementById('btn-gcal-sync-all')?.addEventListener('click', async()=>{
       const btn = document.getElementById('btn-gcal-sync-all');
@@ -4716,6 +4765,12 @@ function attachEvents(){
   document.querySelectorAll('[data-bajar-evento]').forEach(btn=>btn.addEventListener('click',e=>{
     e.stopPropagation();
     bajarseEvento(parseInt(btn.dataset.bajarEvento));
+  }));
+  document.querySelectorAll('[data-reconfirmar-evento]').forEach(btn=>btn.addEventListener('click',e=>{
+    e.stopPropagation(); reconfirmarEvento(parseInt(btn.dataset.reconfirmarEvento));
+  }));
+  document.querySelectorAll('[data-cancelar-por-cambios]').forEach(btn=>btn.addEventListener('click',e=>{
+    e.stopPropagation(); cancelarPorCambios(parseInt(btn.dataset.cancelarPorCambios));
   }));
 
   document.querySelectorAll('[data-cancelar-evento]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();if(confirm('¿Cancelar este evento? Se cancelarán también las invitaciones pendientes.'))cancelarEvento(parseInt(btn.dataset.cancelarEvento));}));
