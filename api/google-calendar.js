@@ -6,8 +6,8 @@ import { createClient } from '@supabase/supabase-js';
 const SB_URL = 'https://ewxbghnyjvaijpfiygqg.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3eGJnaG55anZhaWpwZml5Z3FnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTgxNTEsImV4cCI6MjA4ODM5NDE1MX0.tySNpML47ViQQ_Xh3Eaj1Dslt17oLZKEiWL0hLNdp4M';
 
-const GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID;
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID     || '222183577921-bhnsc85tl25rb7d779mi0anqk28j2ngf.apps.googleusercontent.com';
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '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';
 
 async function getAccessToken(refreshToken) {
   const res = await fetch('https://oauth2.googleapis.com/token', {
