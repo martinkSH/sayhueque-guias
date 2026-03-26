@@ -5020,6 +5020,8 @@ function attachEvents(){
   document.getElementById('btn-gcal-disconnect')?.addEventListener('click', async()=>{
     if(!confirm('¿Desconectar Google Calendar? Tus eventos no se sincronizarán más.')) return;
     await db.from('guias').update({google_refresh_token:null, google_calendar_event_ids:null}).eq('id',S.myGuia.id);
+    // Update myGuia directly so UI reflects immediately
+    set({myGuia:{...S.myGuia, google_refresh_token:null, google_calendar_event_ids:null}});
     await loadAll();
     toast('Google Calendar desconectado', T.amber);
   });
@@ -5496,6 +5498,8 @@ function attachEvents(){
   document.getElementById('btn-gcal-disconnect')?.addEventListener('click', async()=>{
     if(!confirm('¿Desconectar Google Calendar?')) return;
     await db.from('guias').update({google_refresh_token:null, google_calendar_event_ids:null}).eq('id',S.myGuia.id);
+    // Update myGuia directly so UI reflects immediately
+    set({myGuia:{...S.myGuia, google_refresh_token:null, google_calendar_event_ids:null}});
     await loadAll();
     toast('Google Calendar desconectado', T.amber);
   });
