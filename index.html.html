@@ -5019,11 +5019,14 @@ function attachEvents(){
   // GCal disconnect
   document.getElementById('btn-gcal-disconnect')?.addEventListener('click', async()=>{
     if(!confirm('¿Desconectar Google Calendar? Tus eventos no se sincronizarán más.')) return;
-    await db.from('guias').update({google_refresh_token:null, google_calendar_event_ids:null}).eq('id',S.myGuia.id);
-    // Update myGuia directly so UI reflects immediately
-    set({myGuia:{...S.myGuia, google_refresh_token:null, google_calendar_event_ids:null}});
-    await loadAll();
+    const {error: discErr} = await db.from('guias').update({google_refresh_token:null, google_calendar_event_ids:null}).eq('id',S.myGuia.id);
+    if(discErr){ toast('Error al desconectar: '+discErr.message, T.red); return; }
+    // Update state immediately — don't wait for loadAll to avoid race with DB
+    S.myGuia = {...S.myGuia, google_refresh_token:null, google_calendar_event_ids:null};
+    render();
     toast('Google Calendar desconectado', T.amber);
+    // Load in background to sync other data
+    setTimeout(()=>loadAll(), 500);
   });
   document.getElementById('btn-confirmar-bloqueos')?.addEventListener('click',async()=>{
       if(!dispoSeleccion.size) return;
@@ -5497,11 +5500,14 @@ function attachEvents(){
   });
   document.getElementById('btn-gcal-disconnect')?.addEventListener('click', async()=>{
     if(!confirm('¿Desconectar Google Calendar?')) return;
-    await db.from('guias').update({google_refresh_token:null, google_calendar_event_ids:null}).eq('id',S.myGuia.id);
-    // Update myGuia directly so UI reflects immediately
-    set({myGuia:{...S.myGuia, google_refresh_token:null, google_calendar_event_ids:null}});
-    await loadAll();
+    const {error: discErr} = await db.from('guias').update({google_refresh_token:null, google_calendar_event_ids:null}).eq('id',S.myGuia.id);
+    if(discErr){ toast('Error al desconectar: '+discErr.message, T.red); return; }
+    // Update state immediately — don't wait for loadAll to avoid race with DB
+    S.myGuia = {...S.myGuia, google_refresh_token:null, google_calendar_event_ids:null};
+    render();
     toast('Google Calendar desconectado', T.amber);
+    // Load in background to sync other data
+    setTimeout(()=>loadAll(), 500);
   });
   // descargar agenda
   document.getElementById('btn-descargar-agenda')?.addEventListener('click',()=>set({modal:{type:'descargar-agenda'}}));
