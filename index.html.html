@@ -2430,7 +2430,10 @@ function buildViajes(){
                       <div style="font-size:14px;font-weight:700;color:#1A1A1A">${esc(e.tipo_evento)}</div>
                       <div style="font-size:12px;color:#555;margin-top:2px">📅 ${fechaStr} · 🕐 ${e.hora_inicio}${e.hora_fin?' - '+e.hora_fin:''}</div>
                     </div>
-                    <div style="background:${estadoColor.bg||'#E8E4DD'};color:${estadoColor.fg||'#555'};padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap">${estadoColor.label||e.estado}</div>
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <div style="background:${estadoColor.bg||'#E8E4DD'};color:${estadoColor.fg||'#555'};padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap">${estadoColor.label||e.estado}</div>
+                      ${S.liquidaciones?.find(l=>l.evento_id===e.id)?`<div style="background:#D4EDDA;color:#155724;padding:4px 8px;border-radius:10px;font-size:10px;font-weight:700">💰 LIQ</div>`:''}
+                    </div>
                   </div>
                   
                   ${guia?`<div style="font-size:12px;color:#555;margin-top:6px">👤 Guía: ${esc(guia.nombre+' '+guia.apellido)}</div>`:''}
@@ -2569,7 +2572,12 @@ function buildEventos(){
                 <td style="padding:10px 14px;font-size:12px;color:#9E9A93;white-space:nowrap">${fecha}</td>
                 <td style="padding:10px 14px;font-size:12px;color:#9E9A93;white-space:nowrap">${e.hora_inicio}${e.hora_fin?' - '+e.hora_fin:''}</td>
                 <td style="padding:10px 14px"><span style="font-size:11px;font-weight:700;color:${e.prioridad==='URGENTE'?T.red:T.teal}">${e.prioridad}</span></td>
-                <td style="padding:10px 14px">${badge(e.estado,ESTADO_EVENT_COLOR)}</td>
+                <td style="padding:10px 14px">
+                  <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+                    ${badge(e.estado,ESTADO_EVENT_COLOR)}
+                    ${S.liquidaciones?.find(l=>l.evento_id===e.id)?`<span style="font-size:9px;background:#D4EDDA;color:#155724;padding:2px 6px;border-radius:6px;font-weight:700">💰 LIQ</span>`:''}
+                  </div>
+                </td>
                 <td style="padding:10px 14px;font-size:12px;color:${T.tealMid};font-weight:600">${guia?esc(guia.nombre+' '+guia.apellido):'<span style="color:#ccc">Sin asignar</span>'}</td>
                 
                 <td style="padding:10px 14px" onclick="event.stopPropagation()">
