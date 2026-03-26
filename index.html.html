@@ -3761,8 +3761,10 @@ function buildLiquidacionesGuia(){
           <div style="font-size:9px;color:#9E9A93;text-transform:uppercase">${liq.estado}</div>
         </div>
         <button onclick="verLiquidacion(${liq.id})" style="padding:5px 10px;border-radius:6px;border:1px solid #D4EDDA;background:white;font-size:11px;cursor:pointer;color:#2E7D32;font-weight:600;font-family:'DM Sans',sans-serif">👁</button>
-      ` : `
+      ` : e.fecha <= new Date().toISOString().slice(0,10) ? `
         <button onclick="nuevaLiquidacion(${e.id})" style="padding:5px 12px;border-radius:6px;border:none;background:${T.tealMid};color:white;font-size:11px;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif">+ Liquidar</button>
+      ` : `
+        <span style="font-size:10px;color:#9E9A93;padding:4px 8px">Pendiente</span>
       `}
     </div>`;
   };
@@ -3773,7 +3775,8 @@ function buildLiquidacionesGuia(){
     const todosLiquidados = evs.length>0 && liqs.length===evs.length;
     const algunoLiquidado = liqs.length>0;
     const totalLiqs = liqs.reduce((s,l)=>s+(l.total||0),0);
-    const sinLiquidar = evs.filter(e=>!liqDeEvento(e));
+    const hoyStr = new Date().toISOString().slice(0,10);
+    const sinLiquidar = evs.filter(e=>!liqDeEvento(e) && e.fecha <= hoyStr);
     const expanded = S.liqFileExpanded?.[file.id];
 
     return `
@@ -4222,7 +4225,7 @@ function buildEventoEnViajeModal(fileId){
           </div>
           <div>
             <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Fecha *</label>
-            <input id="ev-fecha" type="date" min="${file.fecha_in}" max="${file.fecha_out}" style="${iStyle}"/>
+            <input id="ev-fecha" type="date" min="${new Date().toISOString().slice(0,10) > file.fecha_in ? new Date().toISOString().slice(0,10) : file.fecha_in}" max="${file.fecha_out}" style="${iStyle}"/>
           </div>
         </div>
         
@@ -4370,7 +4373,7 @@ function buildEventoModal(entry={}){
         <div id="otro-tipo-field" style="display:${(entry.tipo_evento&&!TIPOS_EVENTO.includes(entry.tipo_evento))||entry.tipo_evento==='Otro'?'block':'none'}">
           ${fld('Especificá el tipo de evento',`<input id="e-tipo_otro" type="text" value="${esc(entry.tipo_evento&&!TIPOS_EVENTO.includes(entry.tipo_evento)?entry.tipo_evento:'')}" placeholder="Ej: Cabalgata, Avistaje, Cultural..." style="${iStyle}"/>`,true)}
         </div>
-        ${g2(`${fld('Fecha',inp('fecha','fecha','',  'date'),true)} ${fld('Prioridad',sel('prioridad','prioridad',['REGULAR','URGENTE']))}`)}
+        ${g2(`${fld('Fecha',`<input id="e-fecha" type="date" value="${esc(entry.fecha||'')}" ${!isEdit?'min="'+new Date().toISOString().slice(0,10)+'"':''} style="${iStyle}"/>`,true)} ${fld('Prioridad',sel('prioridad','prioridad',['REGULAR','URGENTE']))}`)}
         ${g2(`${fld('Hora inicio',inp('hora_inicio','hora_inicio','','time'),true)} ${fld('Hora fin',inp('hora_fin','hora_fin','','time'))}`)}
         ${fld('Descripción / Observaciones',`<textarea id="e-descripcion" placeholder="Detalles del evento, indicaciones especiales..." rows="3" style="${iStyle}resize:vertical">${esc(entry.descripcion||'')}</textarea>`)}
         ${g2(`${fld('📍 Pick Up Location',inp('pickup_location','pickup_location','Hotel, dirección...'))} ${fld('📍 Drop Off Location',inp('dropoff_location','dropoff_location','Terminal, hotel...'))}`)}        ${fld('✈️ Datos de vuelos (si aplica)',inp('datos_vuelos','datos_vuelos','Ej: AA1234 EZE 14:30 / IB2345 AEP 09:15'))}
