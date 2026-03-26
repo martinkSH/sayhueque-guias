@@ -3812,7 +3812,34 @@ function buildEventoEnViajeModal(fileId){
           <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Notas</label>
           <textarea id="ev-notas" rows="3" placeholder="Notas adicionales..." style="${iStyle};resize:vertical"></textarea>
         </div>
-        
+
+        <div style="border-top:1px solid #F0EDE8;margin:4px 0;padding-top:12px">
+          <div style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">🚐 Transportista</div>
+          <div style="margin-bottom:10px">
+            <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">¿Aplica transportista?</label>
+            <select id="ev-aplica-transportista" style="${iStyle};cursor:pointer" onchange="document.getElementById('ev-transportista-select').style.display=this.value==='si'?'block':'none'">
+              <option value="no">No aplica</option>
+              <option value="si">Sí aplica</option>
+            </select>
+          </div>
+          <div id="ev-transportista-select" style="display:none;display:flex;flex-direction:column;gap:10px">
+            <div>
+              <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Transportista</label>
+              <select id="ev-transportista-id" style="${iStyle};cursor:pointer">
+                <option value="">— Seleccionar —</option>
+                ${S.transportistas.map(t=>`<option value="${t.id}">${esc(t.nombre)}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:11px;color:#9E9A93;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Tipo de vehículo</label>
+              <select id="ev-tipo-vehiculo" style="${iStyle};cursor:pointer">
+                <option value="">— Tipo de vehículo —</option>
+                <option value="Auto Tradicional">Auto Tradicional</option><option value="Auto Ejecutivo">Auto Ejecutivo</option><option value="H1">H1</option><option value="Van">Van</option><option value="Mini Bus">Mini Bus</option><option value="Bus">Bus</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         <div style="display:flex;gap:10px;margin-top:10px">
           <button id="btn-close-modal2" style="flex:1;padding:12px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;font-size:14px;font-weight:600;cursor:pointer;color:#555">Cancelar</button>
           <button id="btn-save-evento-viaje" data-file-id="${fileId}" style="flex:1;padding:12px;border-radius:8px;border:none;background:linear-gradient(135deg,#1B6B74,#2A9D8F);color:white;font-size:14px;font-weight:700;cursor:pointer">Crear Evento</button>
@@ -5259,6 +5286,9 @@ function attachEvents(){
     const pickup = document.getElementById('ev-pickup')?.value.trim()||null;
     const dropoff = document.getElementById('ev-dropoff')?.value.trim()||null;
     const vuelos = document.getElementById('ev-vuelos')?.value.trim()||null;
+    const aplicaTr = document.getElementById('ev-aplica-transportista')?.value==='si';
+    const transportista_id = aplicaTr ? (parseInt(document.getElementById('ev-transportista-id')?.value)||null) : null;
+    const tipo_vehiculo = aplicaTr ? (document.getElementById('ev-tipo-vehiculo')?.value||null) : null;
 
     const {data,error} = await db.from('eventos').insert({
       file_id: fileId,
@@ -5271,6 +5301,8 @@ function attachEvents(){
       pickup_location: pickup,
       dropoff_location: dropoff,
       datos_vuelos: vuelos,
+      transportista_id,
+      tipo_vehiculo,
       estado: 'A_ASIGNAR'
     }).select().single();
 
