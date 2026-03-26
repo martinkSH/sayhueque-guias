@@ -3148,6 +3148,19 @@ function buildMobileInicio(){
       <button data-mobile-tab="invitaciones" style="margin-top:6px;padding:8px 16px;border-radius:8px;border:none;background:#E9C46A;color:#1A1A1A;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">Ver ahora</button>
     </div>` : ''}
 
+    ${(()=>{
+      const hoy2=new Date();
+      const pendReconf=S.eventos.filter(e=>{
+        if(e.estado!=='CONFIRMADO'||e.guia_id!==S.myGuia?.id||e.reconfirmado_at) return false;
+        const fev=new Date(e.fecha+'T12:00:00');
+        const dh=(fev-hoy2)/(1000*60*60);
+        return dh>=0&&dh<=168;
+      }).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+      if(!pendReconf.length) return '';
+      const tieneUrg=pendReconf.some(e=>(new Date(e.fecha+'T12:00:00')-hoy2)/(1000*60*60)<=48);
+      return '<div style="background:'+(tieneUrg?'#FFF5F5':'#FFFDF0')+';border-radius:14px;padding:16px;border:2px solid '+(tieneUrg?'#E63946':'#E9C46A')+'"><div style="font-size:13px;font-weight:700;color:'+(tieneUrg?'#E63946':'#856404')+';margin-bottom:10px">'+(tieneUrg?'🔴 Reconfirmación urgente':'⏳ Reconfirmar eventos')+'</div>'+pendReconf.map(e=>{const dh=Math.round((new Date(e.fecha+"T12:00:00")-hoy2)/(1000*60*60));const isU=dh<=48;const file=S.files.find(f=>f.id===e.file_id);return "<div style='display:flex;align-items:center;gap:10px;background:white;padding:10px;border-radius:8px;margin-bottom:8px'><div style='flex:1'><div style='font-size:13px;font-weight:600;color:#1A1A1A'>"+esc(e.tipo_evento)+"</div><div style='font-size:11px;color:#9E9A93'>"+(file?'📁 '+esc(file.nro_file)+' · ':'')+new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short'})+"</div></div><button onclick='reconfirmarEvento2("+e.id+")' style='padding:8px 12px;border-radius:8px;border:none;background:"+(isU?'#E63946':'#2A9D8F')+";color:white;font-size:12px;font-weight:700;cursor:pointer'>✅ Reconf.</button></div>";}).join('')+'</div>';
+    })()}
+
     <div style="background:white;border-radius:14px;padding:16px;border:1.5px solid #E8E4DD">
       <div style="font-size:13px;font-weight:700;color:#1A1A1A;margin-bottom:12px">Proximos eventos</div>
       ${proxEventos.length ? proxEventos.map(e=>{
@@ -3164,6 +3177,15 @@ function buildMobileInicio(){
           <div style="color:#9E9A93;font-size:16px">›</div>
         </div>`;
       }).join('') : '<div style="font-size:13px;color:#9E9A93;text-align:center;padding:16px 0">No hay eventos proximos</div>'}
+    </div>
+
+    <!-- Contactos de emergencia -->
+    <div style="background:white;border-radius:14px;padding:16px;border:1.5px solid #E8E4DD">
+      <div style="font-size:13px;font-weight:700;color:#1A1A1A;margin-bottom:10px">📞 Contactos</div>
+      <div style="font-size:10px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">🚦 Guardias</div>
+      <a href="https://wa.me/5491150011738" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#F9F8F6;border-radius:8px;text-decoration:none;margin-bottom:6px"><div><div style="font-size:12px;font-weight:600;color:#1A1A1A">Guardia Tráfico</div><div style="font-size:11px;color:#9E9A93">+54 9 11 5001-1738</div></div><div style="background:#25D366;color:white;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700">WA</div></a><a href="https://wa.me/5491169917018" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#F9F8F6;border-radius:8px;text-decoration:none;margin-bottom:6px"><div><div style="font-size:12px;font-weight:600;color:#1A1A1A">DMC & Aliwen</div><div style="font-size:11px;color:#9E9A93">+54 9 11 6991-7018</div></div><div style="background:#25D366;color:white;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700">WA</div></a><a href="https://wa.me/5491157209905" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#F9F8F6;border-radius:8px;text-decoration:none;margin-bottom:6px"><div><div style="font-size:12px;font-weight:600;color:#1A1A1A">Guardia WEB</div><div style="font-size:11px;color:#9E9A93">+54 9 11 5720-9905</div></div><div style="background:#25D366;color:white;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700">WA</div></a><a href="https://wa.me/5491137704335" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#F9F8F6;border-radius:8px;text-decoration:none;margin-bottom:6px"><div><div style="font-size:12px;font-weight:600;color:#1A1A1A">Guardia GRUPOS</div><div style="font-size:11px;color:#9E9A93">+54 9 11 3770-4335</div></div><div style="background:#25D366;color:white;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700">WA</div></a>
+      <div style="font-size:10px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;margin-top:10px">🚐 Transportistas</div>
+      <a href="https://wa.me/5491159490412" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#F9F8F6;border-radius:8px;text-decoration:none;margin-bottom:6px"><div><div style="font-size:12px;font-weight:600;color:#1A1A1A">Toscana</div><div style="font-size:11px;color:#9E9A93">+54 9 11 5949-0412</div></div><div style="background:#25D366;color:white;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700">WA</div></a><a href="https://wa.me/5491162656000" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#F9F8F6;border-radius:8px;text-decoration:none;margin-bottom:6px"><div><div style="font-size:12px;font-weight:600;color:#1A1A1A">Knar</div><div style="font-size:11px;color:#9E9A93">+54 9 11 6265-6000</div></div><div style="background:#25D366;color:white;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700">WA</div></a><a href="https://wa.me/5491168043333" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#F9F8F6;border-radius:8px;text-decoration:none;margin-bottom:6px"><div><div style="font-size:12px;font-weight:600;color:#1A1A1A">Universal (Lucas)</div><div style="font-size:11px;color:#9E9A93">+54 9 11 6804-3333</div></div><div style="background:#25D366;color:white;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700">WA</div></a><a href="https://wa.me/5491161884144" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#F9F8F6;border-radius:8px;text-decoration:none;margin-bottom:6px"><div><div style="font-size:12px;font-weight:600;color:#1A1A1A">TTP Transfers</div><div style="font-size:11px;color:#9E9A93">+54 9 11 6188-4144</div></div><div style="background:#25D366;color:white;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700">WA</div></a>
     </div>
   </div>`;
 }
@@ -3192,6 +3214,24 @@ function buildMobileCalendario(){
         <div style="font-family:'Playfair Display',serif;font-size:16px;font-weight:700;text-transform:capitalize">${monthName}</div>
         <button id="cal-next" style="width:36px;height:36px;border-radius:8px;border:1.5px solid #E8E4DD;background:white;cursor:pointer;font-size:18px">›</button>
       </div>
+      ${S.mobileCalView==='semana' ? (()=>{
+        const todayD=new Date();
+        const dow=(todayD.getDay()+6)%7;
+        const wStart=new Date(todayD); wStart.setDate(todayD.getDate()-dow);
+        const wDays=Array.from({length:7},(_,i)=>{const d=new Date(wStart);d.setDate(wStart.getDate()+i);return d;});
+        const dNames=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+        return '<div style="display:flex;flex-direction:column;gap:6px">'+wDays.map((d,i)=>{
+          const ds=d.toISOString().slice(0,10);
+          const dEvs=monthEvs.filter(e=>e.fecha===ds);
+          const isTodayW=d.toDateString()===today;
+          return '<div style="display:flex;gap:10px;align-items:flex-start;padding:8px;border-radius:8px;background:'+(isTodayW?T.teal+'15':'transparent')+'">'
+            +'<div style="width:44px;text-align:center;flex-shrink:0"><div style="font-size:10px;font-weight:700;color:#9E9A93">'+dNames[i]+'</div><div style="font-size:18px;font-weight:700;color:'+(isTodayW?T.teal:'#1A1A1A')+'">'+d.getDate()+'</div></div>'
+            +'<div style="flex:1">'
+            +(dEvs.length ? dEvs.map(e=>'<div data-mobile-detalle="'+e.id+'" style="background:'+T.teal+';border-radius:8px;padding:8px 10px;margin-bottom:4px;cursor:pointer"><div style="font-size:12px;font-weight:700;color:white">'+esc(e.tipo_evento)+'</div>'+(e.hora_inicio?'<div style="font-size:11px;color:rgba(255,255,255,0.8)">'+e.hora_inicio.slice(0,5)+(e.hora_fin?' → '+e.hora_fin.slice(0,5):'')+'</div>':'')+'</div>').join('')
+              : '<div style="font-size:12px;color:#9E9A93;padding:8px 0">Sin eventos</div>')
+            +'</div></div>';
+        }).join('')+'</div>';
+      })() : `
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:6px">
         ${['L','M','X','J','V','S','D'].map(d=>`<div style="text-align:center;font-size:10px;font-weight:700;color:#9E9A93;padding:4px 0">${d}</div>`).join('')}
       </div>
@@ -3201,12 +3241,9 @@ function buildMobileCalendario(){
           const dateStr = year+'-'+String(month+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
           const dayEvs = monthEvs.filter(e=>e.fecha===dateStr);
           const isToday = new Date(year,month,d).toDateString()===today;
-          return `<div style="aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${dayEvs.length?T.teal:isToday?T.teal+'15':'transparent'};cursor:${dayEvs.length?'pointer':'default'}" ${dayEvs.length?`data-mobile-cal-day="${dateStr}"`:''}>
-            <div style="font-size:13px;font-weight:${isToday||dayEvs.length?700:400};color:${dayEvs.length?'white':isToday?T.teal:'#1A1A1A'}">${d}</div>
-            ${dayEvs.length>0?`<div style="width:4px;height:4px;border-radius:50%;background:white;margin-top:1px"></div>`:''}
-          </div>`;
+          return `<div style="aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${dayEvs.length?T.teal:isToday?T.teal+'15':'transparent'};cursor:${dayEvs.length?'pointer':'default'}" ${dayEvs.length?`data-mobile-cal-day="${dateStr}"`:''}><div style="font-size:13px;font-weight:${isToday||dayEvs.length?700:400};color:${dayEvs.length?'white':isToday?T.teal:'#1A1A1A'}">${d}</div>${dayEvs.length>0?`<div style="width:4px;height:4px;border-radius:50%;background:white;margin-top:1px"></div>`:''}</div>`;
         }).join('')}
-      </div>
+      </div>`}
     </div>
 
     <!-- Event list for month -->
@@ -3493,12 +3530,14 @@ function buildMobileDetalle(){
       </div>`}
     </div>`:''}
 
+    <!-- RECONFIRMACION -->
+    ${(()=>{const rs=reconfStatus(evento);if(!rs||rs==='ok')return '';const isU=rs==='urgent';return '<div style="background:'+(isU?'#FFF5F5':'#FFFDF0')+';border-radius:14px;padding:16px;border:2px solid '+(isU?'#E63946':'#E9C46A')+';"><div style="font-size:13px;font-weight:700;color:'+(isU?'#E63946':'#856404')+';margin-bottom:10px">'+(isU?'🔴 Reconfirmación urgente':'⏳ Este evento necesita reconfirmación')+'</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button data-cancelar-por-cambios="'+evento.id+'" style="padding:12px;border-radius:10px;border:1.5px solid #fcd5d5;background:#fff5f5;color:#E63946;font-size:14px;font-weight:700;cursor:pointer">❌ No puedo</button><button onclick="reconfirmarEvento2('+evento.id+')" style="padding:12px;border-radius:10px;border:none;background:'+(isU?'#E63946':'#2A9D8F')+';color:white;font-size:14px;font-weight:700;cursor:pointer">✅ Confirmo</button></div></div>';})()} 
+    ${reconfStatus(evento)==='ok'?`<div style="background:#D4EDDA;border-radius:10px;padding:10px 14px;text-align:center;font-size:13px;font-weight:600;color:#155724">✅ Evento reconfirmado</div>`:''}
     <!-- BAJAR DEL EVENTO -->
     ${evento.estado==='CONFIRMADO'&&evento.guia_id===guia.id&&!esPasado?`
-    <button data-bajar-evento="${evento.id}" style="width:100%;padding:12px;border-radius:10px;border:1.5px solid #fcd5d5;background:#fff5f5;color:#E63946;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:8px">Me bajo del evento</button>`:''}
+    <button data-bajar-evento="${evento.id}" style="width:100%;padding:12px;border-radius:10px;border:1.5px solid #fcd5d5;background:#fff5f5;color:#E63946;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:8px">🚫 Me bajo del evento</button>`:''}
   </div>`;
 }
-
 // ── HISTORIAL ─────────────────────────────────────────────────────────────────
 function buildHistorial(){
   const ACCION_ICONS={'INVITACION_ENVIADA':'📧','ACEPTADA':'✅','RECHAZADA':'❌','EXPIRADA_SLA':'⏱','CANCELADA':'🚫','TOMADA_POR_OTRO':'👤','GUIA_SE_BAJO':'🚫','EVENTO_CANCELADO':'❌'};
@@ -5040,6 +5079,8 @@ function attachEvents(){
     });
     document.getElementById('btn-cancelar-seleccion')?.addEventListener('click',()=>{dispoSeleccion=new Set();render();});
     // bajar del evento
+    document.getElementById('mobile-cal-mes')?.addEventListener('click',()=>{S.mobileCalView='mes';render();});
+    document.getElementById('mobile-cal-semana')?.addEventListener('click',()=>{S.mobileCalView='semana';render();});
     document.querySelectorAll('[data-bajar-evento]').forEach(btn=>btn.addEventListener('click',e=>{
       e.stopPropagation(); bajarseEvento(parseInt(btn.dataset.bajarEvento));
     }));
