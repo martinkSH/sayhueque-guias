@@ -1,11 +1,11 @@
 {
-  "name": "Say Hueque · Guías",
-  "short_name": "SH Guías",
-  "description": "Sistema de gestión de guías Say Hueque",
+  "name": "Atlas Sherpa · Guías",
+  "short_name": "Atlas Sherpa",
+  "description": "Portal de guías y confirmaciones - Atlas Sherpa",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#4A5568",
-  "theme_color": "#4A5568",
+  "background_color": "#0D0D0D",
+  "theme_color": "#0D0D0D",
   "orientation": "portrait-primary",
   "icons": [
     {
@@ -27,6 +27,9 @@
       "purpose": "any"
     }
   ],
-  "categories": ["business", "productivity"],
+  "categories": [
+    "business",
+    "productivity"
+  ],
   "lang": "es-AR"
 }
