@@ -208,20 +208,20 @@ const TIPOS_EVENTO = ['01HS A DISPOSICION (Ing-Esp-Por)', '02HS A DISPOSICION (I
 let SLA = { URGENTE: 5, REGULAR: 48 }; // overridden by DB config on load
 
 const ESTADO_EVENT_COLOR = {
-  'A_ASIGNAR': {bg:'#FFF3CD',fg:'#856404',label:'A Asignar'},
-  'CONFIRMADO':{bg:'#D4EDDA',fg:'#155724',label:'Confirmado'},
-  'RECONFIRMACION_PENDIENTE':{bg:'#FFF3E0',fg:'#E65100',label:'Reconfirmación Pendiente'},
-  'RECHAZADO_POR_GUIA':{bg:'#FFEBEE',fg:'#C62828',label:'Rechazado por Guía - Reasignar'},
-  'CANCELADO': {bg:'#F8D7DA',fg:'#721c24',label:'Cancelado'},
-  'EXPIRADO':  {bg:'#E8E4DD',fg:'#555',label:'Expirado'},
+  'A_ASIGNAR': {bg:'rgba(233,196,106,0.15)',fg:'#E9C46A',label:'A Asignar'},
+  'CONFIRMADO':{bg:'rgba(74,222,128,0.12)', fg:'#4ADE80',label:'Confirmado'},
+  'RECONFIRMACION_PENDIENTE':{bg:'rgba(231,111,81,0.15)',fg:'#E76F51',label:'Reconfirmación Pendiente'},
+  'RECHAZADO_POR_GUIA':{bg:'rgba(239,68,68,0.15)',fg:'#EF4444',label:'Rechazado por Guía - Reasignar'},
+  'CANCELADO': {bg:'rgba(239,68,68,0.12)',  fg:'#EF4444',label:'Cancelado'},
+  'EXPIRADO':  {bg:'rgba(255,255,255,0.06)',fg:'#8A8A8E',label:'Expirado'},
 };
 const ESTADO_INV_COLOR = {
-  'PENDIENTE':       {bg:'#FFF3CD',fg:'#856404'},
-  'ACEPTADA':        {bg:'#D4EDDA',fg:'#155724'},
-  'RECHAZADA':       {bg:'#F8D7DA',fg:'#721c24'},
-  'EXPIRADA':        {bg:'#E8E4DD',fg:'#555'},
-  'CANCELADA':       {bg:'#F8D7DA',fg:'#721c24'},
-  'TOMADA_POR_OTRO': {bg:'#CCE5FF',fg:'#004085'},
+  'PENDIENTE':       {bg:'rgba(233,196,106,0.15)',fg:'#E9C46A'},
+  'ACEPTADA':        {bg:'rgba(74,222,128,0.12)', fg:'#4ADE80'},
+  'RECHAZADA':       {bg:'rgba(239,68,68,0.15)',  fg:'#EF4444'},
+  'EXPIRADA':        {bg:'rgba(255,255,255,0.06)',fg:'#8A8A8E'},
+  'CANCELADA':       {bg:'rgba(239,68,68,0.15)',  fg:'#EF4444'},
+  'TOMADA_POR_OTRO': {bg:'rgba(96,165,250,0.12)', fg:'#60A5FA'},
 };
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
@@ -2636,9 +2636,9 @@ function buildViajes(){
                           ${invs.map(inv=>{
                             const g=S.guias.find(x=>x.id===inv.guia_id);
                             const estadoColors = {
-                              PENDIENTE: {bg:'#FFF3CD',fg:'#856404',label:'⏳ Pendiente'},
-                              ACEPTADA: {bg:'#D4EDDA',fg:'#155724',label:'✅ Aceptada'},
-                              RECHAZADA: {bg:'#F8D7DA',fg:'#721C24',label:'❌ Rechazada'},
+                              PENDIENTE: {bg:'rgba(233,196,106,0.15)',fg:'#E9C46A',label:'⏳ Pendiente'},
+                              ACEPTADA: {bg:'rgba(74,222,128,0.12)',fg:'#4ADE80',label:'✅ Aceptada'},
+                              RECHAZADA: {bg:'rgba(239,68,68,0.15)',fg:'#EF4444',label:'❌ Rechazada'},
                               EXPIRADA: {bg:'#E2E3E5',fg:'#383D41',label:'⏰ Expirada'},
                               CANCELADA: {bg:'#E2E3E5',fg:'#383D41',label:'🚫 Cancelada'},
                               TOMADA_POR_OTRO: {bg:'#E2E3E5',fg:'#383D41',label:'👥 Tomada por otro'}
