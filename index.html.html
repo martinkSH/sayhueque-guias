@@ -10,9 +10,9 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="SH Guías">
+  <meta name="apple-mobile-web-app-title" content="Atlas Sherpa">
   <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png">
-<title>Say Hueque · Guías</title>
+<title>Atlas Sherpa · Guías</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -1715,64 +1715,134 @@ function buildPasswordResetPage(){
 
 // ── LOADING ───────────────────────────────────────────────────────────────────
 function buildLoading(){
-  return `<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:${T.teal}"><div style="text-align:center;color:white"><div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:700;margin-bottom:16px">Say Hueque · Guías</div><div class="spin" style="font-size:28px">⟳</div></div></div>`;
+  return `<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0D0D0D"><div style="text-align:center;color:white"><div style="font-size:10px;font-weight:700;letter-spacing:0.2em;color:rgba(255,255,255,0.35);margin-bottom:6px">ATLAS</div><div style="font-size:28px;font-weight:800;letter-spacing:0.06em;margin-bottom:20px">SHERPA</div><div class="spin" style="font-size:24px;color:#E76F51">⟳</div></div></div>`;
 }
 
 // ── LOGIN ─────────────────────────────────────────────────────────────────────
 function buildLogin(){
   const isMob = window.innerWidth < 768;
-  const iStyle2 = 'width:100%;padding:14px 16px;border-radius:12px;border:1.5px solid #E8E4DD;font-size:16px;font-family:"DM Sans",sans-serif;background:white;color:#1A1A1A;-webkit-appearance:none;box-sizing:border-box';
 
   if(isMob){
     return `
-    <div style="min-height:100vh;background:linear-gradient(160deg,${T.teal} 0%,${T.tealMid} 45%,#F5F3EF 45%);display:flex;flex-direction:column;font-family:'DM Sans',sans-serif">
-      <div style="padding:60px 32px 40px;text-align:center">
-        <div style="display:inline-flex;align-items:center;justify-content:center;width:80px;height:80px;border-radius:20px;background:rgba(255,255,255,0.2);margin-bottom:20px">
-          <img src="/icon-192.png" style="width:60px;height:60px;border-radius:12px" onerror="this.style.display='none'"/>
+    <div style="min-height:100vh;background:#0D0D0D;display:flex;flex-direction:column;font-family:'DM Sans',sans-serif;color:white">
+      <!-- Top logo area -->
+      <div style="padding:48px 32px 0;display:flex;align-items:center;gap:14px">
+        <div style="width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,#6C63FF,#4A90D9);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <img src="/icon-192.png" style="width:36px;height:36px;border-radius:6px;object-fit:cover" onerror="this.parentElement.innerHTML='<span style=\\'font-weight:900;font-size:20px;color:white\\'>A</span>'"/>
         </div>
-        <div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:white">Say Hueque</div>
-        <div style="font-size:13px;color:rgba(255,255,255,0.75);margin-top:6px">Sistema de Gestión de Guías</div>
+        <div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.15em;color:rgba(255,255,255,0.4);text-transform:uppercase">ATLAS</div>
+          <div style="font-size:18px;font-weight:800;letter-spacing:0.05em;color:white">SHERPA</div>
+        </div>
       </div>
-      <div style="flex:1;background:#F5F3EF;border-radius:28px 28px 0 0;padding:32px 24px 48px">
-        <div style="max-width:400px;margin:0 auto">
-          <div style="font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:#1A1A1A;margin-bottom:6px">Bienvenido</div>
-          <div style="font-size:14px;color:#9E9A93;margin-bottom:28px">Iniciá sesión para continuar</div>
-          <div style="display:flex;flex-direction:column;gap:16px">
-            <div>
-              <label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:8px">Email</label>
-              <input id="login-email" type="email" autocomplete="email" placeholder="tucuenta@sayhueque.com" style="${iStyle2}"/>
-            </div>
-            <div>
-              <label style="font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:8px">Contraseña</label>
-              <input id="login-pass" type="password" autocomplete="current-password" placeholder="••••••••" style="${iStyle2}"/>
-            </div>
-            <button id="btn-login" style="width:100%;padding:16px;border-radius:14px;border:none;background:linear-gradient(135deg,${T.teal},${T.tealMid});color:white;font-size:16px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:4px;box-shadow:0 4px 20px ${T.teal}50">
-              Ingresar →
-            </button>
-          </div>
+
+      <!-- Main content -->
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:40px 32px 60px">
+        <div style="margin-bottom:48px">
+          <div style="font-size:36px;font-weight:800;line-height:1.1;color:white;margin-bottom:10px">Portal<br/>de guías.</div>
+          <div style="font-size:14px;color:rgba(255,255,255,0.4)">Acceso restringido · Solo personal autorizado</div>
         </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;color:rgba(255,255,255,0.4);text-transform:uppercase;margin-bottom:8px">EMAIL</div>
+            <input id="login-email" type="email" autocomplete="email" placeholder="guia@sayhueque.com"
+              style="width:100%;padding:16px;border-radius:10px;border:1.5px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:white;font-size:15px;font-family:'DM Sans',sans-serif;box-sizing:border-box;-webkit-appearance:none;outline:none"
+              onfocus="this.style.borderColor='#E76F51'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"/>
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;color:rgba(255,255,255,0.4);text-transform:uppercase;margin-bottom:8px">CONTRASEÑA</div>
+            <input id="login-pass" type="password" autocomplete="current-password" placeholder="••••••••"
+              style="width:100%;padding:16px;border-radius:10px;border:1.5px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:white;font-size:15px;font-family:'DM Sans',sans-serif;box-sizing:border-box;-webkit-appearance:none;outline:none"
+              onfocus="this.style.borderColor='#E76F51'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"/>
+          </div>
+          <button id="btn-login"
+            style="width:100%;padding:17px;border-radius:10px;border:none;background:#E76F51;color:white;font-size:16px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:6px;letter-spacing:0.02em">
+            Ingresar →
+          </button>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="padding:20px 32px;text-align:center;font-size:10px;color:rgba(255,255,255,0.2);letter-spacing:0.08em">
+        POWERED BY MK · ATLAS SHERPA v1.0
       </div>
     </div>
     ${buildToast()}`;
   }
 
+  // ── DESKTOP ─────────────────────────────────────────────────────────────────
   return `
-  <div style="display:flex;height:100vh">
-    <div style="width:380px;background:linear-gradient(160deg,${T.teal},${T.tealMid});display:flex;flex-direction:column;justify-content:center;padding:52px 44px;flex-shrink:0">
-      <div style="font-family:'Playfair Display',serif;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.6);margin-bottom:12px">SAY HUEQUE</div>
-      <div style="font-family:'Playfair Display',serif;font-size:36px;font-weight:700;color:white;line-height:1.2;margin-bottom:16px">Sistema<br/>de Guías</div>
-      <div style="font-size:13px;color:rgba(255,255,255,0.7);line-height:1.7;margin-bottom:32px">Asignación de guías a eventos,<br/>notificaciones automáticas<br/>y trazabilidad completa.</div>
-      ${['📋 ABM de guías','📅 Calendario de eventos','📧 Emails automáticos con SLA','📊 Historial de respuestas'].map(f=>`<div style="display:flex;align-items:center;gap:10px;color:rgba(255,255,255,0.8);font-size:13px;margin-bottom:10px">${f}</div>`).join('')}
+  <div style="display:flex;height:100vh;background:#0D0D0D;font-family:'DM Sans',sans-serif">
+    <!-- Left panel -->
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;padding:52px 60px;position:relative;overflow:hidden">
+      <!-- Subtle background texture -->
+      <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 20% 50%,rgba(108,99,255,0.08) 0%,transparent 60%);pointer-events:none"></div>
+
+      <!-- Logo -->
+      <div style="display:flex;align-items:center;gap:14px;position:relative">
+        <div style="width:52px;height:52px;border-radius:12px;background:linear-gradient(135deg,#6C63FF,#4A90D9);display:flex;align-items:center;justify-content:center">
+          <img src="/icon-192.png" style="width:40px;height:40px;border-radius:8px;object-fit:cover" onerror="this.parentElement.innerHTML='<span style=\\'font-weight:900;font-size:22px;color:white\\'>A</span>'"/>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:700;letter-spacing:0.2em;color:rgba(255,255,255,0.35);text-transform:uppercase">ATLAS</div>
+          <div style="font-size:20px;font-weight:800;letter-spacing:0.06em;color:white">SHERPA</div>
+        </div>
+        <div style="margin-left:20px;padding-left:20px;border-left:1px solid rgba(255,255,255,0.15)">
+          <div style="font-size:11px;color:rgba(255,255,255,0.35)">Portal de guías · confirmaciones</div>
+        </div>
+      </div>
+
+      <!-- Center tagline -->
+      <div style="position:relative">
+        <div style="font-size:56px;font-weight:800;line-height:1.05;color:white;margin-bottom:20px;letter-spacing:-1px">
+          Viajes en<br/>tiempo real.
+        </div>
+        <div style="font-size:15px;color:rgba(255,255,255,0.35);line-height:1.7;max-width:380px">
+          Gestión de guías, eventos y liquidaciones.<br/>
+          Confirmaciones automáticas con trazabilidad completa.
+        </div>
+
+        <!-- Status dot -->
+        <div style="display:flex;align-items:center;gap:8px;margin-top:32px">
+          <div style="width:7px;height:7px;border-radius:50%;background:#4ADE80;animation:pulse 2s infinite"></div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.35);letter-spacing:0.05em">Sistema operativo</div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="font-size:10px;color:rgba(255,255,255,0.2);letter-spacing:0.1em;position:relative">
+        POWERED BY MK · ATLAS SHERPA v1.0
+      </div>
     </div>
-    <div style="flex:1;display:flex;align-items:center;justify-content:center;background:#F5F3EF;padding:40px">
-      <div style="background:white;border-radius:16px;padding:40px;width:100%;max-width:400px;box-shadow:0 8px 40px rgba(0,0,0,0.08);animation:fadeIn 0.3s ease">
-        <div style="font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:${T.dark};margin-bottom:6px">Iniciar sesión</div>
-        <div style="font-size:13px;color:#9E9A93;margin-bottom:28px">Panel de administración</div>
-        <div style="display:flex;flex-direction:column;gap:14px">
-          <div><label style="font-size:11px;font-weight:600;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Email</label><input id="login-email" type="email" placeholder="admin@sayhueque.com" style="${iStyle}"/></div>
-          <div><label style="font-size:11px;font-weight:600;color:#9E9A93;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Contraseña</label><input id="login-pass" type="password" placeholder="••••••••" style="${iStyle}"/></div>
-          <button id="btn-login" style="${btnP(T.teal)}width:100%;margin-top:6px;font-size:14px;padding:12px">Ingresar -></button>
-          <div style="text-align:center;font-size:12px;color:#9E9A93">¿No tenés cuenta? <button id="btn-go-register" style="background:none;border:none;color:${T.tealMid};font-weight:600;cursor:pointer;font-size:12px">Crear cuenta</button></div>
+
+    <!-- Right panel: login form -->
+    <div style="width:440px;background:#141414;display:flex;align-items:center;justify-content:center;padding:60px 48px;flex-shrink:0;border-left:1px solid rgba(255,255,255,0.06)">
+      <div style="width:100%">
+        <div style="font-size:28px;font-weight:800;color:white;margin-bottom:8px">Bienvenido</div>
+        <div style="font-size:14px;color:rgba(255,255,255,0.35);margin-bottom:40px">Ingresá para ver los viajes del día</div>
+
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;color:rgba(255,255,255,0.4);text-transform:uppercase;margin-bottom:8px">EMAIL</div>
+            <input id="login-email" type="email" placeholder="guia@sayhueque.com"
+              style="width:100%;padding:15px 18px;border-radius:10px;border:1.5px solid rgba(255,255,255,0.08);background:#1E1E1E;color:white;font-size:14px;font-family:'DM Sans',sans-serif;box-sizing:border-box;outline:none;transition:border 0.2s"
+              onfocus="this.style.borderColor='#E76F51'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'"/>
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;color:rgba(255,255,255,0.4);text-transform:uppercase;margin-bottom:8px">CONTRASEÑA</div>
+            <input id="login-pass" type="password" placeholder="••••••••"
+              style="width:100%;padding:15px 18px;border-radius:10px;border:1.5px solid rgba(255,255,255,0.08);background:#1E1E1E;color:white;font-size:14px;font-family:'DM Sans',sans-serif;box-sizing:border-box;outline:none;transition:border 0.2s"
+              onfocus="this.style.borderColor='#E76F51'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'"/>
+          </div>
+          <button id="btn-login"
+            style="width:100%;padding:16px;border-radius:10px;border:none;background:#E76F51;color:white;font-size:15px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:0.02em;transition:opacity 0.2s"
+            onmouseenter="this.style.opacity='0.9'" onmouseleave="this.style.opacity='1'">
+            Ingresar
+          </button>
+          <div style="text-align:center;font-size:12px;color:rgba(255,255,255,0.2)">
+            Acceso restringido · Solo personal autorizado
+          </div>
         </div>
       </div>
     </div>
@@ -3139,7 +3209,7 @@ function buildMobileApp(){
     <!-- HEADER -->
     <div style="background:linear-gradient(135deg,#1B6B74,#2A9D8F);padding:16px 20px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
       <div>
-        <div style="color:rgba(255,255,255,0.7);font-size:11px;font-weight:600;letter-spacing:0.08em">SAY HUEQUE</div>
+        <div style="color:rgba(255,255,255,0.6);font-size:9px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase">ATLAS SHERPA</div>
         <div style="color:white;font-size:17px;font-weight:700;font-family:'Playfair Display',serif">${esc(S.myGuia?.nombre||'')} ${esc(S.myGuia?.apellido||'')}</div>
       </div>
       <div style="display:flex;gap:6px;align-items:center">
