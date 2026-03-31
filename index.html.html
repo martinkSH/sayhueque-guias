@@ -308,7 +308,7 @@ async function loadSLAConfig(){
 async function handleConfirmarCalendario(token){
   document.getElementById('root').innerHTML = `
     <div style="min-height:100vh;background:#1A1A1A;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;padding:20px">
-      <div style="background:white;border-radius:16px;max-width:600px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,0.12);overflow:hidden">
+      <div style="background:#1A1A1A;border-radius:16px;max-width:600px;width:100%;box-shadow:0 24px 80px rgba(0,0,0,0.5);overflow:hidden">
         <div style="background:linear-gradient(135deg,#1A3A2A,#2A5A3A);padding:32px;text-align:center">
           <div style="font-size:40px;margin-bottom:12px">🚐</div>
           <h2 style="color:white;margin:0;font-size:22px;font-family:'Playfair Display',serif">Say Hueque · Operaciones</h2>
@@ -316,7 +316,7 @@ async function handleConfirmarCalendario(token){
         </div>
         <div style="padding:32px;text-align:center" id="conf-body">
           <div style="font-size:24px">⏳</div>
-          <p style="color:#666">Verificando...</p>
+          <p style="color:#9CA3AF">Verificando...</p>
         </div>
       </div>
     </div>`;
@@ -324,7 +324,7 @@ async function handleConfirmarCalendario(token){
   const {data:tok} = await db.from('calendario_tokens').select('*').eq('token',token).single();
   const body = document.getElementById('conf-body');
   if(!tok){ body.innerHTML='<div style="color:#E63946;font-size:18px">❌ Link inválido o expirado.</div>'; return; }
-  if(tok.confirmado){ body.innerHTML='<div style="font-size:40px">✅</div><h3 style="color:#2E7D32">¡Ya confirmado!</h3><p style="color:#666">Este calendario ya fue confirmado anteriormente el '+new Date(tok.confirmado_at).toLocaleDateString('es-AR')+'.</p>'; return; }
+  if(tok.confirmado){ body.innerHTML='<div style="font-size:40px">✅</div><h3 style="color:#2E7D32">¡Ya confirmado!</h3><p style="color:#9CA3AF">Este calendario ya fue confirmado anteriormente el '+new Date(tok.confirmado_at).toLocaleDateString('es-AR')+'.</p>'; return; }
 
   const {data:tr} = await db.from('transportistas').select('*').eq('id',tok.transportista_id).single();
   const {data:eventos} = await db.from('eventos').select('*').gte('fecha',tok.fecha_desde).lte('fecha',tok.fecha_hasta).eq('transportista_id',tok.transportista_id).neq('estado','CANCELADO');
@@ -356,7 +356,7 @@ async function handleConfirmarCalendario(token){
     for(const e of (eventos||[])){
       await db.from('eventos').update({transportista_confirmado:true,transportista_confirmado_at:new Date().toISOString()}).eq('id',e.id);
     }
-    body.innerHTML='<div style="font-size:60px;margin-bottom:16px">✅</div><h3 style="color:#2E7D32;font-size:22px">¡Confirmado!</h3><p style="color:#666;font-size:14px">Gracias '+( tr?.contacto||tr?.nombre||'')+', los '+( eventos?.length||0)+' eventos han sido confirmados.<br/>El equipo de Say Hueque fue notificado.</p>';
+    body.innerHTML='<div style="font-size:60px;margin-bottom:16px">✅</div><h3 style="color:#2E7D32;font-size:22px">¡Confirmado!</h3><p style="color:#9CA3AF;font-size:14px">Gracias '+( tr?.contacto||tr?.nombre||'')+', los '+( eventos?.length||0)+' eventos han sido confirmados.<br/>El equipo de Say Hueque fue notificado.</p>';
   });
 }
 
@@ -376,7 +376,7 @@ async function checkAlertasAdmin(){
     const evento = S.eventos.find(e=>e.id===a.evento_id);
     const guia = S.guias.find(g=>g.id===a.guia_id);
     const fecha = new Date(a.created_at).toLocaleString('es-AR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
-    return `<div style="background:white;border-radius:8px;padding:14px;margin-bottom:10px;border-left:4px solid #E63946">
+    return `<div style="background:#1A1A1A;border-radius:8px;padding:14px;margin-bottom:10px;border-left:4px solid #EF4444">
       <div style="font-size:13px;font-weight:700;color:#F9FAFB">${guia?guia.nombre+' '+guia.apellido:'Guía'} se bajó del evento</div>
       <div style="font-size:12px;color:#9CA3AF;margin-top:4px">${evento?evento.tipo_evento+' · '+new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'}):'Evento'}</div>
       <div style="font-size:11px;color:#6B7280;margin-top:2px">${a.detalle||''}</div>
@@ -2039,7 +2039,7 @@ function buildBottomNav(pendInv){
 function buildTopBar(){
   const titles={dashboard:'📊 Dashboard',guias:'👤 Guías',eventos:'📋 Eventos',calendario:'📅 Calendario',historial:'📜 Historial',invitaciones:'📨 Mis invitaciones',liquidaciones:'💰 Liquidaciones',usuarios:'🔑 Usuarios / Configuración'};
   return `
-  <div style="background:white;border-bottom:1px solid rgba(255,255,255,0.07);padding:0 16px;height:54px;display:flex;align-items:center;gap:12px;flex-shrink:0">
+  <div style="background:#111111;border-bottom:1px solid rgba(255,255,255,0.06);padding:0 20px;height:54px;display:flex;align-items:center;gap:12px;flex-shrink:0">
     <button id="btn-open-drawer" class="topbar-hamburger" style="display:none;background:none;border:none;font-size:22px;cursor:pointer;padding:4px;color:#E76F51">☰</button>
     <div style="font-family:'Playfair Display',serif;font-size:17px;color:${T.dark};font-weight:700">${titles[S.view]||''}</div>
     <div style="margin-left:auto;display:flex;gap:8px">
@@ -2185,7 +2185,7 @@ function buildDashboard(){
         <div style="background:#141414;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:18px;flex:1;min-width:260px">
           <div style="font-size:12px;font-weight:700;color:#F9FAFB;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px">🚦 Guardias Operativas</div>
           
-            <a href="https://wa.me/5491150011738" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:#F9F8F6;text-decoration:none;margin-bottom:6px;transition:background 0.15s"
+            <a href="https://wa.me/5491150011738" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:#1A1A1A;text-decoration:none;margin-bottom:6px;transition:background 0.15s"
               onmouseenter="this.style.background='#E8F5E9'" onmouseleave="this.style.background='#F9F8F6'">
               <div>
                 <div style="font-size:13px;font-weight:600;color:#F9FAFB">Guardia Tráfico</div>
@@ -2196,7 +2196,7 @@ function buildDashboard(){
                 WhatsApp
               </div>
             </a>
-            <a href="https://wa.me/5491169917018" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:#F9F8F6;text-decoration:none;margin-bottom:6px;transition:background 0.15s"
+            <a href="https://wa.me/5491169917018" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:#1A1A1A;text-decoration:none;margin-bottom:6px;transition:background 0.15s"
               onmouseenter="this.style.background='#E8F5E9'" onmouseleave="this.style.background='#F9F8F6'">
               <div>
                 <div style="font-size:13px;font-weight:600;color:#F9FAFB">Guardia DMC & Aliwen</div>
@@ -2207,7 +2207,7 @@ function buildDashboard(){
                 WhatsApp
               </div>
             </a>
-            <a href="https://wa.me/5491157209905" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:#F9F8F6;text-decoration:none;margin-bottom:6px;transition:background 0.15s"
+            <a href="https://wa.me/5491157209905" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:#1A1A1A;text-decoration:none;margin-bottom:6px;transition:background 0.15s"
               onmouseenter="this.style.background='#E8F5E9'" onmouseleave="this.style.background='#F9F8F6'">
               <div>
                 <div style="font-size:13px;font-weight:600;color:#F9FAFB">Guardia WEB</div>
@@ -2218,7 +2218,7 @@ function buildDashboard(){
                 WhatsApp
               </div>
             </a>
-            <a href="https://wa.me/5491137704335" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:#F9F8F6;text-decoration:none;margin-bottom:6px;transition:background 0.15s"
+            <a href="https://wa.me/5491137704335" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:#1A1A1A;text-decoration:none;margin-bottom:6px;transition:background 0.15s"
               onmouseenter="this.style.background='#E8F5E9'" onmouseleave="this.style.background='#F9F8F6'">
               <div>
                 <div style="font-size:13px;font-weight:600;color:#F9FAFB">Guardia GRUPOS</div>
@@ -2233,7 +2233,7 @@ function buildDashboard(){
         <div style="background:#141414;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:18px;flex:1;min-width:260px">
           <div style="font-size:12px;font-weight:700;color:#F9FAFB;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px">🚐 Transportistas</div>
           
-            <a href="https://wa.me/5491159490412" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:#F9F8F6;text-decoration:none;margin-bottom:6px;transition:background 0.15s"
+            <a href="https://wa.me/5491159490412" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:#1A1A1A;text-decoration:none;margin-bottom:6px;transition:background 0.15s"
               onmouseenter="this.style.background='#E8F5E9'" onmouseleave="this.style.background='#F9F8F6'">
               <div>
                 <div style="font-size:13px;font-weight:600;color:#F9FAFB">Toscana Transfers</div>
@@ -2244,7 +2244,7 @@ function buildDashboard(){
                 WhatsApp
               </div>
             </a>
-            <a href="https://wa.me/5491162656000" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:#F9F8F6;text-decoration:none;margin-bottom:6px;transition:background 0.15s"
+            <a href="https://wa.me/5491162656000" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:#1A1A1A;text-decoration:none;margin-bottom:6px;transition:background 0.15s"
               onmouseenter="this.style.background='#E8F5E9'" onmouseleave="this.style.background='#F9F8F6'">
               <div>
                 <div style="font-size:13px;font-weight:600;color:#F9FAFB">Knar Transfers</div>
@@ -2255,7 +2255,7 @@ function buildDashboard(){
                 WhatsApp
               </div>
             </a>
-            <a href="https://wa.me/5491168043333" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:#F9F8F6;text-decoration:none;margin-bottom:6px;transition:background 0.15s"
+            <a href="https://wa.me/5491168043333" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:#1A1A1A;text-decoration:none;margin-bottom:6px;transition:background 0.15s"
               onmouseenter="this.style.background='#E8F5E9'" onmouseleave="this.style.background='#F9F8F6'">
               <div>
                 <div style="font-size:13px;font-weight:600;color:#F9FAFB">Universal Mobility (Lucas)</div>
@@ -2266,7 +2266,7 @@ function buildDashboard(){
                 WhatsApp
               </div>
             </a>
-            <a href="https://wa.me/5491161884144" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:#F9F8F6;text-decoration:none;margin-bottom:6px;transition:background 0.15s"
+            <a href="https://wa.me/5491161884144" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;background:#1A1A1A;text-decoration:none;margin-bottom:6px;transition:background 0.15s"
               onmouseenter="this.style.background='#E8F5E9'" onmouseleave="this.style.background='#F9F8F6'">
               <div>
                 <div style="font-size:13px;font-weight:600;color:#F9FAFB">TTP Transfers</div>
@@ -2303,7 +2303,7 @@ async function deleteTransportista(id){
 }
 
 function buildTransportistas(){
-  const btnS2=`padding:8px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:white;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;color:#9CA3AF;`;
+  const btnS2=`padding:8px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;color:#9CA3AF;`;
   return `
   <div style="padding:24px;display:flex;flex-direction:column;gap:20px">
     <div style="display:flex;justify-content:space-between;align-items:center">
@@ -2320,7 +2320,7 @@ function buildTransportistas(){
               ${t.contacto?`<div style="font-size:12px;color:#6B7280;margin-top:2px">👤 ${esc(t.contacto)}</div>`:''}
             </div>
             <div style="display:flex;gap:6px">
-              <button data-open="transportista-form" data-entry="${t.id}" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:white;font-size:11px;cursor:pointer;color:#E76F51;font-weight:600">✏️</button>
+              <button data-open="transportista-form" data-entry="${t.id}" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;font-size:11px;cursor:pointer;color:#E76F51;font-weight:600">✏️</button>
               <button data-delete-transportista="${t.id}" style="padding:4px 10px;border-radius:6px;border:1px solid #fcd5d5;background:#1E1E1E5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600">🗑️</button>
             </div>
           </div>
@@ -2349,7 +2349,7 @@ function buildTransportistaModal(entry={}){
         ${fld('Teléfono',`<input id="tr-telefono" value="${esc(entry.telefono||'')}" placeholder="+54911..." style="${iStyle}"/>`)}
         ${fld('Notas',`<textarea id="tr-notas" rows="2" placeholder="Observaciones..." style="${iStyle}resize:vertical">${esc(entry.notas||'')}</textarea>`)}
         <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:4px">
-          <button id="btn-close-modal2" style="padding:8px 20px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:white;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif">Cancelar</button>
+          <button id="btn-close-modal2" style="padding:8px 20px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif">Cancelar</button>
           <button id="btn-save-transportista" data-id="${entry.id||''}" style="padding:8px 20px;border-radius:8px;border:none;background:#E76F51;color:white;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">${isEdit?'💾 Guardar':'✅ Crear'}</button>
         </div>
       </div>
@@ -2370,13 +2370,13 @@ function buildEnviarCalendarioModal(transportistaId){
         <button id="btn-close-modal" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;color:white;font-size:20px;width:36px;height:36px;cursor:pointer">×</button>
       </div>
       <div style="padding:28px;display:flex;flex-direction:column;gap:16px">
-        <p style="font-size:13px;color:#666;margin:0">Se enviará un email con todos los eventos del período que tengan asignado a <strong>${esc(t?.nombre||'')}</strong> como transportista, junto con un link para confirmar.</p>
+        <p style="font-size:13px;color:#9CA3AF;margin:0">Se enviará un email con todos los eventos del período que tengan asignado a <strong>${esc(t?.nombre||'')}</strong> como transportista, junto con un link para confirmar.</p>
         ${fld('Fecha desde',`<input id="cal-desde" type="date" style="${iStyle}"/>`,true)}
         ${fld('Fecha hasta',`<input id="cal-hasta" type="date" style="${iStyle}"/>`,true)}
         <div id="cal-preview" style="display:none;background:#f9f8f6;border-radius:8px;padding:12px;font-size:12px;color:#9CA3AF;max-height:200px;overflow:auto"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end">
-          <button id="btn-close-modal2" style="padding:8px 20px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:white;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif">Cancelar</button>
-          <button id="btn-preview-cal" style="padding:8px 20px;border-radius:8px;border:1.5px solid ${T.teal};background:white;font-size:13px;font-weight:600;cursor:pointer;color:#E76F51;font-family:'DM Sans',sans-serif">👁 Ver eventos</button>
+          <button id="btn-close-modal2" style="padding:8px 20px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif">Cancelar</button>
+          <button id="btn-preview-cal" style="padding:8px 20px;border-radius:8px;border:1.5px solid ${T.teal};background:#1E1E1E;font-size:13px;font-weight:600;cursor:pointer;color:#E76F51;font-family:'DM Sans',sans-serif">👁 Ver eventos</button>
           <button id="btn-send-calendario" data-tid="${transportistaId}" style="padding:8px 20px;border-radius:8px;border:none;background:#E76F51;color:white;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">📧 Enviar</button>
         </div>
       </div>
@@ -2401,13 +2401,13 @@ function buildWPAgendaModal(guiaId){
         <button id="btn-close-modal" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;color:white;font-size:20px;width:36px;height:36px;cursor:pointer">×</button>
       </div>
       <div style="padding:28px;display:flex;flex-direction:column;gap:16px">
-        <p style="font-size:13px;color:#666;margin:0">Seleccioná el período y se abrirá WhatsApp con el mensaje listo para enviar a <strong>${esc(g.telefono||'')}</strong>.</p>
+        <p style="font-size:13px;color:#9CA3AF;margin:0">Seleccioná el período y se abrirá WhatsApp con el mensaje listo para enviar a <strong>${esc(g.telefono||'')}</strong>.</p>
         <div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:12px;font-weight:600;color:#9CA3AF">Fecha desde</label><input id="wp-desde" type="date" value="${today}" style="${iStyle}"/></div>
         <div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:12px;font-weight:600;color:#9CA3AF">Fecha hasta</label><input id="wp-hasta" type="date" value="${today}" style="${iStyle}"/></div>
         <div id="wp-preview" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;font-size:12px;color:#166534;max-height:200px;overflow:auto;white-space:pre-wrap;font-family:monospace"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end">
-          <button id="btn-close-modal2" style="padding:8px 20px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:white;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif">Cancelar</button>
-          <button id="btn-preview-wp" style="padding:8px 20px;border-radius:8px;border:1.5px solid #25D366;background:white;color:#25D366;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">👁 Ver mensaje</button>
+          <button id="btn-close-modal2" style="padding:8px 20px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif">Cancelar</button>
+          <button id="btn-preview-wp" style="padding:8px 20px;border-radius:8px;border:1.5px solid #25D366;background:rgba(37,211,102,0.1);color:#25D366;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">👁 Ver mensaje</button>
           <button id="btn-send-wp" data-guia-id="${guiaId}" style="padding:8px 20px;border-radius:8px;border:none;background:#25D366;color:white;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">📲 Abrir WP</button>
         </div>
       </div>
@@ -2431,10 +2431,10 @@ function buildGuias(){
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <div style="position:relative;flex:1;min-width:200px;max-width:360px">
         <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none">🔍</span>
-        <input id="search-guia" type="text" value="${esc(S.searchGuia||'')}" placeholder="Buscar por nombre, email, idioma..." style="padding:8px 12px 8px 32px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;width:100%;color:#F9FAFB;background:white"
+        <input id="search-guia" type="text" value="${esc(S.searchGuia||'')}" placeholder="Buscar por nombre, email, idioma..." style="padding:8px 12px 8px 32px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;width:100%;color:#F9FAFB;background:#1E1E1E"
           oninput="(()=>{S.searchGuia=this.value;const grid=document.getElementById('guias-grid');if(!grid)return;const q=this.value.toLowerCase().trim();[...grid.children].forEach(el=>{const txt=(el.dataset.searchText||'').toLowerCase();el.style.display=(!q||txt.includes(q))?'':'none';});document.getElementById('guias-count').textContent=(q?[...grid.children].filter(el=>el.style.display!=='none').length:${S.guias.length})+' guía(s)';})()"/>
       </div>
-      ${(S.searchGuia||'')?`<button id="clear-search-guia" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:white;font-size:12px;color:#6B7280;cursor:pointer;font-family:'DM Sans',sans-serif">✕ Limpiar</button>`:''}
+      ${(S.searchGuia||'')?`<button id="clear-search-guia" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;font-size:12px;color:#6B7280;cursor:pointer;font-family:'DM Sans',sans-serif">✕ Limpiar</button>`:''}
       <div id="guias-count" style="margin-left:auto;font-size:12px;color:#6B7280">${guiasFiltrados.length} guía(s)</div>
     </div>
     <div id="guias-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
@@ -2461,7 +2461,7 @@ function buildGuias(){
             ${isAdmin()?`<div style="font-size:12px;color:#6B7280">💰 $${g.valor_hora}/hora · ${eventosGuia} evento(s) confirmado(s)</div>`:`<div style="font-size:12px;color:#6B7280">${eventosGuia} evento(s) confirmado(s)</div>`}
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button data-ver-calendario="${g.id}" style="flex:1;padding:7px;border-radius:7px;border:1px solid rgba(255,255,255,0.08);background:white;font-size:12px;cursor:pointer;color:#9CA3AF;font-weight:600;font-family:'DM Sans',sans-serif">📅 Calendario</button>
+            <button data-ver-calendario="${g.id}" style="flex:1;padding:7px;border-radius:7px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;font-size:12px;cursor:pointer;color:#9CA3AF;font-weight:600;font-family:'DM Sans',sans-serif">📅 Calendario</button>
             <button data-edit-guia="${g.id}" style="flex:1;${btnP(T.teal)}padding:7px;font-size:12px">✏️ Editar</button>
             <button data-toggle-guia="${g.id}" style="flex:1;${btnS}padding:7px;font-size:12px">${g.estado==='ACTIVO'?'⏸ Desactivar':'▶ Activar'}</button>
             ${g.telefono?`<button data-wp-agenda="${g.id}" style="width:100%;margin-top:4px;padding:7px;border-radius:7px;border:none;background:#25D366;color:white;font-size:12px;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif">📲 Enviar agenda por WhatsApp</button>`:''}
@@ -2554,7 +2554,7 @@ function buildViajes(){
         <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:340px;color:#6B7280">
           <div style="font-size:32px;margin-bottom:12px">🔍</div>
           <div style="font-size:15px;font-weight:600">Sin resultados para "${esc(S.searchViaje||'')}"</div>
-          <button onclick="set({searchViaje:''})" style="margin-top:14px;padding:8px 18px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:white;font-size:13px;cursor:pointer;color:#9CA3AF">Limpiar búsqueda</button>
+          <button onclick="set({searchViaje:''})" style="margin-top:14px;padding:8px 18px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;font-size:13px;cursor:pointer;color:#9CA3AF">Limpiar búsqueda</button>
         </div>
       </div>`;
   }
@@ -2568,7 +2568,7 @@ function buildViajes(){
     const fechaOutStr = new Date(file.fecha_out+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'});
 
     return `
-      <div style="background:white;border-radius:12px;border:1px solid rgba(255,255,255,0.08);margin-bottom:16px;overflow:hidden;animation:fadeIn 0.3s ease">
+      <div style="background:#141414;border-radius:12px;border:1px solid rgba(255,255,255,0.08);margin-bottom:16px;overflow:hidden;animation:fadeIn 0.3s ease">
         <!-- File Header -->
         <div style="padding:16px 20px;background:${(()=>{const evF=S.eventos.filter(e=>e.file_id===file.id&&e.estado==='CONFIRMADO');return evF.length>0&&evF.every(e=>S.liquidaciones?.find(l=>l.evento_id===e.id))?'linear-gradient(135deg,#2E7D32,#52B788)':'linear-gradient(135deg,#1B6B74,#2A9D8F)'})()};color:white;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="set({expandedFileId:S.expandedFileId==='${file.id}'?null:'${file.id}'})">
           <div style="flex:1">
@@ -2648,10 +2648,10 @@ function buildViajes(){
                               <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;background:${ec.bg};border-radius:6px;margin-bottom:4px">
                                 <div style="flex:1">
                                   <div style="font-size:11px;font-weight:600;color:#F9FAFB">${g?esc(g.nombre+' '+g.apellido):'Desconocido'}</div>
-                                  <div style="font-size:10px;color:#666;margin-top:2px">${ec.label}</div>
+                                  <div style="font-size:10px;color:#9CA3AF;margin-top:2px">${ec.label}</div>
                                 </div>
                                 ${inv.estado==='PENDIENTE'?`
-                                  <button data-cancelar-inv="${inv.id}" style="padding:4px 8px;border-radius:4px;border:1px solid #dc3545;background:white;font-size:10px;cursor:pointer;color:#dc3545;font-weight:600">Cancelar</button>
+                                  <button data-cancelar-inv="${inv.id}" style="padding:4px 8px;border-radius:4px;border:1px solid #dc3545;background:#1E1E1E;font-size:10px;cursor:pointer;color:#dc3545;font-weight:600">Cancelar</button>
                                 `:''}
                               </div>
                             `;
@@ -2660,7 +2660,7 @@ function buildViajes(){
                       `:''}
                       <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
                         ${e.estado==='A_ASIGNAR'||e.estado==='ASIGNADO'||e.estado==='CONFIRMADO'||pendientes.length>0?`<button data-invitar="${e.id}" style="padding:6px 12px;border-radius:6px;border:none;background:#1B6B74;color:white;font-size:11px;cursor:pointer;font-weight:600">📨 ${invs.length>0?'Invitar más guías':'Invitar guía'}</button>`:''}
-                        <button data-edit-evento="${e.id}" style="padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:white;font-size:11px;cursor:pointer;color:#1B6B74;font-weight:600">✏️ Editar</button>
+                        <button data-edit-evento="${e.id}" style="padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;font-size:11px;cursor:pointer;color:#E76F51;font-weight:600">✏️ Editar</button>
                         ${e.estado!=='CANCELADO'?`<button data-cancelar-evento="${e.id}" style="padding:6px 12px;border-radius:6px;border:1px solid #fcd5d5;background:#1E1E1E5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600">❌ Cancelar</button>`:''}
                       </div>
                     `;
@@ -2673,11 +2673,11 @@ function buildViajes(){
                     </div>
                   `:''}
                   ${!isAdmin() && e.estado==='RECONFIRMACION_PENDIENTE' && e.guia_id===S.myGuia?.id?`
-                    <div style="margin-top:10px;padding:12px;background:#FFF3E0;border-radius:8px;border:1.5px solid #E9C46A">
+                    <div style="margin-top:10px;padding:12px;background:rgba(231,111,81,0.08);border-radius:8px;border:1.5px solid #E9C46A">
                       <div style="font-size:11px;font-weight:700;color:#D97706;margin-bottom:8px">⚠️ Se realizaron cambios en este evento. ¿Podés continuar?</div>
                       <div style="display:flex;gap:8px">
                         <button data-reconfirmar-evento="${e.id}" style="flex:1;padding:7px 12px;border-radius:6px;border:none;background:#2A9D8F;color:white;font-size:11px;cursor:pointer;font-weight:700;font-family:'DM Sans',sans-serif">✅ Reconfirmar</button>
-                        <button data-cancelar-por-cambios="${e.id}" style="flex:1;padding:7px 12px;border-radius:6px;border:2px solid #E63946;background:white;color:#E63946;font-size:11px;cursor:pointer;font-weight:700;font-family:'DM Sans',sans-serif">❌ No puedo</button>
+                        <button data-cancelar-por-cambios="${e.id}" style="flex:1;padding:7px 12px;border-radius:6px;border:2px solid #EF4444;background:rgba(239,68,68,0.1);color:#EF4444;font-size:11px;cursor:pointer;font-weight:700;font-family:'DM Sans',sans-serif">❌ No puedo</button>
                       </div>
                     </div>
                   `:''}
@@ -2696,9 +2696,9 @@ function buildViajesBuscador(){
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
       <div style="position:relative;flex:1;min-width:200px;max-width:360px">
         <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none">🔍</span>
-        <input id="search-viaje" type="text" value="${esc(S.searchViaje||'')}" placeholder="Buscar por file, operador, DH/GR..." style="padding:8px 12px 8px 32px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;width:100%;color:#F9FAFB;background:white"/>
+        <input id="search-viaje" type="text" value="${esc(S.searchViaje||'')}" placeholder="Buscar por file, operador, DH/GR..." style="padding:8px 12px 8px 32px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;width:100%;color:#F9FAFB;background:#1E1E1E"/>
       </div>
-      ${(S.searchViaje||'')?`<button id="clear-search-viaje" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:white;font-size:12px;color:#6B7280;cursor:pointer;font-family:'DM Sans',sans-serif">✕ Limpiar</button>`:''}
+      ${(S.searchViaje||'')?`<button id="clear-search-viaje" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;font-size:12px;color:#6B7280;cursor:pointer;font-family:'DM Sans',sans-serif">✕ Limpiar</button>`:''}
     </div>`;
 }
 
@@ -2715,20 +2715,20 @@ function buildEventos(){
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
       <div style="position:relative">
         <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#6B7280;font-size:13px">🔍</span>
-        <input id="search-file" value="${S.searchFile||''}" placeholder="Buscar Nro File o tipo..." style="padding:8px 12px 8px 30px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;width:220px"/>
+        <input id="search-file" value="${S.searchFile||''}" placeholder="Buscar Nro File o tipo..." style="padding:8px 12px 8px 30px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;color:#F9FAFB;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;width:220px"/>
       </div>
       <button onclick="set({searchFile:document.getElementById('search-file').value})" style="padding:6px 14px;border-radius:8px;border:none;background:#E76F51;color:white;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">🔍 Buscar</button>
-      <button onclick="set({searchFile:''})" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:white;font-size:12px;cursor:pointer;color:#6B7280;font-family:'DM Sans',sans-serif;display:${searchFile?'inline-block':'none'}">✕ Limpiar</button>
+      <button onclick="set({searchFile:''})" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;font-size:12px;cursor:pointer;color:#6B7280;font-family:'DM Sans',sans-serif;display:${searchFile?'inline-block':'none'}">✕ Limpiar</button>
       <span id="eventos-counter" style="font-size:12px;color:#6B7280;margin-left:auto">${filtered.length} evento(s)</span>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       ${[['ACTIVOS','Activos'],['','Todos'],['A_ASIGNAR','A asignar'],['CONFIRMADO','Confirmado'],['CANCELADO','Cancelado'],['EXPIRADO','Expirado']].map(([s,label])=>
-        `<button data-filter-estado="${s}" style="padding:6px 14px;border-radius:20px;border:1.5px solid ${S.filterEstado===s?T.teal:'#E8E4DD'};background:${S.filterEstado===s?T.teal:'white'};color:${S.filterEstado===s?'white':'#9E9A93'};font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">${label}</button>`
+        `<button data-filter-estado="${s}" style="padding:6px 14px;border-radius:20px;border:1px solid ${S.filterEstado===s?'#E76F51':'rgba(255,255,255,0.1)'};background:${S.filterEstado===s?'#E76F51':'#1E1E1E'};color:${S.filterEstado===s?'white':'#6B7280'};font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">${label}</button>`
       ).join('')}
       ${isAdmin() && S.selectedEventos?.length>0 ? `<button id="btn-delete-selected" style="padding:6px 14px;border-radius:20px;border:none;background:#E63946;color:white;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;margin-left:auto">🗑️ Eliminar seleccionados (${S.selectedEventos.length})</button>` : ''}
     </div>
     <div style="background:#141414;border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden">
-      <table style="width:100%;border-collapse:collapse">
+      <table style="width:100%;border-collapse:collapse;color:#F9FAFB">
         <thead>
           <tr style="background:${T.teal}">
             ${['','Tipo','Fecha','Horario','Prioridad','Estado','Guía asignado','Acciones'].map(h=>`<th style="padding:10px 14px;text-align:left;color:white;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;white-space:nowrap">${h}</th>`).join('')}
@@ -2765,7 +2765,7 @@ function buildEventos(){
                 
                 <td style="padding:10px 14px" onclick="event.stopPropagation()">
                   <div style="display:flex;gap:6px">
-                    ${isAdmin()?`<button data-edit-evento="${e.id}" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:white;font-size:11px;cursor:pointer;color:#E76F51;font-weight:600;font-family:'DM Sans',sans-serif">✏️</button>`:''}
+                    ${isAdmin()?`<button data-edit-evento="${e.id}" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;font-size:11px;cursor:pointer;color:#E76F51;font-weight:600;font-family:'DM Sans',sans-serif">✏️</button>`:''}
                     ${(e.estado==='A_ASIGNAR'||e.estado==='ASIGNADO')&&isAdmin()?`<button data-invitar="${e.id}" style="padding:4px 10px;border-radius:6px;border:none;background:#E76F51;color:white;font-size:11px;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif">📧 Invitar</button>`:''}
                     ${e.estado!=='CANCELADO'&&isAdmin()?`<button data-cancelar-evento="${e.id}" style="padding:4px 10px;border-radius:6px;border:1px solid #fcd5d5;background:#1E1E1E5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600;font-family:'DM Sans',sans-serif">✕ Cancelar</button>`:''}
                     
@@ -2778,7 +2778,7 @@ function buildEventos(){
                 </td>
               </tr>
               ${open?`
-              <tr style="background:#FAFAF8;border-bottom:2px solid #E8E4DD">
+              <tr style="background:#1A1A1A;border-bottom:2px solid #E8E4DD">
                 <td colspan="8" style="padding:18px 24px">
                   <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
                     <div>
@@ -2883,7 +2883,7 @@ function buildCalendario(){
       ${!isAdm && S.myGuia ? `
         <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
           ${S.myGuia.google_refresh_token
-            ? `<button id="btn-gcal-sync-all" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;border:1.5px solid #4285F4;background:white;font-size:12px;font-weight:600;cursor:pointer;color:#4285F4;font-family:'DM Sans',sans-serif">🔄 Sincronizar</button>
+            ? `<button id="btn-gcal-sync-all" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;border:1.5px solid #4285F4;background:#1E1E1E;font-size:12px;font-weight:600;cursor:pointer;color:#4285F4;font-family:'DM Sans',sans-serif">🔄 Sincronizar</button>
               <div style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:#E8F5E9;border:1.5px solid #A5D6A7;font-size:12px;font-weight:600;color:#2E7D32">
                 ✅ Google Calendar conectado
                 <button id="btn-gcal-disconnect" style="margin-left:4px;background:none;border:none;color:#E63946;font-size:11px;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif">Desconectar</button>
@@ -2896,19 +2896,19 @@ function buildCalendario(){
         </div>
       ` : ''}
       ${isAdm ? `
-        <select id="cal-filtro-guia" style="padding:7px 12px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:13px;color:#F9FAFB;background:white;font-family:'DM Sans',sans-serif;cursor:pointer">
+        <select id="cal-filtro-guia" style="padding:7px 12px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:13px;color:#F9FAFB;background:#1E1E1E;font-family:'DM Sans',sans-serif;cursor:pointer">
           <option value="">👤 Todos los guías</option>
           ${guiasOptions}
         </select>
         <div style="position:relative">
-          <input id="cal-filtro-file" type="text" value="${esc(S.calFiltroFile||'')}" placeholder="🔍 Buscar file..." style="padding:7px 12px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:13px;color:#F9FAFB;background:white;font-family:'DM Sans',sans-serif;width:160px"/>
+          <input id="cal-filtro-file" type="text" value="${esc(S.calFiltroFile||'')}" placeholder="🔍 Buscar file..." style="padding:7px 12px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:13px;color:#F9FAFB;background:#1E1E1E;font-family:'DM Sans',sans-serif;width:160px"/>
         </div>
-        ${(filtroGuia||filtroFile)?`<button id="cal-clear-filtros" style="padding:7px 12px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:12px;color:#6B7280;background:white;cursor:pointer;font-family:'DM Sans',sans-serif">✕ Limpiar</button>`:''}
-        <button id="btn-descargar-agenda" style="padding:7px 14px;border:1.5px solid #1B6B74;border-radius:8px;font-size:12px;font-weight:700;color:#1B6B74;background:white;cursor:pointer;font-family:'DM Sans',sans-serif;display:inline-flex;align-items:center;gap:6px">📥 Descargar agenda</button>
+        ${(filtroGuia||filtroFile)?`<button id="cal-clear-filtros" style="padding:7px 12px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:12px;color:#6B7280;background:#1E1E1E;cursor:pointer;font-family:'DM Sans',sans-serif">✕ Limpiar</button>`:''}
+        <button id="btn-descargar-agenda" style="padding:7px 14px;border:1.5px solid #1B6B74;border-radius:8px;font-size:12px;font-weight:700;color:#1B6B74;background:#1E1E1E;cursor:pointer;font-family:'DM Sans',sans-serif;display:inline-flex;align-items:center;gap:6px">📥 Descargar agenda</button>
       ` : ''}
       ${!isAdm ? `
         <div style="margin-left:auto">
-          <button id="btn-descargar-agenda" style="padding:7px 14px;border:1.5px solid #1B6B74;border-radius:8px;font-size:12px;font-weight:700;color:#1B6B74;background:white;cursor:pointer;font-family:'DM Sans',sans-serif;display:inline-flex;align-items:center;gap:6px">📥 Descargar agenda</button>
+          <button id="btn-descargar-agenda" style="padding:7px 14px;border:1.5px solid #1B6B74;border-radius:8px;font-size:12px;font-weight:700;color:#1B6B74;background:#1E1E1E;cursor:pointer;font-family:'DM Sans',sans-serif;display:inline-flex;align-items:center;gap:6px">📥 Descargar agenda</button>
         </div>
       ` : ''}
     </div>`;
@@ -2946,9 +2946,9 @@ function buildCalendario(){
           const isToday=new Date(year,month,d).toDateString()===today;
           const nota = isAdm ? (S.calNotas[dateStr]||'') : '';
           return `
-          <div style="min-height:72px;border-radius:8px;padding:6px;background:${isToday?T.teal+'15':nota?'#FFF9E6':'#F9F8F6'};border:1.5px solid ${isToday?T.teal:nota?'#E9C46A':'transparent'}" ${isAdm?`data-nota-date="${dateStr}" title="${nota?nota:'Clic para agregar nota'}"`:''}>
+          <div style="min-height:72px;border-radius:8px;padding:6px;background:${isToday?'rgba(231,111,81,0.12)':nota?'rgba(233,196,106,0.08)':'#1A1A1A'};border:1px solid ${isToday?'#E76F51':nota?'rgba(233,196,106,0.4)':'rgba(255,255,255,0.06)'}" ${isAdm?`data-nota-date="${dateStr}" title="${nota?nota:'Clic para agregar nota'}"`:''}>
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-              <div style="font-size:12px;font-weight:${isToday?700:500};color:${isToday?T.teal:T.dark}">${d}</div>
+              <div style="font-size:12px;font-weight:${isToday?700:500};color:${isToday?'#E76F51':'#9CA3AF'}">${d}</div>
               ${isAdm?`<button data-add-nota="${dateStr}" style="opacity:0;font-size:10px;background:none;border:none;cursor:pointer;color:#6B7280;padding:0 2px;line-height:1" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0'">✏️</button>`:''}
             </div>
             ${nota?`<div style="font-size:9px;color:#D97706;background:#1F1A0D;border-radius:3px;padding:2px 4px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%" title="${esc(nota)}">${esc(nota)}</div>`:``}
@@ -2970,7 +2970,7 @@ function buildCalendario(){
       <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#9CA3AF"><span style="width:12px;height:12px;border-radius:3px;background:#52B788;display:inline-block"></span>Confirmado</span>
       <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#9CA3AF"><span style="width:12px;height:12px;border-radius:3px;background:#E9C46A;display:inline-block"></span>A asignar / Regular</span>
       <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#9CA3AF"><span style="width:12px;height:12px;border-radius:3px;background:#E63946;display:inline-block"></span>Urgente</span>
-      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#9CA3AF"><span style="width:12px;height:12px;border-radius:3px;background:#FFF3E0;border:1.5px solid #E76F51;display:inline-block"></span>Reconfirmación pendiente</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#9CA3AF"><span style="width:12px;height:12px;border-radius:3px;background:rgba(231,111,81,0.08);border:1.5px solid #E76F51;display:inline-block"></span>Reconfirmación pendiente</span>
     </div>
   </div>`;
 }
@@ -3016,7 +3016,7 @@ function buildCalendarioAgenda(toolbar, eventosFilter){
     const count = eventosPorFecha[ds]?.length||0;
     return `<div style="flex:1;text-align:center;padding:10px 4px 8px;border-left:1px solid #E8E4DD">
       <div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase">${d.toLocaleDateString('es-AR',{weekday:'short'})}</div>
-      <div style="font-size:20px;font-weight:700;color:${isToday?T.teal:T.dark};width:34px;height:34px;border-radius:50%;background:${isToday?T.teal+'18':'transparent'};display:flex;align-items:center;justify-content:center;margin:4px auto 0">${d.getDate()}</div>
+      <div style="font-size:20px;font-weight:700;color:${isToday?'#E76F51':'#9CA3AF'};width:34px;height:34px;border-radius:50%;background:${isToday?T.teal+'18':'transparent'};display:flex;align-items:center;justify-content:center;margin:4px auto 0">${d.getDate()}</div>
       ${count?`<div style="font-size:10px;color:#E76F51;font-weight:600;margin-top:2px">${count} evento${count>1?'s':''}</div>`:''}
     </div>`;
   }).join('');
@@ -3102,7 +3102,7 @@ function buildCalendarioAgenda(toolbar, eventosFilter){
       <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#9CA3AF"><span style="width:12px;height:12px;border-radius:3px;background:#52B788;display:inline-block"></span>Confirmado</span>
       <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#9CA3AF"><span style="width:12px;height:12px;border-radius:3px;background:#E9C46A;display:inline-block"></span>A asignar / Regular</span>
       <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#9CA3AF"><span style="width:12px;height:12px;border-radius:3px;background:#E63946;display:inline-block"></span>Urgente</span>
-      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#9CA3AF"><span style="width:12px;height:12px;border-radius:3px;background:#FFF3E0;border:1.5px solid #E76F51;display:inline-block"></span>Reconfirmación pendiente</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#9CA3AF"><span style="width:12px;height:12px;border-radius:3px;background:rgba(231,111,81,0.08);border:1.5px solid #E76F51;display:inline-block"></span>Reconfirmación pendiente</span>
     </div>
   </div>`;
 }
@@ -3140,13 +3140,13 @@ function buildDisponibilidad(){
         <div style="display:flex;gap:8px;align-items:center">
           <div style="font-size:13px;font-weight:600;color:#E76F51">${dispoSeleccion.size} dia(s) seleccionado(s)</div>
           <button id="btn-confirmar-bloqueos" style="padding:7px 16px;border-radius:8px;border:none;background:#E63946;color:white;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">Bloquear</button>
-          <button id="btn-cancelar-seleccion" style="padding:7px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:white;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif">Cancelar</button>
+          <button id="btn-cancelar-seleccion" style="padding:7px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif">Cancelar</button>
         </div>` : ''}
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-        <button id="cal-prev" style="padding:6px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:white;cursor:pointer;font-family:'DM Sans',sans-serif">‹</button>
+        <button id="cal-prev" style="padding:6px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;cursor:pointer;font-family:'DM Sans',sans-serif">‹</button>
         <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:#F9FAFB;text-transform:capitalize">${monthName}</div>
-        <button id="cal-next" style="padding:6px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:white;cursor:pointer;font-family:'DM Sans',sans-serif">›</button>
+        <button id="cal-next" style="padding:6px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;cursor:pointer;font-family:'DM Sans',sans-serif">›</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:8px">
         ${['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(d=>`<div style="text-align:center;font-size:11px;font-weight:700;color:#6B7280;padding:6px 0">${d}</div>`).join('')}
@@ -3184,7 +3184,7 @@ function buildDisponibilidad(){
       <div style="display:flex;gap:16px;margin-top:16px;font-size:12px;color:#6B7280;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:3px;background:#fcd5d5;border:1px solid #E63946"></div>Bloqueado</div>
         <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:3px;background:#1E1E1E3cd;border:1px solid #E9C46A"></div>Seleccionado</div>
-        <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:3px;background:#F9F8F6;border:1px solid rgba(255,255,255,0.08)"></div>Disponible</div>
+        <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:3px;background:#1A1A1A;border:1px solid rgba(255,255,255,0.08)"></div>Disponible</div>
       </div>
     </div>
   </div>`;
@@ -3305,7 +3305,7 @@ function buildMobileInicio(){
       }).sort((a,b)=>a.fecha.localeCompare(b.fecha));
       if(!pendReconf.length) return '';
       const tieneUrg=pendReconf.some(e=>(new Date(e.fecha+'T12:00:00')-hoy2)/(1000*60*60)<=48);
-      return '<div style="background:'+(tieneUrg?'#FFF5F5':'#FFFDF0')+';border-radius:14px;padding:16px;border:2px solid '+(tieneUrg?'#E63946':'#E9C46A')+'"><div style="font-size:13px;font-weight:700;color:'+(tieneUrg?'#E63946':'#856404')+';margin-bottom:10px">'+(tieneUrg?'🔴 Reconfirmación urgente':'⏳ Reconfirmar eventos')+'</div>'+pendReconf.map(e=>{const dh=Math.round((new Date(e.fecha+"T12:00:00")-hoy2)/(1000*60*60));const isU=dh<=48;const file=S.files.find(f=>f.id===e.file_id);return "<div style='display:flex;align-items:center;gap:10px;background:white;padding:10px;border-radius:8px;margin-bottom:8px'><div style='flex:1'><div style='font-size:13px;font-weight:600;color:#F9FAFB'>"+esc(e.tipo_evento)+"</div><div style='font-size:11px;color:#6B7280'>"+(file?'📁 '+esc(file.nro_file)+' · ':'')+new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short'})+"</div></div><button onclick='reconfirmarEvento2("+e.id+")' style='padding:8px 12px;border-radius:8px;border:none;background:"+(isU?'#E63946':'#2A9D8F')+";color:white;font-size:12px;font-weight:700;cursor:pointer'>✅ Reconf.</button></div>";}).join('')+'</div>';
+      return '<div style="background:'+(tieneUrg?'#FFF5F5':'#FFFDF0')+';border-radius:14px;padding:16px;border:2px solid '+(tieneUrg?'#E63946':'#E9C46A')+'"><div style="font-size:13px;font-weight:700;color:'+(tieneUrg?'#E63946':'#856404')+';margin-bottom:10px">'+(tieneUrg?'🔴 Reconfirmación urgente':'⏳ Reconfirmar eventos')+'</div>'+pendReconf.map(e=>{const dh=Math.round((new Date(e.fecha+"T12:00:00")-hoy2)/(1000*60*60));const isU=dh<=48;const file=S.files.find(f=>f.id===e.file_id);return "<div style='display:flex;align-items:center;gap:10px;background:#1E1E1E;padding:10px;border-radius:8px;margin-bottom:8px'><div style='flex:1'><div style='font-size:13px;font-weight:600;color:#F9FAFB'>"+esc(e.tipo_evento)+"</div><div style='font-size:11px;color:#6B7280'>"+(file?'📁 '+esc(file.nro_file)+' · ':'')+new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short'})+"</div></div><button onclick='reconfirmarEvento2("+e.id+")' style='padding:8px 12px;border-radius:8px;border:none;background:"+(isU?'#E63946':'#2A9D8F')+";color:white;font-size:12px;font-weight:700;cursor:pointer'>✅ Reconf.</button></div>";}).join('')+'</div>';
     })()}
 
     <div style="background:#141414;border-radius:14px;padding:16px;border:1px solid rgba(255,255,255,0.08)">
@@ -3357,9 +3357,9 @@ function buildMobileCalendario(){
   <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
     <div style="background:#141414;border-radius:14px;padding:16px;border:1px solid rgba(255,255,255,0.08)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <button id="cal-prev" style="width:36px;height:36px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:white;cursor:pointer;font-size:18px">‹</button>
+        <button id="cal-prev" style="width:36px;height:36px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;cursor:pointer;font-size:18px">‹</button>
         <div style="font-family:'Playfair Display',serif;font-size:16px;font-weight:700;text-transform:capitalize">${monthName}</div>
-        <button id="cal-next" style="width:36px;height:36px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:white;cursor:pointer;font-size:18px">›</button>
+        <button id="cal-next" style="width:36px;height:36px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;cursor:pointer;font-size:18px">›</button>
       </div>
       ${S.mobileCalView==='semana' ? (()=>{
         const todayD=new Date();
@@ -3420,7 +3420,7 @@ function buildMobileInvitaciones(){
     if(!evento) return '';
     const fecha = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
     const estadoColor = {ACEPTADA:'#52B788',RECHAZADA:'#E63946',EXPIRADA:'#9E9A93',TOMADA_POR_OTRO:'#9E9A93',CANCELADA:'#9E9A93'}[inv.estado]||'#E9C46A';
-    return `<div style="background:white;border-radius:14px;padding:16px;border:1.5px solid ${isPend?'#E9C46A':'#E8E4DD'};margin-bottom:10px">
+    return `<div style="background:#141414;border-radius:14px;padding:16px;border:1.5px solid ${isPend?'rgba(233,196,106,0.4)':'rgba(255,255,255,0.08)'};margin-bottom:10px">
       ${isPend?`<div style="font-size:10px;font-weight:700;color:#D97706;background:#1F1A0D;border-radius:6px;padding:3px 8px;display:inline-block;margin-bottom:10px">PENDIENTE · Expira en ${Math.max(0,Math.ceil((new Date(inv.expira_at)-new Date())/3600000))}hs</div>`:`<div style="font-size:10px;font-weight:700;color:${estadoColor};background:${estadoColor}20;border-radius:6px;padding:3px 8px;display:inline-block;margin-bottom:10px">${inv.estado}</div>`}
       <div style="font-size:16px;font-weight:700;font-family:'Playfair Display',serif;color:#F9FAFB;margin-bottom:4px">${esc(evento.tipo_evento)}</div>
       ${evento.nro_file?`<div style="font-size:12px;color:#6B7280;margin-bottom:4px">File: ${esc(evento.nro_file)}</div>`:''}
@@ -3440,7 +3440,7 @@ function buildMobileInvitaciones(){
     ${pendientes.length ? `
     <div style="font-size:12px;font-weight:700;color:#D97706;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Esperando respuesta (${pendientes.length})</div>
     ${pendientes.map(i=>cardInv(i,true)).join('')}` : `
-    <div style="background:white;border-radius:14px;padding:24px;text-align:center;border:1px solid rgba(255,255,255,0.08);margin-bottom:14px">
+    <div style="background:#141414;border-radius:14px;padding:24px;text-align:center;border:1px solid rgba(255,255,255,0.08);margin-bottom:14px">
       <div style="font-size:32px;margin-bottom:8px">✅</div>
       <div style="font-size:14px;font-weight:600;color:#F9FAFB">Sin invitaciones pendientes</div>
     </div>`}
@@ -3474,14 +3474,14 @@ function buildMobileDisponibilidad(){
         <div style="font-size:13px;font-weight:600;color:#D97706">${dispoSeleccion.size} dia(s) seleccionado(s)</div>
         <div style="display:flex;gap:8px">
           <button id="btn-confirmar-bloqueos" style="padding:8px 16px;border-radius:8px;border:none;background:#E63946;color:white;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">Bloquear</button>
-          <button id="btn-cancelar-seleccion" style="padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:white;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif">X</button>
+          <button id="btn-cancelar-seleccion" style="padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif">X</button>
         </div>
       </div>`:''}
 
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <button id="cal-prev" style="width:36px;height:36px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:white;cursor:pointer;font-size:18px">‹</button>
+        <button id="cal-prev" style="width:36px;height:36px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;cursor:pointer;font-size:18px">‹</button>
         <div style="font-family:'Playfair Display',serif;font-size:15px;font-weight:700;text-transform:capitalize">${monthName}</div>
-        <button id="cal-next" style="width:36px;height:36px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:white;cursor:pointer;font-size:18px">›</button>
+        <button id="cal-next" style="width:36px;height:36px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;cursor:pointer;font-size:18px">›</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:6px">
         ${['L','M','X','J','V','S','D'].map(d=>`<div style="text-align:center;font-size:10px;font-weight:700;color:#6B7280;padding:3px 0">${d}</div>`).join('')}
@@ -3537,7 +3537,7 @@ function buildMobileFeedback(){
         </div>`;
       }).join('')}
     </div>`:
-    `<div style="background:white;border-radius:14px;padding:24px;text-align:center;border:1px solid rgba(255,255,255,0.08)">
+    `<div style="background:#141414;border-radius:14px;padding:24px;text-align:center;border:1px solid rgba(255,255,255,0.08)">
       <div style="font-size:32px;margin-bottom:8px">✅</div>
       <div style="font-size:14px;font-weight:600;color:#F9FAFB">Todos los feedbacks al dia</div>
     </div>`}
@@ -3592,7 +3592,7 @@ function buildMobileLiquidaciones(){
         </div>`;
       }).join('')}
     </div>`:`
-    <div style="background:white;border-radius:14px;padding:24px;text-align:center;border:1px solid rgba(255,255,255,0.08)">
+    <div style="background:#141414;border-radius:14px;padding:24px;text-align:center;border:1px solid rgba(255,255,255,0.08)">
       <div style="font-size:32px;margin-bottom:8px">💰</div>
       <div style="font-size:14px;font-weight:600;color:#F9FAFB">Sin liquidaciones aun</div>
       <div style="font-size:12px;color:#6B7280;margin-top:4px">Toca un evento pasado para liquidarlo</div>
@@ -3613,7 +3613,7 @@ function buildMobileDetalle(){
 
   return `
   <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
-    <button id="btn-mobile-back" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:white;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;color:#9CA3AF;width:fit-content">‹ Volver</button>
+    <button id="btn-mobile-back" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;color:#9CA3AF;width:fit-content">‹ Volver</button>
 
     <div style="background:linear-gradient(135deg,#1A3A2A,#2A5A3A);border-radius:14px;padding:20px;color:white">
       <div style="font-size:11px;opacity:0.7;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px">${evento.estado}</div>
@@ -3790,7 +3790,7 @@ function buildReconfirmaciones(){
       </div>
       <div style="display:flex;gap:10px">
         ${urgentes.length?`<div style="background:#1F0D0D;border:1.5px solid #E63946;border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:20px;font-weight:700;color:#E63946">${urgentes.length}</div><div style="font-size:10px;color:#E63946;font-weight:700">URGENTES</div></div>`:''}
-        ${warnings.length?`<div style="background:#FFFDF0;border:1.5px solid #E9C46A;border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:20px;font-weight:700;color:#D97706">${warnings.length}</div><div style="font-size:10px;color:#D97706;font-weight:700">PENDIENTES</div></div>`:''}
+        ${warnings.length?`<div style="background:rgba(233,196,106,0.08);border:1.5px solid #E9C46A;border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:20px;font-weight:700;color:#D97706">${warnings.length}</div><div style="font-size:10px;color:#D97706;font-weight:700">PENDIENTES</div></div>`:''}
         ${reconfOk.length?`<div style="background:#0D1F14;border:1.5px solid #52B788;border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:20px;font-weight:700;color:#2E7D32">${reconfOk.length}</div><div style="font-size:10px;color:#2E7D32;font-weight:700">CONFIRMADOS</div></div>`:''}
       </div>
     </div>
@@ -3861,7 +3861,7 @@ function buildLiquidacionesGuia(){
           <div style="font-size:13px;font-weight:700;color:#2E7D32">$${liq.total.toLocaleString('es-AR')}</div>
           <div style="font-size:9px;color:#6B7280;text-transform:uppercase">${liq.estado}</div>
         </div>
-        <button onclick="verLiquidacion(${liq.id})" style="padding:5px 10px;border-radius:6px;border:1px solid #D4EDDA;background:white;font-size:11px;cursor:pointer;color:#2E7D32;font-weight:600;font-family:'DM Sans',sans-serif">👁</button>
+        <button onclick="verLiquidacion(${liq.id})" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(74,222,128,0.3);background:rgba(74,222,128,0.1);font-size:11px;cursor:pointer;color:#4ADE80;font-weight:600;font-family:'DM Sans',sans-serif">👁</button>
       ` : e.fecha <= new Date().toISOString().slice(0,10) ? `
         <button onclick="nuevaLiquidacion(${e.id})" style="padding:5px 12px;border-radius:6px;border:none;background:#E76F51;color:white;font-size:11px;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif">+ Liquidar</button>
       ` : `
@@ -3955,7 +3955,7 @@ function buildLiquidacionesAdmin(){
     const fecha = evento?.fecha ? new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short'}) : '—';
     const ec = estadoColor(l.estado);
     return `
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid rgba(255,255,255,0.05);background:white">
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid rgba(255,255,255,0.05);background:#141414">
       <div style="width:24px;height:24px;border-radius:50%;background:rgba(231,111,81,0.12);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#E76F51;flex-shrink:0">${guia?esc(guia.nombre[0]):'?'}</div>
       <div style="flex:1">
         <div style="font-size:12px;font-weight:600;color:#F9FAFB">${guia?esc(guia.nombre+' '+guia.apellido):'—'} · <span style="font-weight:400;color:#9CA3AF">${evento?esc(evento.tipo_evento):'—'}</span></div>
@@ -3965,7 +3965,7 @@ function buildLiquidacionesAdmin(){
       <div style="font-size:13px;font-weight:700;color:#E76F51;min-width:70px;text-align:right">$${l.total.toLocaleString('es-AR')}</div>
       <span style="font-size:9px;font-weight:700;padding:3px 8px;border-radius:8px;background:${ec.bg};color:${ec.fg};white-space:nowrap">${l.estado}</span>
       <div style="display:flex;gap:4px">
-        <button onclick="verLiquidacion(${l.id})" style="padding:4px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:white;font-size:10px;cursor:pointer;color:#E76F51;font-weight:600">👁</button>
+        <button onclick="verLiquidacion(${l.id})" style="padding:4px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;font-size:10px;cursor:pointer;color:#E76F51;font-weight:600">👁</button>
         ${l.estado==='PENDIENTE'?`<button onclick="cambiarEstadoLiq(${l.id},'APROBADA')" style="padding:4px 8px;border-radius:6px;border:none;background:#0D1820;font-size:10px;cursor:pointer;color:#60A5FA;font-weight:600">✓ Aprobar</button>`:''}
         ${l.estado==='APROBADA'?`<button onclick="cambiarEstadoLiq(${l.id},'PAGADA')" style="padding:4px 8px;border-radius:6px;border:none;background:#0D2010;font-size:10px;cursor:pointer;color:#4ADE80;font-weight:600">✓ Pagar</button>`:''}
       </div>
@@ -4124,14 +4124,14 @@ function buildMisInvitaciones(){
               </a>
               ${evento.estado==='CONFIRMADO'&&evento.guia_id===S.myGuia?.id?`<button data-bajar-evento="${evento.id}" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;background:#1E1E1E5f5;border:1.5px solid #fcd5d5;color:#E63946;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">🚫 Me bajo del evento</button>`:''}
             </div>
-            ${vencida?`<div style="text-align:center;padding:10px;background:#F8D7DA;border-radius:8px;font-size:12px;color:#EF4444;font-weight:600">⏱ Esta invitación venció</div>`:`
+            ${vencida?`<div style="text-align:center;padding:10px;background:rgba(239,68,68,0.12);border-radius:8px;font-size:12px;color:#EF4444;font-weight:600">⏱ Esta invitación venció</div>`:`
             <div style="display:flex;gap:10px">
               <button data-responder-inv="${inv.id}" data-accion="aceptar"
                 style="flex:1;padding:12px;border-radius:9px;border:none;background:#52B788;color:white;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">
                 ✅ Acepto
               </button>
               <button data-responder-inv="${inv.id}" data-accion="rechazar"
-                style="flex:1;padding:12px;border-radius:9px;border:1px solid rgba(255,255,255,0.08);background:white;color:#9CA3AF;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">
+                style="flex:1;padding:12px;border-radius:9px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;color:#9CA3AF;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">
                 ❌ No puedo
               </button>
             </div>`}
@@ -4154,7 +4154,7 @@ function buildMisInvitaciones(){
               <div style="font-size:11px;color:#6B7280">${fecha}${evento.nro_file?' · 📁 '+esc(evento.nro_file):''}</div>
             </div>
             ${badge(inv.estado, ESTADO_INV_COLOR)}
-            ${inv.estado==='ACEPTADA'?`<button onclick="abrirFeedback(${evento.id})" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:white;font-size:11px;cursor:pointer;color:#E76F51;font-weight:600;font-family:'DM Sans',sans-serif">${evento.feedback_texto?'✏️ Ver feedback':'📝 Feedback'}</button>`:''}
+            ${inv.estado==='ACEPTADA'?`<button onclick="abrirFeedback(${evento.id})" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;font-size:11px;cursor:pointer;color:#E76F51;font-weight:600;font-family:'DM Sans',sans-serif">${evento.feedback_texto?'✏️ Ver feedback':'📝 Feedback'}</button>`:''}
           </div>`;
         }).join('')}
       </div>
@@ -4248,7 +4248,7 @@ function buildGenericModal(title, content){
 
 function buildViajeModal(entry={}){
   const isEdit = !!entry.id;
-  const iStyle = 'width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);font-size:14px;font-family:"DM Sans",sans-serif';
+  const iStyle = 'width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);font-size:14px;font-family:"DM Sans",sans-serif;background:#1E1E1E;color:#F9FAFB';
   
   return `
   <div id="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px">
@@ -4285,7 +4285,7 @@ function buildViajeModal(entry={}){
           <input id="v-pasajero" type="text" value="${esc(entry.pasajero_principal||'')}" placeholder="Nombre del pasajero principal" style="${iStyle}"/>
         </div>
         <div style="display:flex;gap:10px;margin-top:10px">
-          <button id="btn-close-modal2" style="flex:1;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:white;font-size:14px;font-weight:600;cursor:pointer;color:#9CA3AF">Cancelar</button>
+          <button id="btn-close-modal2" style="flex:1;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;font-size:14px;font-weight:600;cursor:pointer;color:#9CA3AF">Cancelar</button>
           <button id="btn-save-viaje" data-viaje-id="${entry.id||''}" style="flex:1;padding:12px;border-radius:8px;border:none;background:linear-gradient(135deg,#1A3A2A,#2A5A3A);color:white;font-size:14px;font-weight:700;cursor:pointer">${isEdit?'Guardar Cambios':'Crear Viaje'}</button>
         </div>
       </div>
@@ -4297,7 +4297,7 @@ function buildEventoEnViajeModal(fileId){
   const file = S.files.find(f=>f.id===fileId);
   if(!file) return '';
   
-  const iStyle = 'width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);font-size:14px;font-family:"DM Sans",sans-serif';
+  const iStyle = 'width:100%;padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);font-size:14px;font-family:"DM Sans",sans-serif;background:#1E1E1E;color:#F9FAFB';
   const tiposOpts = TIPOS_EVENTO.map(t=>`<option value="${t}">${t}</option>`).join('');
   const fechaInStr = new Date(file.fecha_in+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'});
   const fechaOutStr = new Date(file.fecha_out+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'});
@@ -4310,7 +4310,7 @@ function buildEventoEnViajeModal(fileId){
         <button id="btn-close-modal" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;color:white;font-size:20px;width:36px;height:36px;cursor:pointer">×</button>
       </div>
       <div style="padding:28px;display:flex;flex-direction:column;gap:18px">
-        <div style="background:#FFF3E0;padding:12px;border-radius:8px;border-left:4px solid #E9C46A">
+        <div style="background:rgba(231,111,81,0.08);padding:12px;border-radius:8px;border-left:4px solid #E9C46A">
           <div style="font-size:12px;font-weight:700;color:#D97706;margin-bottom:4px">📅 Rango de fechas del viaje</div>
           <div style="font-size:13px;color:#9CA3AF">${fechaInStr} → ${fechaOutStr}</div>
           <div style="font-size:11px;color:#D97706;margin-top:4px">Los eventos solo pueden crearse dentro de este rango</div>
@@ -4393,7 +4393,7 @@ function buildEventoEnViajeModal(fileId){
         </div>
 
         <div style="display:flex;gap:10px;margin-top:10px">
-          <button id="btn-close-modal2" style="flex:1;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:white;font-size:14px;font-weight:600;cursor:pointer;color:#9CA3AF">Cancelar</button>
+          <button id="btn-close-modal2" style="flex:1;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;font-size:14px;font-weight:600;cursor:pointer;color:#9CA3AF">Cancelar</button>
           <button id="btn-save-evento-viaje" data-file-id="${fileId}" style="flex:1;padding:12px;border-radius:8px;border:none;background:linear-gradient(135deg,#1A3A2A,#2A5A3A);color:white;font-size:14px;font-weight:700;cursor:pointer">Crear Evento</button>
         </div>
       </div>
@@ -4424,7 +4424,7 @@ function buildGuiaModal(entry={}){
           <div style="flex:1">
             <div style="font-size:13px;font-weight:600;color:#F9FAFB;margin-bottom:4px">Foto del guía</div>
             <div style="font-size:11px;color:#6B7280;margin-bottom:8px">JPG o PNG, máx 2MB. Aparece en el perfil y en el sistema.</div>
-            <label id="btn-pick-guia-foto" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:7px;border:1px solid rgba(255,255,255,0.08);background:white;font-size:12px;font-weight:600;cursor:pointer;color:#9CA3AF;font-family:'DM Sans',sans-serif">
+            <label id="btn-pick-guia-foto" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:7px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;font-size:12px;font-weight:600;cursor:pointer;color:#9CA3AF;font-family:'DM Sans',sans-serif">
               📷 ${entry.foto_url ? 'Cambiar foto' : 'Subir foto'}
               <input id="guia-foto-input" type="file" accept="image/*" style="display:none" onchange="handleGuiaFotoChange(this)"/>
             </label>
@@ -4506,7 +4506,7 @@ function buildSLAModal(){
         <button id="btn-close-modal" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;color:white;font-size:20px;width:36px;height:36px;cursor:pointer">×</button>
       </div>
       <div style="padding:28px;display:flex;flex-direction:column;gap:20px">
-        <p style="font-size:13px;color:#666;margin:0">Definí cuántas horas tiene el guía para responder una invitación según la prioridad del evento.</p>
+        <p style="font-size:13px;color:#9CA3AF;margin:0">Definí cuántas horas tiene el guía para responder una invitación según la prioridad del evento.</p>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
           <div>
             <label style="font-size:11px;font-weight:700;color:#E63946;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">🔴 URGENTE (hs)</label>
@@ -4521,7 +4521,7 @@ function buildSLAModal(){
           ⚠️ El cambio aplica a las nuevas invitaciones. Las invitaciones pendientes existentes conservan su tiempo original.
         </div>
         <div style="display:flex;gap:10px;justify-content:flex-end">
-          <button id="btn-close-modal2" style="padding:8px 20px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:white;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif">Cancelar</button>
+          <button id="btn-close-modal2" style="padding:8px 20px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif">Cancelar</button>
           <button id="btn-save-sla" style="padding:8px 20px;border-radius:8px;border:none;background:#E76F51;color:white;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">💾 Guardar</button>
         </div>
       </div>
@@ -4652,7 +4652,7 @@ function buildInvitarViajeModal(fileId){
   const eventosListHtml = eventosViaje.map(e=>{
     const fechaStr = new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'short'});
     const estadoC = ESTADO_EVENT_COLOR[e.estado]||{};
-    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:#F9F8F6;border-radius:7px;margin-bottom:5px">
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:#1A1A1A;border-radius:7px;margin-bottom:5px">
       <div>
         <div style="font-size:12px;font-weight:700;color:#F9FAFB">${esc(e.tipo_evento)}</div>
         <div style="font-size:11px;color:#6B7280">${fechaStr} · ${e.hora_inicio||'—'}${e.hora_fin?' – '+e.hora_fin:''}</div>
@@ -4692,7 +4692,7 @@ function buildInvitarViajeModal(fileId){
         <button id="btn-close-modal" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;color:white;font-size:20px;width:36px;height:36px;cursor:pointer">×</button>
       </div>
       <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
-        <div style="background:#FFF9E6;border:1.5px solid #E9C46A;border-radius:8px;padding:12px 16px;font-size:13px;color:#D97706">
+        <div style="background:rgba(233,196,106,0.08);border:1.5px solid #E9C46A;border-radius:8px;padding:12px 16px;font-size:13px;color:#D97706">
           ⚠️ <strong>El guía debe aceptar todos los eventos del viaje.</strong> Si rechaza, queda fuera de todos. No se puede aceptar solo algunos.
         </div>
         <div>
@@ -4792,7 +4792,7 @@ function buildImportPreviewModal(entity, rows, filename){
 
 function buildLiquidarViajeModal(fileId, evsSinLiq, valorHora){
   const file = S.files.find(f=>f.id===fileId)||{};
-  const iStyle = 'width:100%;padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);font-size:13px;font-family:"DM Sans",sans-serif;text-align:center';
+  const iStyle = 'width:100%;padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);font-size:13px;font-family:"DM Sans",sans-serif;text-align:center;background:#1E1E1E;color:#F9FAFB';
   return `
   <div id="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px">
     <div style="background:#1A1A1A;border-radius:16px;width:100%;max-width:520px;max-height:90vh;overflow:auto;box-shadow:0 24px 80px rgba(0,0,0,0.25);animation:slideIn 0.2s ease">
@@ -5307,7 +5307,7 @@ function attachEvents(){
         const fechaStr = new Date(ev.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
         const horario = ev.hora_inicio + (ev.hora_fin ? ' – ' + ev.hora_fin : '');
         eventoCard = `
-          <div style="background:#F9F8F6;border-radius:12px;padding:20px;margin-bottom:24px;text-align:left">
+          <div style="background:#1A1A1A;border-radius:12px;padding:20px;margin-bottom:24px;text-align:left">
             ${ev.tipo_evento ? `<div style="font-size:17px;font-weight:700;color:#1B6B74;margin-bottom:14px">${esc(ev.tipo_evento)}</div>` : ''}
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
               <div>
@@ -5319,7 +5319,7 @@ function attachEvents(){
                 <div style="font-size:13px;font-weight:600;color:#F9FAFB">${horario}</div>
               </div>
               ${ev.nro_file ? `<div style="grid-column:1/-1"><div style="font-size:10px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">📁 Nro. File</div><div style="font-size:13px;font-weight:600;color:#F9FAFB">${esc(ev.nro_file)}</div></div>` : ''}
-              ${ev.descripcion ? `<div style="grid-column:1/-1"><div style="font-size:10px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">📝 Descripción</div><div style="font-size:13px;color:#666">${esc(ev.descripcion)}</div></div>` : ''}
+              ${ev.descripcion ? `<div style="grid-column:1/-1"><div style="font-size:10px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">📝 Descripción</div><div style="font-size:13px;color:#9CA3AF">${esc(ev.descripcion)}</div></div>` : ''}
             </div>
           </div>`;
       }
@@ -5336,13 +5336,13 @@ function attachEvents(){
           box.innerHTML=`
             <div style="font-size:56px;margin-bottom:12px">🎉</div>
             <div style="font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:#F9FAFB;margin-bottom:6px">¡Viaje confirmado!</div>
-            <div style="font-size:14px;color:#666;margin-bottom:20px;line-height:1.6">Quedaste asignado a <strong>${result.cantEventos} eventos</strong>${result.nroFile?' del viaje <strong>'+result.nroFile+'</strong>':''}.</div>
+            <div style="font-size:14px;color:#9CA3AF;margin-bottom:20px;line-height:1.6">Quedaste asignado a <strong>${result.cantEventos} eventos</strong>${result.nroFile?' del viaje <strong>'+result.nroFile+'</strong>':''}.</div>
             <a href="${APP_URL}" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 24px;background:#1B6B74;color:white;border-radius:10px;font-weight:700;font-size:14px;text-decoration:none;box-shadow:0 2px 8px rgba(27,107,116,0.3)">Ir a la plataforma →</a>`;
         } else {
           box.innerHTML=`
             <div style="font-size:56px;margin-bottom:12px">✅</div>
             <div style="font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:#F9FAFB;margin-bottom:6px">¡Quedaste confirmado!</div>
-            <div style="font-size:14px;color:#666;margin-bottom:24px;line-height:1.6">Te esperamos para el siguiente evento:</div>
+            <div style="font-size:14px;color:#9CA3AF;margin-bottom:24px;line-height:1.6">Te esperamos para el siguiente evento:</div>
             ${eventoCard}
             <div style="display:flex;flex-direction:column;gap:10px">
               ${gcalBtn}
@@ -5353,7 +5353,7 @@ function attachEvents(){
         box.innerHTML=`
           <div style="font-size:56px;margin-bottom:12px">👍</div>
           <div style="font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:#F9FAFB;margin-bottom:8px">Entendido</div>
-          <div style="font-size:14px;color:#666;margin-bottom:28px;line-height:1.6">${result.msg}</div>
+          <div style="font-size:14px;color:#9CA3AF;margin-bottom:28px;line-height:1.6">${result.msg}</div>
           <a href="${APP_URL}" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 24px;background:#1B6B74;color:white;border-radius:10px;font-weight:700;font-size:14px;text-decoration:none">Ir a la plataforma →</a>`;
       } else {
         box.innerHTML=`
@@ -6420,7 +6420,7 @@ async function loadUsuariosPanel(){
       <div style="display:flex;gap:10px;align-items:center">
         <input id="email-notif-admin" type="email" value="${esc(emailNotif)}" placeholder="admin@sayhueque.com" 
           style="flex:1;padding:10px 14px;border-radius:8px;border:none;font-size:13px;font-family:'DM Sans',sans-serif"/>
-        <button id="btn-save-email-notif" style="padding:10px 20px;border-radius:8px;border:none;background:white;color:#E63946;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">
+        <button id="btn-save-email-notif" style="padding:10px 20px;border-radius:8px;border:none;background:#E76F51;color:white;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">
           💾 Guardar
         </button>
       </div>
@@ -6436,7 +6436,7 @@ async function loadUsuariosPanel(){
         const displayName = guia ? esc(guia.nombre+' '+guia.apellido) : 'Admin';
         const displayEmail = guia ? esc(guia.email) : '';
         return `
-        <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);background:white">
+        <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);background:#141414">
           <div style="width:38px;height:38px;border-radius:50%;background:${isAdminRole?'#1B6B74':'#E9C46A'}20;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">
             ${isAdminRole?'👑':'👤'}
           </div>
@@ -6450,11 +6450,11 @@ async function loadUsuariosPanel(){
           <div style="display:flex;gap:6px;flex-shrink:0">
             <button onclick="resetPassword('${r.user_id}','${displayEmail||''}')"
               title="Enviar email de reset de contraseña"
-              style="padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:white;font-size:11px;cursor:pointer;color:#E76F51;font-weight:600;font-family:'DM Sans',sans-serif">
+              style="padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;font-size:11px;cursor:pointer;color:#E76F51;font-weight:600;font-family:'DM Sans',sans-serif">
               🔒 Reset pass
             </button>
             <button onclick="editUsuario('${r.user_id}','${r.role}',${r.guia_id||'null'},'${displayEmail}')"
-              style="padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:white;font-size:11px;cursor:pointer;color:#1B6B74;font-weight:600;font-family:'DM Sans',sans-serif">
+              style="padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:#1E1E1E;font-size:11px;cursor:pointer;color:#E76F51;font-weight:600;font-family:'DM Sans',sans-serif">
               ✏️ Editar
             </button>
             ${r.user_id !== S.user?.id ? `<button onclick="darDeBajaUsuario('${r.user_id}','${displayName}')"
