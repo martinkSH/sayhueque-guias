@@ -4548,7 +4548,11 @@ function buildInvitarModal(eventoId){
           ⏱ SLA: <strong>${SLA[evento?.prioridad]} horas</strong> para responder · El primero que acepte queda confirmado
         </div>
         <div style="font-size:12px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em">Seleccioná guías a invitar</div>
-        <div style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow:auto">
+        <div style="position:relative">
+          <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#8A8A8E;font-size:13px">🔍</span>
+          <input id="inv-search-guia" type="text" placeholder="Buscar guía..." oninput="(()=>{const q=this.value.toLowerCase();document.querySelectorAll('[data-inv-guia]').forEach(el=>{el.style.display=el.dataset.invGuia.toLowerCase().includes(q)?'flex':'none';});})()" style="width:100%;padding:9px 12px 9px 36px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:#3A3A3C;color:#F0F0F0;font-size:13px;font-family:'DM Sans',sans-serif;box-sizing:border-box;outline:none"/>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;max-height:280px;overflow:auto">
           ${guiasActivos.map(g=>{
             const yaInvitado=invExistentes.includes(g.id);
             const eventosEseDia=S.eventos.filter(e=>e.guia_id===g.id&&e.fecha===evento?.fecha&&e.id!==eventoId&&['CONFIRMADO','ASIGNADO'].includes(e.estado));
@@ -4560,15 +4564,17 @@ function buildInvitarModal(eventoId){
             const bgColor=noDisponible?'#fff8f8':'white';
             const avatarBg=noDisponible?'#fcd5d520':T.teal+'20';
             const avatarFg=noDisponible?'#E63946':T.teal;
-            return '<label style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;border:1.5px solid '+borderColor+';cursor:'+(disabled?'not-allowed':'pointer')+';opacity:'+(disabled?0.6:1)+';background:'+bgColor+'" '+(disabled?'':' onmouseenter="this.style.borderColor=\'#2A9D8F\'" onmouseleave="this.style.borderColor=\'#E8E4DD\'"')+'>'
-              +'<input type="checkbox" value="'+g.id+'" '+(disabled?'disabled ':'')+' '+(yaInvitado?'checked':'')+' style="width:16px;height:16px;accent-color:'+T.tealMid+';cursor:pointer"/>'
-              +'<div style="width:34px;height:34px;border-radius:50%;background:'+avatarBg+';display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:'+avatarFg+';flex-shrink:0">'+esc(g.nombre[0])+'</div>'
+            const cardBg = noDisponible ? 'rgba(239,68,68,0.08)' : '#363638';
+            const cardBorder = noDisponible ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.1)';
+            return '<label data-inv-guia="'+esc(g.nombre)+' '+esc(g.apellido)+'" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;border:1px solid '+cardBorder+';cursor:'+(disabled?'not-allowed':'pointer')+';opacity:'+(disabled?0.65:1)+';background:'+cardBg+'" '+(disabled?'':' onmouseenter="this.style.borderColor=\'#E76F51\'" onmouseleave="this.style.borderColor=\''+cardBorder+'\'";this.style.background=\'#3A3A3C\'" onmouseleave="this.style.borderColor=\''+cardBorder+'\';this.style.background=\''+cardBg+'\'"')+'>'
+              +'<input type="checkbox" value="'+g.id+'" '+(disabled?'disabled ':'')+' '+(yaInvitado?'checked':'')+' style="width:16px;height:16px;accent-color:#E76F51;cursor:pointer"/>'
+              +'<div style="width:34px;height:34px;border-radius:50%;background:'+(noDisponible?'rgba(239,68,68,0.2)':'rgba(231,111,81,0.15)')+';display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:'+(noDisponible?'#EF4444':'#E76F51')+';flex-shrink:0">'+esc(g.nombre[0])+'</div>'
               +'<div style="flex:1">'
-                +'<div style="font-size:13px;font-weight:600;color:'+T.dark+'">'+esc(g.nombre)+' '+esc(g.apellido)+'</div>'
+                +'<div style="font-size:13px;font-weight:600;color:#F0F0F0">'+esc(g.nombre)+' '+esc(g.apellido)+'</div>'
                 +'<div style="font-size:11px;color:#8A8A8E">'+(isAdmin()?g.tipo+' · $'+g.valor_hora+'/h · ':'')+esc(g.email)+'</div>'
-                +(noDisponible?'<div style="font-size:11px;color:#E63946;font-weight:600;margin-top:2px">⛔ No disponible · '+noDispLabel+'</div>':'')
+                +(noDisponible?'<div style="font-size:11px;color:#EF4444;font-weight:600;margin-top:2px">⛔ No disponible · '+noDispLabel+'</div>':'')
               +'</div>'
-              +(yaInvitado?'<span style="font-size:10px;background:#0D2010;color:#4ADE80;padding:2px 8px;border-radius:10px;font-weight:600">Ya invitado</span>':'')
+              +(yaInvitado?'<span style="font-size:10px;background:rgba(74,222,128,0.15);color:#4ADE80;padding:2px 8px;border-radius:10px;font-weight:600">Ya invitado</span>':'')
               +'</label>';
           }).join('')}
         </div>
