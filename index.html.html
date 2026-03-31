@@ -4566,7 +4566,7 @@ function buildInvitarModal(eventoId){
             const avatarFg=noDisponible?'#E63946':T.teal;
             const cardBg = noDisponible ? 'rgba(239,68,68,0.08)' : '#363638';
             const cardBorder = noDisponible ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.1)';
-            return '<label data-inv-guia="'+esc(g.nombre)+' '+esc(g.apellido)+'" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;border:1px solid '+cardBorder+';cursor:'+(disabled?'not-allowed':'pointer')+';opacity:'+(disabled?0.65:1)+';background:'+cardBg+'" '+(disabled?'':' onmouseenter="this.style.borderColor=\'#E76F51\'" onmouseleave="this.style.borderColor=\''+cardBorder+'\'";this.style.background=\'#3A3A3C\'" onmouseleave="this.style.borderColor=\''+cardBorder+'\';this.style.background=\''+cardBg+'\'"')+'>'
+            return '<label data-inv-guia="'+esc(g.nombre)+' '+esc(g.apellido)+'" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;border:1px solid '+cardBorder+';cursor:'+(disabled?'not-allowed':'pointer')+';opacity:'+(disabled?0.65:1)+';background:'+cardBg+'" '+(disabled?'':' onmouseenter="this.style.borderColor=\'#E76F51\';this.style.background=\'#3A3A3C\'" onmouseleave="this.style.borderColor=\''+cardBorder+'\';this.style.background=\''+cardBg+'\'"')+'>'
               +'<input type="checkbox" value="'+g.id+'" '+(disabled?'disabled ':'')+' '+(yaInvitado?'checked':'')+' style="width:16px;height:16px;accent-color:#E76F51;cursor:pointer"/>'
               +'<div style="width:34px;height:34px;border-radius:50%;background:'+(noDisponible?'rgba(239,68,68,0.2)':'rgba(231,111,81,0.15)')+';display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:'+(noDisponible?'#EF4444':'#E76F51')+';flex-shrink:0">'+esc(g.nombre[0])+'</div>'
               +'<div style="flex:1">'
@@ -4687,6 +4687,7 @@ function buildInvitarViajeModal(fileId){
         +(disabled?'<div style="font-size:11px;color:#EF4444;font-weight:600;margin-top:2px">'+conflictoLabel+'</div>':'')
       +'</div>'
       +'</label>';
+  }).join('');
 
   return `
   <div id="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px">
