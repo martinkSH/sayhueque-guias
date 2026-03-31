@@ -4676,16 +4676,17 @@ function buildInvitarViajeModal(fileId){
     });
     const disabled = conflictos.length>0;
     const conflictoLabel = disabled ? `⛔ Conflicto en ${conflictos.length} fecha(s)` : '';
-    return '<label style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;border:1.5px solid '+(disabled?'#fcd5d5':'#E8E4DD')+';cursor:'+(disabled?'not-allowed':'pointer')+';opacity:'+(disabled?0.6:1)+';background:'+(disabled?'#fff8f8':'white')+'" '+(disabled?'':' onmouseenter="this.style.borderColor=\'#2A9D8F\'" onmouseleave="this.style.borderColor=\'#E8E4DD\'"')+'>'
-      +'<input type="checkbox" value="'+g.id+'" '+(disabled?'disabled':'')+' style="width:16px;height:16px;accent-color:'+T.tealMid+';cursor:pointer"/>'
-      +'<div style="width:34px;height:34px;border-radius:50%;background:'+(disabled?'#fcd5d520':T.teal+'20')+';display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:'+(disabled?'#E63946':T.teal)+';flex-shrink:0">'+esc(g.nombre[0])+'</div>'
+    const vCardBg = disabled ? 'rgba(239,68,68,0.08)' : '#363638';
+    const vCardBorder = disabled ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.1)';
+    return '<label data-inv-guia="'+esc(g.nombre)+' '+esc(g.apellido)+'" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:8px;border:1px solid '+vCardBorder+';cursor:'+(disabled?'not-allowed':'pointer')+';opacity:'+(disabled?0.65:1)+';background:'+vCardBg+'" '+(disabled?'':' onmouseenter="this.style.background=\'#3A3A3C\';this.style.borderColor=\'#E76F51\'" onmouseleave="this.style.background=\''+vCardBg+'\';this.style.borderColor=\''+vCardBorder+'\'"')+'>'
+      +'<input type="checkbox" value="'+g.id+'" '+(disabled?'disabled':'')+' style="width:16px;height:16px;accent-color:#E76F51;cursor:pointer"/>'
+      +'<div style="width:34px;height:34px;border-radius:50%;background:'+(disabled?'rgba(239,68,68,0.2)':'rgba(231,111,81,0.15)')+';display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:'+(disabled?'#EF4444':'#E76F51')+';flex-shrink:0">'+esc(g.nombre[0])+'</div>'
       +'<div style="flex:1">'
-        +'<div style="font-size:13px;font-weight:600;color:'+T.dark+'">'+esc(g.nombre)+' '+esc(g.apellido)+'</div>'
+        +'<div style="font-size:13px;font-weight:600;color:#F0F0F0">'+esc(g.nombre)+' '+esc(g.apellido)+'</div>'
         +'<div style="font-size:11px;color:#8A8A8E">'+esc(g.email)+'</div>'
-        +(disabled?'<div style="font-size:11px;color:#E63946;font-weight:600;margin-top:2px">'+conflictoLabel+'</div>':'')
+        +(disabled?'<div style="font-size:11px;color:#EF4444;font-weight:600;margin-top:2px">'+conflictoLabel+'</div>':'')
       +'</div>'
       +'</label>';
-  }).join('');
 
   return `
   <div id="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px">
@@ -4707,7 +4708,8 @@ function buildInvitarViajeModal(fileId){
         </div>
         <div>
           <div style="font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Seleccioná guías a invitar</div>
-          <div style="display:flex;flex-direction:column;gap:6px;max-height:240px;overflow:auto">${guiasHtml}</div>
+          <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#8A8A8E;font-size:13px">🔍</span><input type="text" placeholder="Buscar guía..." oninput="(()=>{const q=this.value.toLowerCase();document.querySelectorAll('[data-inv-guia]').forEach(el=>{el.style.display=el.dataset.invGuia.toLowerCase().includes(q)?'flex':'none';});})()" style="width:100%;padding:9px 12px 9px 36px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:#3A3A3C;color:#F0F0F0;font-size:13px;font-family:'DM Sans',sans-serif;box-sizing:border-box;outline:none;margin-bottom:8px"/></div>
+          <div style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto">${guiasHtml}</div>
         </div>
         <div style="display:flex;gap:10px;justify-content:flex-end">
           <button id="btn-close-modal2" style="${btnS}">Cancelar</button>
