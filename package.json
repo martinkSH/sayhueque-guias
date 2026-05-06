@@ -4,6 +4,7 @@
   "type": "module",
   "dependencies": {
     "nodemailer": "^6.9.7",
-    "@supabase/supabase-js": "^2.39.0"
+    "@supabase/supabase-js": "^2.39.0",
+    "mssql": "^10.0.4"
   }
 }
