@@ -89,10 +89,10 @@ async function getGUServicesFromTP(pool, daysAhead) {
       WHERE leadpax = 1
     ) AS pax_principal ON pax_principal.bhd_id = vw.bookingid
     WHERE
-      vw.BookingStatus = 'CF'
+      -- Excluir: Quotes, Test Bookings, Quotes perdidas, Cancelados
+      vw.BookingStatus NOT IN ('QU','ZZ','XX','QX','CA','CX')
       AND vw.BookingName NOT LIKE 'ZZ%'
-      AND vw.BookingTravelDate <= CAST(DATEADD(day, ${daysAhead}, GETDATE()) AS DATE)
-      AND vw.LastServiceDate   >= CAST(DATEADD(day, -1, GETDATE()) AS DATE)
+      AND vw.BookingTravelDate >= '20260501'
       AND ops.Service_status NOT IN ('CX','XX')
     ORDER BY vw.BookingTravelDate, vw.BookingReference, ops.Day_Number, ops.Sequence_Number
   `);
