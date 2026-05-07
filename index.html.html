@@ -1185,13 +1185,19 @@ async function syncTourPlan(){
     const res = await fetch('/api/tp-sync', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ daysAhead: 90, dryRun: false })
+      body: JSON.stringify((() => {
+        const t = new Date();
+        const from = `${t.getFullYear()}${String(t.getMonth()+1).padStart(2,'0')}01`;
+        const to = new Date(t.getTime()+60*24*60*60*1000);
+        const toStr = `${to.getFullYear()}${String(to.getMonth()+1).padStart(2,'0')}${String(to.getDate()).padStart(2,'0')}`;
+        return { dryRun: false, dateFrom: from, dateTo: toStr };
+      })())
     });
     const data = await res.json();
     if(data.error) throw new Error(data.error);
     await loadAll();
     toast(
-      `✅ TourPlan sync: ${data.files_created} viajes nuevos, ${data.files_updated} actualizados · ${data.eventos_created} eventos nuevos · ${data.guias_matched} guías asignados · ${data.a_designar} a designar`,
+      `✅ TourPlan: ${data.files_created} viajes nuevos · ${data.eventos_created} eventos · ${data.invitaciones_creadas||0} invitaciones enviadas · ${data.a_designar} a designar${data.discrepancias ? ' · ⚠️ '+data.discrepancias+' discrepancias' : ''}`,
       T.amber
     );
   } catch(err) {
@@ -2640,7 +2646,10 @@ function buildViajes(){
                     <div style="display:flex;align-items:center;gap:6px">
                       <div style="background:${estadoColor.bg||'#E8E4DD'};color:${estadoColor.fg||'#555'};padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap">${estadoColor.label||e.estado}</div>
                       ${S.liquidaciones?.find(l=>l.evento_id===e.id)?`<div style="background:rgba(74,222,128,0.12);color:#4ADE80;padding:4px 8px;border-radius:10px;font-size:10px;font-weight:700">💰 LIQ</div>`:''}
-                      ${e.tp_dia_sec?`<div style="background:rgba(233,196,106,0.12);color:#E9C46A;padding:4px 8px;border-radius:10px;font-size:10px;font-weight:700" title="${esc(e.tp_service_status||'TP')}">🗺 TP</div>`:''}
+                      ${e.tp_dia_sec ? (e.tp_guia_discrepancia ?
+  `<div style="background:rgba(248,113,113,0.15);color:#FCA5A5;padding:4px 8px;border-radius:10px;font-size:10px;font-weight:700" title="⚠️ TP dice: ${esc(e.tp_supplier_name||'')}">⚠️ TP</div>` :
+  `<div style="background:rgba(233,196,106,0.12);color:#E9C46A;padding:4px 8px;border-radius:10px;font-size:10px;font-weight:700" title="TP: ${esc(e.tp_service_status||'')} · ${esc(e.tp_supplier_name||'')}">🗺 TP</div>`
+) : ''}
                     </div>
                   </div>
                   
