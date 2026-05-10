@@ -1,6 +1,10 @@
 // api/send-acceptance-pdf.js
 // Called when a guide accepts an event — generates a PDF "compromiso de aceptación"
 // and emails it to the admin configured in config table.
+// NOTE: intentionally unauthenticated because it's called right after a
+// guide accepts via email-link (no session). To prevent abuse, the handler
+// verifies that an ACEPTADA invitation for (eventoId, guiaId) exists in the
+// last 60 seconds before sending the PDF.
 import nodemailer from 'nodemailer';
 import { createClient } from '@supabase/supabase-js';
 
@@ -366,7 +370,7 @@ function buildPdfHtml({ guia, evento, file, acceptedAt }) {
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -375,6 +379,21 @@ export default async function handler(req, res) {
     if (!eventoId || !guiaId) return res.status(400).json({ error: 'Missing eventoId or guiaId' });
 
     const supabase = createClient(SB_URL, SB_KEY);
+
+    // Anti-abuse: verify there's a recent ACEPTADA invitation for this pair.
+    // Without this anyone could spam admin inboxes by hitting the endpoint.
+    const sinceIso = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const { data: invCheck } = await supabase
+      .from('invitaciones')
+      .select('id, estado, respondido_at')
+      .eq('evento_id', eventoId)
+      .eq('guia_id', guiaId)
+      .eq('estado', 'ACEPTADA')
+      .gte('respondido_at', sinceIso)
+      .limit(1);
+    if (!invCheck?.length) {
+      return res.status(403).json({ error: 'No recent acceptance found for this evento/guia' });
+    }
 
     // Fetch evento, guia, file
     const [{ data: evento }, { data: guia }] = await Promise.all([
@@ -446,6 +465,7 @@ export default async function handler(req, res) {
       to: emailAdmin,
       subject: `✅ Guía confirmado: ${evento.tipo_evento} · ${fechaEvento} · ${nroFile}`,
       html: emailHtml,
+      textEncoding: 'base64',
       attachments: [
         {
           filename: `Compromiso_${guiaNombre.replace(/ /g, '_')}_${evento.fecha}_${nroFile.replace(/\//g, '-')}.html`,

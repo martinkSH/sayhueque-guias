@@ -1,6 +1,7 @@
 // api/tp-sync.js — TourPlan → Atlas Sherpa sync (ES module)
 import sql from 'mssql';
 import { createClient } from '@supabase/supabase-js';
+import { requireAuth } from './_auth.js';
 
 function getTPConfig() {
   return {
@@ -93,6 +94,8 @@ async function matchGuia(supabase, supplierName) {
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  if (!await requireAuth(req, res)) return;
 
   const { dryRun = false, dateFrom, dateTo } = req.body || {};
   // Default: current month + next 30 days to avoid huge result sets

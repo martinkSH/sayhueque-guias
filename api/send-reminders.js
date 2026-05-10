@@ -23,7 +23,8 @@ function replacePlaceholders(text, variables) {
     const value = String(variables[key] ?? '');
     result = result.split(placeholder).join(value);
   }
-  return result;
+  // Strip any unfilled {{...}} so recipients don't see raw template syntax.
+  return result.replace(/\{\{[^}]+\}\}/g, '');
 }
 
 export default async function handler(req, res) {
@@ -131,6 +132,7 @@ export default async function handler(req, res) {
           to: guia.email,
           subject,
           html,
+          textEncoding: 'base64',
         });
 
         // Log in historial
@@ -190,7 +192,8 @@ export default async function handler(req, res) {
             <p>Por favor ingresá a la plataforma y hacé clic en <strong>Reconfirmar</strong>:</p>
             <a href="https://sayhueque-guias.vercel.app" style="display:inline-block;padding:12px 24px;background:#1B6B74;color:white;text-decoration:none;border-radius:8px;font-weight:bold">Ir a la plataforma →</a>
             <p style="font-size:12px;color:#5A5A5A;margin-top:24px">Say Hueque · Sistema de Gestión de Guías</p>
-          </div>`
+          </div>`,
+          textEncoding: 'base64',
         });
         console.log(`📩 Reconf 7d sent to ${guia.email} for evento ${ev.id}`);
       } catch(e){ console.error('Reconf 7d error:', e.message); }
@@ -225,7 +228,8 @@ export default async function handler(req, res) {
             from: 'Say Hueque <tp@sayhueque.com>',
             to: guia.email,
             subject: `🔴 URGENTE: Reconfirmá tu servicio de mañana — ${ev.tipo_evento}`,
-            html: urgentHtml(guia.email, guia.nombre+' '+guia.apellido)
+            html: urgentHtml(guia.email, guia.nombre+' '+guia.apellido),
+            textEncoding: 'base64',
           });
           console.log(`🚨 Urgent reconf sent to ${guia.email} for evento ${ev.id}`);
         } catch(e){ console.error('Urgent reconf error:', e.message); }
@@ -236,7 +240,8 @@ export default async function handler(req, res) {
             from: 'Say Hueque <tp@sayhueque.com>',
             to: adminEmail,
             subject: `🔴 Alerta: ${guia?.nombre||''} ${guia?.apellido||''} no reconfirmó — ${ev.tipo_evento} mañana`,
-            html: urgentHtml(adminEmail, 'Admin')
+            html: urgentHtml(adminEmail, 'Admin'),
+            textEncoding: 'base64',
           });
         } catch(e){ console.error('Admin alert error:', e.message); }
       }

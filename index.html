@@ -39,6 +39,17 @@ const { createClient } = supabase;
 const db = createClient(SB_URL, SB_KEY);
 
 // ══════════════════════════════════════════════════════════════════════════
+// API HELPERS
+// ══════════════════════════════════════════════════════════════════════════
+
+// Returns the Supabase access_token of the current session as a Bearer header.
+// Backend /api/* handlers verify this token to ensure the caller is a logged-in user.
+async function authHeader() {
+  const { data: { session } } = await db.auth.getSession();
+  return session?.access_token ? { 'Authorization': 'Bearer ' + session.access_token } : {};
+}
+
+// ══════════════════════════════════════════════════════════════════════════
 // EMAIL HELPERS - SUPABASE GMAIL
 // ══════════════════════════════════════════════════════════════════════════
 
@@ -48,6 +59,7 @@ async function sendEmail(templateId, variables) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(await authHeader()),
       },
       body: JSON.stringify({
         templateId,
@@ -122,13 +134,15 @@ async function sendCambiosEmail(guia, evento, cambiosTexto, tokenReconfirmar){
 
 async function sendCancelacionEmail(guia, evento, motivo){
   const fechaStr = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-  
+  const file = S.files?.find(f=>f.id===evento.file_id);
+
   return await sendEmail('cancelacion_evento', {
     to_email: guia.email,
     guia_nombre: guia.nombre + ' ' + guia.apellido,
     tipo_evento: evento.tipo_evento,
     fecha: fechaStr,
     horario: evento.hora_inicio + (evento.hora_fin ? ' - ' + evento.hora_fin : ''),
+    nro_file: file?.nro_file || '—',
     motivo: motivo || 'Sin especificar'
   });
 }
@@ -462,7 +476,7 @@ async function syncGoogleCalendar(action, eventoId, guiaId){
   try {
     await fetch('/api/google-calendar', {
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{'Content-Type':'application/json', ...(await authHeader())},
       body: JSON.stringify({action, eventoId, guiaId})
     });
   } catch(e){ console.warn('GCal sync error:', e); }
@@ -679,7 +693,7 @@ async function responderInvitacion(token, accion){
     // Notify admin with acceptance PDF (fire and forget — don't block the response)
     fetch('/api/send-acceptance-pdf', {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      headers: {'Content-Type':'application/json', ...(await authHeader())},
       body: JSON.stringify({
         eventoId: inv.evento_id,
         guiaId: inv.guia_id,
@@ -1178,7 +1192,7 @@ async function syncTourPlan(){
   try {
     const res = await fetch('/api/tp-sync', {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      headers: {'Content-Type':'application/json', ...(await authHeader())},
       body: JSON.stringify((() => {
         const t = new Date();
         const from = `${t.getFullYear()}${String(t.getMonth()+1).padStart(2,'0')}01`;
@@ -5225,7 +5239,7 @@ function attachEvents(){
     for(const ev of confirmados){
       try {
         const r = await fetch('/api/google-calendar',{
-          method:'POST', headers:{'Content-Type':'application/json'},
+          method:'POST', headers:{'Content-Type':'application/json', ...(await authHeader())},
           body:JSON.stringify({action:'create', eventoId:ev.id, guiaId:S.myGuia.id})
         });
         const d = await r.json();
@@ -5291,7 +5305,7 @@ function attachEvents(){
       for(const ev of confirmados){
         try {
           const r = await fetch('/api/google-calendar',{
-            method:'POST', headers:{'Content-Type':'application/json'},
+            method:'POST', headers:{'Content-Type':'application/json', ...(await authHeader())},
             body:JSON.stringify({action:'create', eventoId:ev.id, guiaId:S.myGuia.id})
           });
           const d = await r.json();
@@ -5715,7 +5729,7 @@ function attachEvents(){
     for(const ev of confirmados){
       try {
         const r = await fetch('/api/google-calendar',{
-          method:'POST', headers:{'Content-Type':'application/json'},
+          method:'POST', headers:{'Content-Type':'application/json', ...(await authHeader())},
           body:JSON.stringify({action:'create', eventoId:ev.id, guiaId:S.myGuia.id})
         });
         const d = await r.json();

@@ -1,6 +1,10 @@
 // api/google-calendar.js
 // Syncs events to Google Calendar for guides who have connected their account.
 // Actions: create | update | delete
+// NOTE: this endpoint is intentionally unauthenticated because it's called
+// after the guide accepts an invitation via email link (no session). The
+// implicit auth is the guide's google_refresh_token: if they haven't
+// connected, the call no-ops with skipped:'no_token'.
 import { createClient } from '@supabase/supabase-js';
 
 const SB_URL = 'https://ewxbghnyjvaijpfiygqg.supabase.co';
@@ -78,7 +82,7 @@ function buildGCalEvent(evento, file) {
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 

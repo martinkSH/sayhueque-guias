@@ -1,23 +1,27 @@
 // api/send-email.js
 import nodemailer from 'nodemailer';
 import { createClient } from '@supabase/supabase-js';
+import { requireAuth } from './_auth.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
-  
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
-  
+
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
   try {
     const { templateId, variables } = req.body;
-    console.log('📧 Email request:', templateId);
+    console.log('📧 Email request:', templateId, 'by', user.email);
     
     const transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
@@ -55,12 +59,18 @@ export default async function handler(req, res) {
       html = html.split(placeholder).join(value);
       subject = subject.split(placeholder).join(value);
     }
-    
+
+    // Strip any remaining {{...}} placeholders that the caller didn't fill,
+    // so the recipient doesn't see raw template syntax.
+    html = html.replace(/\{\{[^}]+\}\}/g, '');
+    subject = subject.replace(/\{\{[^}]+\}\}/g, '');
+
     await transporter.sendMail({
       from: 'Say Hueque <tp@sayhueque.com>',
       to: variables.to_email,
       subject: subject,
       html: html,
+      textEncoding: 'base64',
     });
     
     console.log('✅ Sent to:', variables.to_email);
