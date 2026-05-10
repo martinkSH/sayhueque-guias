@@ -82,50 +82,65 @@ async function sendEmail(templateId, variables) {
 }
 
 async function sendInviteEmail(guia, evento, token, expira){
-  const file = S.files.find(f=>f.id===evento.file_id);
+  const file = S.files?.find(f=>f.id===evento.file_id);
   const acceptUrl = `${window.location.origin}?action=aceptar&token=${token}`;
   const rejectUrl = `${window.location.origin}?action=rechazar&token=${token}`;
-  
+
   const fechaStr = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
   const expiraStr = new Date(expira).toLocaleString('es-AR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
-  
+
   // Calcular prioridad según SLA
   const hoursUntil = (new Date(evento.fecha) - new Date()) / (1000*60*60);
-  const prioridad = hoursUntil <= SLA.URGENTE ? '🔴 URGENTE' : '🟢 REGULAR';
-  
+  const isUrgente = hoursUntil <= SLA.URGENTE;
+  const prioridad = isUrgente ? '🔴 URGENTE' : '🟢 REGULAR';
+  const slaHoras = isUrgente ? SLA.URGENTE : SLA.REGULAR;
+
   return await sendEmail('invitacion_evento', {
     to_email: guia.email,
     prioridad: prioridad,
     guia_nombre: guia.nombre + ' ' + guia.apellido,
-    tipo_evento: evento.tipo_evento,     // ✅ FIXED
-    fecha: fechaStr,                      // ✅ FIXED
-    horario: evento.hora_inicio + (evento.hora_fin ? ' - ' + evento.hora_fin : ''),  // ✅ FIXED
-    descripcion: evento.descripcion || 'Sin descripción',  // ✅ FIXED
+    tipo_evento: evento.tipo_evento,
+    fecha: fechaStr,
+    horario: fmtHorario(evento.hora_inicio, evento.hora_fin),
+    nro_file: file?.nro_file || '—',
+    sla_horas: slaHoras,
+    link_respuesta: acceptUrl,
+    descripcion: evento.descripcion || 'Sin descripción',
     pickup_location: evento.pickup_location || '',
     dropoff_location: evento.dropoff_location || '',
     datos_vuelos: evento.datos_vuelos || '',
-    expira: expiraStr,                    // ✅ FIXED
-    url_aceptar: acceptUrl,              // ✅ FIXED
-    url_rechazar: rejectUrl              // ✅ FIXED
+    expira: expiraStr,
+    url_aceptar: acceptUrl,
+    url_rechazar: rejectUrl
   });
 }
 
+// Format "08:30:00" + "12:00:00" -> "08:30 - 12:00", or "Sin horario" if both are 00:00.
+function fmtHorario(inicio, fin){
+  const norm = t => t ? String(t).slice(0,5) : null;
+  const i = norm(inicio), f = norm(fin);
+  if (!i || i === '00:00') return f && f !== '00:00' ? f : 'Sin horario definido';
+  return f && f !== '00:00' ? `${i} - ${f}` : i;
+}
+
 async function sendCambiosEmail(guia, evento, cambiosTexto, tokenReconfirmar){
-  const file = S.files.find(f=>f.id===evento.file_id);
+  const file = S.files?.find(f=>f.id===evento.file_id);
   const reconfirmarUrl = `${window.location.origin}?action=reconfirmar&token=${tokenReconfirmar}`;
   const cancelarUrl = `${window.location.origin}?action=cancelar_por_cambios&evento_id=${evento.id}`;
-  
+
   const fechaStr = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-  
+
   return await sendEmail('cambios_evento', {
     to_email: guia.email,
     guia_nombre: guia.nombre + ' ' + guia.apellido,
     tipo_evento: evento.tipo_evento,
     fecha: fechaStr,
-    horario: evento.hora_inicio + (evento.hora_fin ? ' - ' + evento.hora_fin : ''),
+    horario: fmtHorario(evento.hora_inicio, evento.hora_fin),
     nro_file: file?.nro_file || '—',
     descripcion: evento.descripcion || 'Sin descripción',
     link_adjunto: evento.link_adjunto || '',
+    detalle_cambios: cambiosTexto,
+    link_respuesta: reconfirmarUrl,
     cambios: cambiosTexto,
     url_reconfirmar: reconfirmarUrl,
     url_cancelar: cancelarUrl
@@ -141,44 +156,46 @@ async function sendCancelacionEmail(guia, evento, motivo){
     guia_nombre: guia.nombre + ' ' + guia.apellido,
     tipo_evento: evento.tipo_evento,
     fecha: fechaStr,
-    horario: evento.hora_inicio + (evento.hora_fin ? ' - ' + evento.hora_fin : ''),
+    horario: fmtHorario(evento.hora_inicio, evento.hora_fin),
     nro_file: file?.nro_file || '—',
     motivo: motivo || 'Sin especificar'
   });
 }
 
 async function sendGuiaSebajoEmail(admins, guia, evento, motivo){
-  const file = S.files.find(f=>f.id===evento.file_id);
+  const file = S.files?.find(f=>f.id===evento.file_id);
   const fechaStr = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-  const panelUrl = `${window.location.origin}`;
-  
-  const emailPromises = admins.map(adminEmail => 
+  const panelUrl = `${window.location.origin}?evento=${evento.id}`;
+
+  const emailPromises = admins.map(adminEmail =>
     sendEmail('guia_se_bajo', {
       to_email: adminEmail,
       guia_nombre: guia.nombre + ' ' + guia.apellido,
       tipo_evento: evento.tipo_evento,
       nro_file: file?.nro_file || '—',
       fecha: fechaStr,
-      horario: evento.hora_inicio + (evento.hora_fin ? ' - ' + evento.hora_fin : ''),
+      horario: fmtHorario(evento.hora_inicio, evento.hora_fin),
       motivo: motivo || 'Sin especificar',
+      link_plataforma: panelUrl,
       panel_url: panelUrl
     })
   );
-  
+
   return await Promise.all(emailPromises);
 }
 
 async function sendRecordatorioEmail(guia, evento){
-  const file = S.files.find(f=>f.id===evento.file_id);
+  const file = S.files?.find(f=>f.id===evento.file_id);
   const fechaStr = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-  
+
   return await sendEmail('recordatorio_invitacion', {
     to_email: guia.email,
     guia_nombre: guia.nombre + ' ' + guia.apellido,
     tipo_evento: evento.tipo_evento,
     fecha: fechaStr,
-    horario: evento.hora_inicio + (evento.hora_fin ? ' - ' + evento.hora_fin : ''),
+    horario: fmtHorario(evento.hora_inicio, evento.hora_fin),
     nro_file: file?.nro_file || '—',
+    link_respuesta: APP_URL,
     descripcion: evento.descripcion || 'Sin descripción'
   });
 }
@@ -502,6 +519,8 @@ async function sendCambioEmail(guia, evento, cambios){
     nro_file: nroFile,
     fecha: fechaEvento,
     horario: horario,
+    detalle_cambios: cambios,
+    link_respuesta: reconfirmarUrl,
     cambios: cambios,
     descripcion: evento.descripcion || '—',
     link_adjunto: evento.link_adjunto || '—',
@@ -569,6 +588,7 @@ async function procesarColaEmails(){
       fecha:       fechaEvento,
       horario:     p.horario,
       nro_file:    p.nro_file || '—',
+      link_respuesta: p.token ? `${APP_URL}?action=aceptar&token=${p.token}` : APP_URL,
       descripcion: p.descripcion || '—',
     });
     
@@ -1136,7 +1156,10 @@ async function invitarGuiasViaje(fileId, guiaIds){
       fecha_in: file?.fecha_in ? new Date(file.fecha_in+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'long',year:'numeric'}) : '—',
       fecha_out: file?.fecha_out ? new Date(file.fecha_out+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'long',year:'numeric'}) : '—',
       cant_eventos: String(eventosViaje.length),
+      resumen_eventos: eventosListaTxt,
       eventos_lista: eventosListaTxt,
+      sla_horas: SLA.REGULAR,
+      link_respuesta: aceptarUrl,
       expira: expiraStr,
       url_aceptar: aceptarUrl,
       url_rechazar: rechazarUrl
@@ -1303,18 +1326,18 @@ async function bajarseEvento(eventoId){
     
     if(emailAdmin){
       const fechaEvento = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-      const horario = evento.hora_inicio + (evento.hora_fin ? ' - '+evento.hora_fin : '');
       const panelUrl = window.location.origin + window.location.pathname + '?evento=' + eventoId;
-      const file = S.files.find(f=>f.id===evento.file_id);
-      
+      const file = S.files?.find(f=>f.id===evento.file_id);
+
       const emailResult = await sendEmail('guia_se_bajo', {
         to_email: emailAdmin,
         guia_nombre: guia.nombre + ' ' + guia.apellido,
         tipo_evento: evento.tipo_evento,
         nro_file: file?.nro_file || '—',
         fecha: fechaEvento,
-        horario: horario,
+        horario: fmtHorario(evento.hora_inicio, evento.hora_fin),
         motivo: motivo,
+        link_plataforma: panelUrl,
         panel_url: panelUrl
       });
       if(!emailResult?.success) console.warn('Email al admin falló:', emailResult);
@@ -1445,7 +1468,8 @@ async function eliminarViaje(fileId){
         guia_nombre: guia.nombre + ' ' + guia.apellido,
         tipo_evento: ev.tipo_evento,
         fecha: fechaStr,
-        horario: ev.hora_inicio + (ev.hora_fin?' - '+ev.hora_fin:''),
+        horario: fmtHorario(ev.hora_inicio, ev.hora_fin),
+        nro_file: file.nro_file,
         motivo: `El viaje ${file.nro_file} fue cancelado.`
       }).catch(e=>console.warn('Cancel email error:', e));
     }
@@ -5537,6 +5561,7 @@ function attachEvents(){
       fecha_desde: desde,
       fecha_hasta: hasta,
       eventos_count: eventos.length,
+      tabla_eventos: eventosList,
       eventos_lista: eventosList,
       confirmar_url: confirmUrl,
     });
