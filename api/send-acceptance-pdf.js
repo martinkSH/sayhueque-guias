@@ -12,8 +12,8 @@ const transporter = nodemailer.createTransport({
   port: 587,
   secure: false,
   auth: {
-    user: 'tp@sayhueque.com',
-    pass: 'jmjy tqwi xppd huyx',
+    user: process.env.GMAIL_USER || 'tp@sayhueque.com',
+    pass: process.env.GMAIL_PASS,
   },
 });
 
@@ -62,7 +62,7 @@ function buildPdfHtml({ guia, evento, file, acceptedAt }) {
     }
     .logo-area p {
       font-size: 12px;
-      color: #9E9A93;
+      color: #5A5A5A;
       margin-top: 4px;
       font-family: Arial, sans-serif;
       text-transform: uppercase;
@@ -77,7 +77,7 @@ function buildPdfHtml({ guia, evento, file, acceptedAt }) {
       font-weight: bold;
       text-transform: uppercase;
       letter-spacing: 0.12em;
-      color: #9E9A93;
+      color: #5A5A5A;
     }
     .doc-meta .doc-id {
       font-size: 13px;
@@ -128,7 +128,7 @@ function buildPdfHtml({ guia, evento, file, acceptedAt }) {
       font-weight: bold;
       text-transform: uppercase;
       letter-spacing: 0.1em;
-      color: #9E9A93;
+      color: #5A5A5A;
       font-family: Arial, sans-serif;
     }
     .data-row {
@@ -142,7 +142,7 @@ function buildPdfHtml({ guia, evento, file, acceptedAt }) {
       font-weight: bold;
       text-transform: uppercase;
       letter-spacing: 0.06em;
-      color: #9E9A93;
+      color: #5A5A5A;
       background: #FAFAF8;
       font-family: Arial, sans-serif;
     }
@@ -189,7 +189,7 @@ function buildPdfHtml({ guia, evento, file, acceptedAt }) {
     }
     .signature-label {
       font-size: 11px;
-      color: #9E9A93;
+      color: #5A5A5A;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       font-family: Arial, sans-serif;
@@ -229,7 +229,7 @@ function buildPdfHtml({ guia, evento, file, acceptedAt }) {
       padding-top: 16px;
       text-align: center;
       font-size: 11px;
-      color: #9E9A93;
+      color: #5A5A5A;
       font-family: Arial, sans-serif;
       line-height: 1.6;
     }
@@ -423,20 +423,20 @@ export default async function handler(req, res) {
             El/la guía <strong style="color:#1A1A1A">${guiaNombre}</strong> aceptó el evento <strong style="color:#1B6B74">${evento.tipo_evento}</strong> del ${fechaEvento}. File: <strong>${nroFile}</strong>.
           </p>
           <div style="background:#F9F8F6;border-radius:10px;padding:16px 20px;margin-bottom:20px">
-            <div style="font-size:11px;font-weight:700;color:#9E9A93;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">Resumen del evento</div>
+            <div style="font-size:11px;font-weight:700;color:#5A5A5A;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">Resumen del evento</div>
             <table width="100%" cellpadding="0" cellspacing="0" border="0">
-              <tr><td style="padding:4px 0;font-size:12px;color:#9E9A93;width:40%">Guía</td><td style="padding:4px 0;font-size:13px;font-weight:600;color:#1A1A1A">${guiaNombre}</td></tr>
-              <tr><td style="padding:4px 0;font-size:12px;color:#9E9A93">Tipo</td><td style="padding:4px 0;font-size:13px;font-weight:600;color:#1B6B74">${evento.tipo_evento}</td></tr>
-              <tr><td style="padding:4px 0;font-size:12px;color:#9E9A93">Fecha</td><td style="padding:4px 0;font-size:13px;font-weight:600;color:#1A1A1A">${fechaEvento}</td></tr>
-              <tr><td style="padding:4px 0;font-size:12px;color:#9E9A93">File</td><td style="padding:4px 0;font-size:13px;font-weight:600;color:#1A1A1A">${nroFile}</td></tr>
-              ${evento.pickup_location ? `<tr><td style="padding:4px 0;font-size:12px;color:#9E9A93">Pick Up</td><td style="padding:4px 0;font-size:13px;color:#1A1A1A">${evento.pickup_location}</td></tr>` : ''}
-              ${evento.dropoff_location ? `<tr><td style="padding:4px 0;font-size:12px;color:#9E9A93">Drop Off</td><td style="padding:4px 0;font-size:13px;color:#1A1A1A">${evento.dropoff_location}</td></tr>` : ''}
+              <tr><td style="padding:4px 0;font-size:12px;color:#5A5A5A;width:40%">Guía</td><td style="padding:4px 0;font-size:13px;font-weight:600;color:#1A1A1A">${guiaNombre}</td></tr>
+              <tr><td style="padding:4px 0;font-size:12px;color:#5A5A5A">Tipo</td><td style="padding:4px 0;font-size:13px;font-weight:600;color:#1B6B74">${evento.tipo_evento}</td></tr>
+              <tr><td style="padding:4px 0;font-size:12px;color:#5A5A5A">Fecha</td><td style="padding:4px 0;font-size:13px;font-weight:600;color:#1A1A1A">${fechaEvento}</td></tr>
+              <tr><td style="padding:4px 0;font-size:12px;color:#5A5A5A">File</td><td style="padding:4px 0;font-size:13px;font-weight:600;color:#1A1A1A">${nroFile}</td></tr>
+              ${evento.pickup_location ? `<tr><td style="padding:4px 0;font-size:12px;color:#5A5A5A">Pick Up</td><td style="padding:4px 0;font-size:13px;color:#1A1A1A">${evento.pickup_location}</td></tr>` : ''}
+              ${evento.dropoff_location ? `<tr><td style="padding:4px 0;font-size:12px;color:#5A5A5A">Drop Off</td><td style="padding:4px 0;font-size:13px;color:#1A1A1A">${evento.dropoff_location}</td></tr>` : ''}
             </table>
           </div>
           <p style="font-size:13px;color:#666;margin:0">El compromiso de aceptación firmado se adjunta en PDF listo para archivar en la carpeta del viaje.</p>
         </div>
         <div style="background:#F5F3EF;padding:16px 24px;text-align:center;border-top:1px solid #E8E4DD">
-          <p style="margin:0;color:#9E9A93;font-size:11px">Say Hueque · Sistema de Gestión de Guías</p>
+          <p style="margin:0;color:#5A5A5A;font-size:11px">Say Hueque · Sistema de Gestión de Guías</p>
         </div>
       </div>
     </div>`;

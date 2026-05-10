@@ -24,8 +24,8 @@ export default async function handler(req, res) {
       port: 587,
       secure: false,
       auth: {
-        user: 'tp@sayhueque.com',
-        pass: 'jmjy tqwi xppd huyx',
+        user: process.env.GMAIL_USER || 'tp@sayhueque.com',
+        pass: process.env.GMAIL_PASS,
       },
     });
     
@@ -46,21 +46,14 @@ export default async function handler(req, res) {
     
     let html = template.html;
     let subject = template.subject;
-    
-    // Simple string replacement - no regex
+
+    // Replace {{key}} placeholders. Use split/join so values containing
+    // '$' or another placeholder don't trigger $-substitution or infinite loops.
     for (const key in variables) {
       const placeholder = '{{' + key + '}}';
-      const value = String(variables[key] || '');
-      
-      // Replace all occurrences
-      while (html.includes(placeholder)) {
-        html = html.replace(placeholder, value);
-      }
-      while (subject.includes(placeholder)) {
-        subject = subject.replace(placeholder, value);
-      }
-      
-      console.log('Replaced:', key);
+      const value = String(variables[key] ?? '');
+      html = html.split(placeholder).join(value);
+      subject = subject.split(placeholder).join(value);
     }
     
     await transporter.sendMail({

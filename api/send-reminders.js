@@ -11,8 +11,8 @@ const transporter = nodemailer.createTransport({
   port: 587,
   secure: false,
   auth: {
-    user: 'tp@sayhueque.com',
-    pass: 'jmjy tqwi xppd huyx',
+    user: process.env.GMAIL_USER || 'tp@sayhueque.com',
+    pass: process.env.GMAIL_PASS,
   },
 });
 
@@ -20,10 +20,8 @@ function replacePlaceholders(text, variables) {
   let result = text;
   for (const key in variables) {
     const placeholder = '{{' + key + '}}';
-    const value = String(variables[key] || '');
-    while (result.includes(placeholder)) {
-      result = result.replace(placeholder, value);
-    }
+    const value = String(variables[key] ?? '');
+    result = result.split(placeholder).join(value);
   }
   return result;
 }
@@ -191,7 +189,7 @@ export default async function handler(req, res) {
             </div>
             <p>Por favor ingresá a la plataforma y hacé clic en <strong>Reconfirmar</strong>:</p>
             <a href="https://sayhueque-guias.vercel.app" style="display:inline-block;padding:12px 24px;background:#1B6B74;color:white;text-decoration:none;border-radius:8px;font-weight:bold">Ir a la plataforma →</a>
-            <p style="font-size:12px;color:#9E9A93;margin-top:24px">Say Hueque · Sistema de Gestión de Guías</p>
+            <p style="font-size:12px;color:#5A5A5A;margin-top:24px">Say Hueque · Sistema de Gestión de Guías</p>
           </div>`
         });
         console.log(`📩 Reconf 7d sent to ${guia.email} for evento ${ev.id}`);
@@ -218,7 +216,7 @@ export default async function handler(req, res) {
           👤 Guía: ${guia?.nombre||''} ${guia?.apellido||''}
         </div>
         <a href="https://sayhueque-guias.vercel.app" style="display:inline-block;padding:12px 24px;background:#E63946;color:white;text-decoration:none;border-radius:8px;font-weight:bold">Ir a la plataforma →</a>
-        <p style="font-size:12px;color:#9E9A93;margin-top:24px">Say Hueque · Sistema de Gestión de Guías</p>
+        <p style="font-size:12px;color:#5A5A5A;margin-top:24px">Say Hueque · Sistema de Gestión de Guías</p>
       </div>`;
 
       if(guia?.email){

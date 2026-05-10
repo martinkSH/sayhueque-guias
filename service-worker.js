@@ -1,5 +1,5 @@
 // service-worker.js — Say Hueque Guías PWA
-const CACHE_NAME = 'sh-guias-v1';
+const CACHE_NAME = 'sh-guias-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

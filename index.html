@@ -84,7 +84,7 @@ async function sendInviteEmail(guia, evento, token, expira){
   return await sendEmail('invitacion_evento', {
     to_email: guia.email,
     prioridad: prioridad,
-    guia_nombre: guia.nombre,
+    guia_nombre: guia.nombre + ' ' + guia.apellido,
     tipo_evento: evento.tipo_evento,     // ✅ FIXED
     fecha: fechaStr,                      // ✅ FIXED
     horario: evento.hora_inicio + (evento.hora_fin ? ' - ' + evento.hora_fin : ''),  // ✅ FIXED
@@ -107,7 +107,7 @@ async function sendCambiosEmail(guia, evento, cambiosTexto, tokenReconfirmar){
   
   return await sendEmail('cambios_evento', {
     to_email: guia.email,
-    guia_nombre: guia.nombre,
+    guia_nombre: guia.nombre + ' ' + guia.apellido,
     tipo_evento: evento.tipo_evento,
     fecha: fechaStr,
     horario: evento.hora_inicio + (evento.hora_fin ? ' - ' + evento.hora_fin : ''),
@@ -125,7 +125,7 @@ async function sendCancelacionEmail(guia, evento, motivo){
   
   return await sendEmail('cancelacion_evento', {
     to_email: guia.email,
-    guia_nombre: guia.nombre,
+    guia_nombre: guia.nombre + ' ' + guia.apellido,
     tipo_evento: evento.tipo_evento,
     fecha: fechaStr,
     horario: evento.hora_inicio + (evento.hora_fin ? ' - ' + evento.hora_fin : ''),
@@ -141,7 +141,7 @@ async function sendGuiaSebajoEmail(admins, guia, evento, motivo){
   const emailPromises = admins.map(adminEmail => 
     sendEmail('guia_se_bajo', {
       to_email: adminEmail,
-      guia_nombre: guia.nombre,
+      guia_nombre: guia.nombre + ' ' + guia.apellido,
       tipo_evento: evento.tipo_evento,
       nro_file: file?.nro_file || '—',
       fecha: fechaStr,
@@ -160,7 +160,7 @@ async function sendRecordatorioEmail(guia, evento){
   
   return await sendEmail('recordatorio_invitacion', {
     to_email: guia.email,
-    guia_nombre: guia.nombre,
+    guia_nombre: guia.nombre + ' ' + guia.apellido,
     tipo_evento: evento.tipo_evento,
     fecha: fechaStr,
     horario: evento.hora_inicio + (evento.hora_fin ? ' - ' + evento.hora_fin : ''),
@@ -196,7 +196,7 @@ const T = {
   white:'#FFFFFF',
   gray1:'#2C2C2E',     // card bg
   gray2:'rgba(255,255,255,0.08)', // border
-  gray3:'#8A8A8E',     // muted text
+  gray3:'#A8A8AE',     // muted text
   dark:'#F0F0F0',      // primary text
   // Extra tokens
   appBg:'#1C1C1E',     // app background
@@ -213,13 +213,13 @@ const ESTADO_EVENT_COLOR = {
   'RECONFIRMACION_PENDIENTE':{bg:'rgba(231,111,81,0.15)',fg:'#E76F51',label:'Reconfirmación Pendiente'},
   'RECHAZADO_POR_GUIA':{bg:'rgba(239,68,68,0.15)',fg:'#EF4444',label:'Rechazado por Guía - Reasignar'},
   'CANCELADO': {bg:'rgba(239,68,68,0.12)',  fg:'#EF4444',label:'Cancelado'},
-  'EXPIRADO':  {bg:'rgba(255,255,255,0.06)',fg:'#8A8A8E',label:'Expirado'},
+  'EXPIRADO':  {bg:'rgba(255,255,255,0.06)',fg:'#A8A8AE',label:'Expirado'},
 };
 const ESTADO_INV_COLOR = {
   'PENDIENTE':       {bg:'rgba(233,196,106,0.15)',fg:'#E9C46A'},
   'ACEPTADA':        {bg:'rgba(74,222,128,0.12)', fg:'#4ADE80'},
   'RECHAZADA':       {bg:'rgba(239,68,68,0.15)',  fg:'#EF4444'},
-  'EXPIRADA':        {bg:'rgba(255,255,255,0.06)',fg:'#8A8A8E'},
+  'EXPIRADA':        {bg:'rgba(255,255,255,0.06)',fg:'#A8A8AE'},
   'CANCELADA':       {bg:'rgba(239,68,68,0.15)',  fg:'#EF4444'},
   'TOMADA_POR_OTRO': {bg:'rgba(96,165,250,0.12)', fg:'#60A5FA'},
 };
@@ -284,12 +284,6 @@ async function deleteSelectedEventos(){
   await loadSLAConfig();
   await loadAll();
   if(isAdmin()) checkAlertasAdmin();
-
-  // Auto-refresh every 2 minutes
-  setInterval(async()=>{
-    await loadAll();
-    if(isAdmin()) checkAlertasAdmin();
-  }, 2 * 60 * 1000);
   toast(`🗑️ ${ids.length} evento(s) eliminado(s)`, T.red);
 }
 
@@ -324,7 +318,7 @@ async function handleConfirmarCalendario(token){
   const {data:tok} = await db.from('calendario_tokens').select('*').eq('token',token).single();
   const body = document.getElementById('conf-body');
   if(!tok){ body.innerHTML='<div style="color:#E63946;font-size:18px">❌ Link inválido o expirado.</div>'; return; }
-  if(tok.confirmado){ body.innerHTML='<div style="font-size:40px">✅</div><h3 style="color:#2E7D32">¡Ya confirmado!</h3><p style="color:#A0A0A8">Este calendario ya fue confirmado anteriormente el '+new Date(tok.confirmado_at).toLocaleDateString('es-AR')+'.</p>'; return; }
+  if(tok.confirmado){ body.innerHTML='<div style="font-size:40px">✅</div><h3 style="color:#52B788">¡Ya confirmado!</h3><p style="color:#D0D0D4">Este calendario ya fue confirmado anteriormente el '+new Date(tok.confirmado_at).toLocaleDateString('es-AR')+'.</p>'; return; }
 
   const {data:tr} = await db.from('transportistas').select('*').eq('id',tok.transportista_id).single();
   const {data:eventos} = await db.from('eventos').select('*').gte('fecha',tok.fecha_desde).lte('fecha',tok.fecha_hasta).eq('transportista_id',tok.transportista_id).neq('estado','CANCELADO');
@@ -332,15 +326,15 @@ async function handleConfirmarCalendario(token){
 
   const eventosHtml = (eventos||[]).map(e=>{
     const g=guias?.find(x=>x.id===e.guia_id);
-    return `<tr><td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:13px">${new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'short'})}</td><td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:13px">${e.tipo_evento}</td><td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:13px">${e.hora_inicio}${e.hora_fin?' - '+e.hora_fin:''}</td><td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:13px">${g?g.nombre+' '+g.apellido:'—'}</td></tr>`;
+    return `<tr><td style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.08);font-size:13px">${new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'short'})}</td><td style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.08);font-size:13px">${e.tipo_evento}</td><td style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.08);font-size:13px">${e.hora_inicio}${e.hora_fin?' - '+e.hora_fin:''}</td><td style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.08);font-size:13px">${g?g.nombre+' '+g.apellido:'—'}</td></tr>`;
   }).join('');
 
   body.innerHTML = `
-    <p style="color:#A0A0A8;font-size:15px;margin-bottom:4px">Hola <strong>${tr?.contacto||tr?.nombre||''}</strong>,</p>
-    <p style="color:#A0A0A8;font-size:14px">Estos son los eventos del período <strong>${tok.fecha_desde}</strong> al <strong>${tok.fecha_hasta}</strong>:</p>
+    <p style="color:#D0D0D4;font-size:15px;margin-bottom:4px">Hola <strong>${tr?.contacto||tr?.nombre||''}</strong>,</p>
+    <p style="color:#D0D0D4;font-size:14px">Estos son los eventos del período <strong>${tok.fecha_desde}</strong> al <strong>${tok.fecha_hasta}</strong>:</p>
     <div style="overflow:auto;margin:16px 0;border:1px solid rgba(255,255,255,0.08);border-radius:8px">
       <table style="width:100%;border-collapse:collapse;color:#F0F0F0">
-        <thead><tr style="background:#f9f8f6"><th style="padding:10px 12px;text-align:left;font-size:11px;color:#8A8A8E;text-transform:uppercase">Fecha</th><th style="padding:10px 12px;text-align:left;font-size:11px;color:#8A8A8E;text-transform:uppercase">Tipo</th><th style="padding:10px 12px;text-align:left;font-size:11px;color:#8A8A8E;text-transform:uppercase">Horario</th><th style="padding:10px 12px;text-align:left;font-size:11px;color:#8A8A8E;text-transform:uppercase">Guía</th></tr></thead>
+        <thead><tr style="background:rgba(255,255,255,0.06)"><th style="padding:10px 12px;text-align:left;font-size:11px;color:#C0C0C4;text-transform:uppercase">Fecha</th><th style="padding:10px 12px;text-align:left;font-size:11px;color:#C0C0C4;text-transform:uppercase">Tipo</th><th style="padding:10px 12px;text-align:left;font-size:11px;color:#C0C0C4;text-transform:uppercase">Horario</th><th style="padding:10px 12px;text-align:left;font-size:11px;color:#C0C0C4;text-transform:uppercase">Guía</th></tr></thead>
         <tbody>${eventosHtml}</tbody>
       </table>
     </div>
@@ -356,7 +350,7 @@ async function handleConfirmarCalendario(token){
     for(const e of (eventos||[])){
       await db.from('eventos').update({transportista_confirmado:true,transportista_confirmado_at:new Date().toISOString()}).eq('id',e.id);
     }
-    body.innerHTML='<div style="font-size:60px;margin-bottom:16px">✅</div><h3 style="color:#2E7D32;font-size:22px">¡Confirmado!</h3><p style="color:#A0A0A8;font-size:14px">Gracias '+( tr?.contacto||tr?.nombre||'')+', los '+( eventos?.length||0)+' eventos han sido confirmados.<br/>El equipo de Say Hueque fue notificado.</p>';
+    body.innerHTML='<div style="font-size:60px;margin-bottom:16px">✅</div><h3 style="color:#52B788;font-size:22px">¡Confirmado!</h3><p style="color:#D0D0D4;font-size:14px">Gracias '+( tr?.contacto||tr?.nombre||'')+', los '+( eventos?.length||0)+' eventos han sido confirmados.<br/>El equipo de Say Hueque fue notificado.</p>';
   });
 }
 
@@ -379,8 +373,8 @@ async function checkAlertasAdmin(){
     return `<div style="background:#2C2C2E;border-radius:8px;padding:14px;margin-bottom:10px;border-left:4px solid #EF4444">
       <div style="font-size:13px;font-weight:700;color:#F0F0F0">${guia?guia.nombre+' '+guia.apellido:'Guía'} se bajó del evento</div>
       <div style="font-size:12px;color:#A0A0A8;margin-top:4px">${evento?evento.tipo_evento+' · '+new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'}):'Evento'}</div>
-      <div style="font-size:11px;color:#8A8A8E;margin-top:2px">${a.detalle||''}</div>
-      <div style="font-size:10px;color:#8A8A8E;margin-top:4px">📅 ${fecha}</div>
+      <div style="font-size:11px;color:#A8A8AE;margin-top:2px">${a.detalle||''}</div>
+      <div style="font-size:10px;color:#A8A8AE;margin-top:4px">📅 ${fecha}</div>
     </div>`;
   }).join('');
 
@@ -1584,7 +1578,7 @@ function badge(text,map){ const s=map[text]||{bg:'#eee',fg:'#555'}; return `<spa
 const iStyle = "padding:10px 13px;border-radius:8px;border:1.5px solid rgba(255,255,255,0.1);font-size:13px;color:#F0F0F0;background:#3A3A3C;width:100%;transition:border 0.15s;font-family:'DM Sans',sans-serif;";
 function btnP(color){ return `padding:10px 22px;border-radius:9px;border:none;background:${color};color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;`; }
 const btnS = `padding:10px 20px;border-radius:9px;border:1.5px solid rgba(255,255,255,0.1);background:#3A3A3C;color:#A0A0A8;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;`;
-function fld(label,content,req=false){ return `<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:11px;font-weight:600;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em">${label}${req?`<span style="color:${T.coral}"> *</span>`:''}</label>${content}</div>`; }
+function fld(label,content,req=false){ return `<div style="display:flex;flex-direction:column;gap:4px"><label style="font-size:11px;font-weight:600;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em">${label}${req?`<span style="color:${T.coral}"> *</span>`:''}</label>${content}</div>`; }
 function sec(ico,t,color=T.coral){ return `<div style="font-size:12px;font-weight:700;color:${color};text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;border-bottom:2px solid ${color}30;padding-bottom:6px">${ico} ${t}</div>`; }
 function g2(c){ return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">${c}</div>`; }
 function full(c){ return `<div style="grid-column:1/-1">${c}</div>`; }
@@ -1729,7 +1723,7 @@ function buildResponsePage(token, accion){
   <div style="min-height:100vh;background:linear-gradient(135deg,#1D3A2F,#1A4A35);display:flex;align-items:center;justify-content:center;padding:20px">
     <div id="response-box" style="background:#2C2C2E;border-radius:16px;padding:40px;max-width:440px;width:100%;text-align:center;box-shadow:0 24px 80px rgba(0,0,0,0.2)">
       <div class="spin" style="font-size:32px;color:#E76F51">⟳</div>
-      <div style="font-size:14px;color:#8A8A8E;margin-top:12px">Procesando tu respuesta...</div>
+      <div style="font-size:14px;color:#A8A8AE;margin-top:12px">Procesando tu respuesta...</div>
     </div>
   </div>`;
 }
@@ -1740,14 +1734,14 @@ function buildPasswordResetPage(){
   <div style="min-height:100vh;background:linear-gradient(135deg,#1D3A2F,#1A4A35);display:flex;align-items:center;justify-content:center;padding:20px">
     <div style="background:#2C2C2E;border-radius:16px;padding:40px;max-width:400px;width:100%;box-shadow:0 24px 80px rgba(0,0,0,0.2);animation:fadeIn 0.3s ease">
       <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:#F0F0F0;margin-bottom:6px">Nueva contraseña</div>
-      <div style="font-size:13px;color:#8A8A8E;margin-bottom:24px">Ingresá tu nueva contraseña para acceder</div>
+      <div style="font-size:13px;color:#A8A8AE;margin-bottom:24px">Ingresá tu nueva contraseña para acceder</div>
       <div style="display:flex;flex-direction:column;gap:14px">
         <div>
-          <label style="font-size:11px;font-weight:600;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Nueva contraseña</label>
+          <label style="font-size:11px;font-weight:600;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Nueva contraseña</label>
           <input id="new-pass" type="password" placeholder="Mínimo 6 caracteres" style="${iStyle}"/>
         </div>
         <div>
-          <label style="font-size:11px;font-weight:600;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Confirmar contraseña</label>
+          <label style="font-size:11px;font-weight:600;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Confirmar contraseña</label>
           <input id="new-pass-confirm" type="password" placeholder="Repetí la contraseña" style="${iStyle}"/>
         </div>
         <button id="btn-update-pass" style="${btnP(T.teal)}width:100%;padding:12px;font-size:14px;margin-top:4px">Actualizar contraseña -></button>
@@ -1900,8 +1894,8 @@ function buildRegModal(){
     <div style="background:#2C2C2E;border-radius:16px;width:100%;max-width:420px;padding:36px;animation:slideIn 0.2s ease">
       <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;margin-bottom:20px">Crear usuario</div>
       <div style="display:flex;flex-direction:column;gap:14px">
-        <div><label style="font-size:11px;font-weight:600;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Email</label><input id="reg-email" type="email" style="${iStyle}"/></div>
-        <div><label style="font-size:11px;font-weight:600;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Contraseña</label><input id="reg-pass" type="password" style="${iStyle}"/></div>
+        <div><label style="font-size:11px;font-weight:600;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Email</label><input id="reg-email" type="email" style="${iStyle}"/></div>
+        <div><label style="font-size:11px;font-weight:600;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:5px">Contraseña</label><input id="reg-pass" type="password" style="${iStyle}"/></div>
         <div style="display:flex;gap:10px"><button id="btn-cancel-reg" style="${btnS}flex:1">Cancelar</button><button id="btn-do-register" style="${btnP(T.tealMid)}flex:1">Crear</button></div>
       </div>
     </div>
@@ -2155,32 +2149,32 @@ function buildDashboard(){
           onmouseenter="this.style.background='#1A1A1A';this.style.transform='translateY(-2px)'"
           onmouseleave="this.style.background='#141414';this.style.transform='none'">
           <div style="font-size:28px;font-weight:800;color:${color};letter-spacing:-1px">${val}</div>
-          <div style="font-size:10px;color:#8A8A8E;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-top:4px">${label}</div>
+          <div style="font-size:10px;color:#A8A8AE;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-top:4px">${label}</div>
         </div>`).join('')}
     </div>
 
     <div class="dashboard-cols" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
       <div style="background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px">
-        <div style="font-size:10px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px">Próximos eventos</div>
-        ${proxEventos.length===0?`<div style="font-size:13px;color:#8A8A8E">No hay eventos próximos</div>`:
+        <div style="font-size:10px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px">Próximos eventos</div>
+        ${proxEventos.length===0?`<div style="font-size:13px;color:#A8A8AE">No hay eventos próximos</div>`:
           proxEventos.map(e=>{
             const es=ESTADO_EVENT_COLOR[e.estado]||{};
             const fecha=new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short'});
             return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
               <div style="width:42px;text-align:center;background:rgba(231,111,81,0.1);border-radius:8px;padding:6px 4px;flex-shrink:0">
                 <div style="font-size:14px;font-weight:700;color:#E76F51">${fecha.split(' ')[0]}</div>
-                <div style="font-size:10px;color:#8A8A8E;text-transform:uppercase">${fecha.split(' ')[1]||''}</div>
+                <div style="font-size:10px;color:#A8A8AE;text-transform:uppercase">${fecha.split(' ')[1]||''}</div>
               </div>
               <div style="flex:1">
                 <div style="font-size:13px;font-weight:600;color:#F0F0F0">${esc(e.tipo_evento)}</div>
-                <div style="font-size:11px;color:#8A8A8E">${e.hora_inicio} ${e.prioridad==='URGENTE'?'· <span style="color:'+T.red+';font-weight:600">URGENTE</span>':''}</div>
+                <div style="font-size:11px;color:#A8A8AE">${e.hora_inicio} ${e.prioridad==='URGENTE'?'· <span style="color:'+T.red+';font-weight:600">URGENTE</span>':''}</div>
               </div>
               ${badge(e.estado,ESTADO_EVENT_COLOR)}
             </div>`;
           }).join('')}
       </div>
       <div style="background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px">
-        <div style="font-size:10px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px">Guías disponibles</div>
+        <div style="font-size:10px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px">Guías disponibles</div>
         ${S.guias.filter(g=>g.estado==='ACTIVO').slice(0,6).map(g=>`
           <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
             ${g.foto_url
@@ -2188,7 +2182,7 @@ function buildDashboard(){
               : `<div style="width:32px;height:32px;border-radius:50%;background:rgba(231,111,81,0.12);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#E76F51;flex-shrink:0">${esc(g.nombre[0])}</div>`
             }
             <div style="flex:1"><div style="font-size:13px;font-weight:600;color:${T.dark}">${esc(g.nombre)} ${esc(g.apellido)}</div>
-            ${isAdmin()?`<div style="font-size:11px;color:#8A8A8E">${g.tipo} · $${g.valor_hora}/h</div>`:''}</div>
+            ${isAdmin()?`<div style="font-size:11px;color:#A8A8AE">${g.tipo} · $${g.valor_hora}/h</div>`:''}</div>
             ${isAdmin()?`<span style="font-size:10px;background:${g.tipo==='SENIOR'?T.teal+'20':'#E9C46A30'};color:${g.tipo==='SENIOR'?T.teal:'#856404'};padding:2px 8px;border-radius:10px;font-weight:600">${g.tipo}</span>`:''} 
             ${isAdmin()&&g.categoria?`<span style="font-size:10px;background:#f0f0f0;color:#A0A0A8;padding:2px 8px;border-radius:10px;font-weight:600">${g.categoria}</span>`:''} 
             ${isAdmin()&&g.idiomas?.length?`<span style="font-size:10px;color:#888">${g.idiomas.join(' · ')}</span>`:''} 
@@ -2207,7 +2201,7 @@ function buildDashboard(){
       }).sort((a,b)=>a.fecha.localeCompare(b.fecha));
       if(!pendReconf.length) return '';
       const tieneUrgentes=pendReconf.some(e=>(new Date(e.fecha+'T12:00:00')-hoy)/(1000*60*60)<=48);
-      return '<div style="background:'+(tieneUrgentes?'#FFF5F5':'#FFFDF0')+';border:2px solid '+(tieneUrgentes?'#E63946':'#E9C46A')+';border-radius:12px;padding:20px"><div style="font-size:13px;font-weight:700;color:'+(tieneUrgentes?'#E63946':'#856404')+';margin-bottom:12px">'+(tieneUrgentes?'🔴 ¡Urgente! Necesitás reconfirmar estos eventos':'⏳ Estos eventos necesitan tu reconfirmación')+'</div><div style="display:flex;flex-direction:column;gap:8px">'+pendReconf.map(e=>{const fechaStr=new Date(e.fecha+'T12:00:00').toLocaleDateString("es-AR",{weekday:"short",day:"2-digit",month:"short"});const diffHrs=Math.round((new Date(e.fecha+"T12:00:00")-hoy)/(1000*60*60));const isUrg=diffHrs<=48;const file=S.files.find(f=>f.id===e.file_id);return "<div style='display:flex;align-items:center;gap:10px;background:#2A2A2C;padding:10px 14px;border-radius:8px;border:1px solid "+(isUrg?"#fcd5d5":"#E8E4DD")+"'><div style='flex:1'><div style='font-size:13px;font-weight:600;color:#F0F0F0'>"+esc(e.tipo_evento)+"</div><div style='font-size:11px;color:#8A8A8E'>"+fechaStr+(e.hora_inicio?" · "+String(e.hora_inicio).slice(0,5):"")+(file?" · 📁 "+esc(file.nro_file):"")+"</div></div><div style='font-size:13px;font-weight:700;color:"+(isUrg?"#E63946":"#856404")+"'>"+(diffHrs<24?diffHrs+"hs":Math.floor(diffHrs/24)+"d")+"</div><button onclick='reconfirmarEvento2("+e.id+")' style='padding:6px 12px;border-radius:7px;border:none;background:"+(isUrg?"#E63946":"#2A9D8F")+";color:white;font-size:11px;font-weight:700;cursor:pointer;font-family:DM Sans,sans-serif'>✅ Reconfirmar</button></div>";}).join('')+'</div></div>';
+      return '<div style="background:'+(tieneUrgentes?'#FFF5F5':'#FFFDF0')+';border:2px solid '+(tieneUrgentes?'#E63946':'#E9C46A')+';border-radius:12px;padding:20px"><div style="font-size:13px;font-weight:700;color:'+(tieneUrgentes?'#E63946':'#856404')+';margin-bottom:12px">'+(tieneUrgentes?'🔴 ¡Urgente! Necesitás reconfirmar estos eventos':'⏳ Estos eventos necesitan tu reconfirmación')+'</div><div style="display:flex;flex-direction:column;gap:8px">'+pendReconf.map(e=>{const fechaStr=new Date(e.fecha+'T12:00:00').toLocaleDateString("es-AR",{weekday:"short",day:"2-digit",month:"short"});const diffHrs=Math.round((new Date(e.fecha+"T12:00:00")-hoy)/(1000*60*60));const isUrg=diffHrs<=48;const file=S.files.find(f=>f.id===e.file_id);return "<div style='display:flex;align-items:center;gap:10px;background:#2A2A2C;padding:10px 14px;border-radius:8px;border:1px solid "+(isUrg?"#fcd5d5":"#E8E4DD")+"'><div style='flex:1'><div style='font-size:13px;font-weight:600;color:#F0F0F0'>"+esc(e.tipo_evento)+"</div><div style='font-size:11px;color:#A8A8AE'>"+fechaStr+(e.hora_inicio?" · "+String(e.hora_inicio).slice(0,5):"")+(file?" · 📁 "+esc(file.nro_file):"")+"</div></div><div style='font-size:13px;font-weight:700;color:"+(isUrg?"#E63946":"#856404")+"'>"+(diffHrs<24?diffHrs+"hs":Math.floor(diffHrs/24)+"d")+"</div><button onclick='reconfirmarEvento2("+e.id+")' style='padding:6px 12px;border-radius:7px;border:none;background:"+(isUrg?"#E63946":"#2A9D8F")+";color:white;font-size:11px;font-weight:700;cursor:pointer;font-family:DM Sans,sans-serif'>✅ Reconfirmar</button></div>";}).join('')+'</div></div>';
     })()}
     <div style="background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px">
       <div style="font-size:12px;font-weight:700;color:${T.dark};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:16px">📞 Información Importante · Contactos</div>
@@ -2220,7 +2214,7 @@ function buildDashboard(){
               onmouseenter="this.style.background='#E8F5E9'" onmouseleave="this.style.background='#F9F8F6'">
               <div>
                 <div style="font-size:13px;font-weight:600;color:#F0F0F0">Guardia Tráfico</div>
-                <div style="font-size:11px;color:#8A8A8E;margin-top:2px">+54 9 11 5001-1738</div>
+                <div style="font-size:11px;color:#A8A8AE;margin-top:2px">+54 9 11 5001-1738</div>
               </div>
               <div style="display:flex;align-items:center;gap:6px;background:#25D366;color:white;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
@@ -2231,7 +2225,7 @@ function buildDashboard(){
               onmouseenter="this.style.background='#E8F5E9'" onmouseleave="this.style.background='#F9F8F6'">
               <div>
                 <div style="font-size:13px;font-weight:600;color:#F0F0F0">Guardia DMC & Aliwen</div>
-                <div style="font-size:11px;color:#8A8A8E;margin-top:2px">+54 9 11 6991-7018</div>
+                <div style="font-size:11px;color:#A8A8AE;margin-top:2px">+54 9 11 6991-7018</div>
               </div>
               <div style="display:flex;align-items:center;gap:6px;background:#25D366;color:white;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
@@ -2242,7 +2236,7 @@ function buildDashboard(){
               onmouseenter="this.style.background='#E8F5E9'" onmouseleave="this.style.background='#F9F8F6'">
               <div>
                 <div style="font-size:13px;font-weight:600;color:#F0F0F0">Guardia WEB</div>
-                <div style="font-size:11px;color:#8A8A8E;margin-top:2px">+54 9 11 5720-9905</div>
+                <div style="font-size:11px;color:#A8A8AE;margin-top:2px">+54 9 11 5720-9905</div>
               </div>
               <div style="display:flex;align-items:center;gap:6px;background:#25D366;color:white;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
@@ -2253,7 +2247,7 @@ function buildDashboard(){
               onmouseenter="this.style.background='#E8F5E9'" onmouseleave="this.style.background='#F9F8F6'">
               <div>
                 <div style="font-size:13px;font-weight:600;color:#F0F0F0">Guardia GRUPOS</div>
-                <div style="font-size:11px;color:#8A8A8E;margin-top:2px">+54 9 11 3770-4335</div>
+                <div style="font-size:11px;color:#A8A8AE;margin-top:2px">+54 9 11 3770-4335</div>
               </div>
               <div style="display:flex;align-items:center;gap:6px;background:#25D366;color:white;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
@@ -2268,7 +2262,7 @@ function buildDashboard(){
               onmouseenter="this.style.background='#E8F5E9'" onmouseleave="this.style.background='#F9F8F6'">
               <div>
                 <div style="font-size:13px;font-weight:600;color:#F0F0F0">Toscana Transfers</div>
-                <div style="font-size:11px;color:#8A8A8E;margin-top:2px">+54 9 11 5949-0412</div>
+                <div style="font-size:11px;color:#A8A8AE;margin-top:2px">+54 9 11 5949-0412</div>
               </div>
               <div style="display:flex;align-items:center;gap:6px;background:#25D366;color:white;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
@@ -2279,7 +2273,7 @@ function buildDashboard(){
               onmouseenter="this.style.background='#E8F5E9'" onmouseleave="this.style.background='#F9F8F6'">
               <div>
                 <div style="font-size:13px;font-weight:600;color:#F0F0F0">Knar Transfers</div>
-                <div style="font-size:11px;color:#8A8A8E;margin-top:2px">+54 9 11 6265-6000</div>
+                <div style="font-size:11px;color:#A8A8AE;margin-top:2px">+54 9 11 6265-6000</div>
               </div>
               <div style="display:flex;align-items:center;gap:6px;background:#25D366;color:white;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
@@ -2290,7 +2284,7 @@ function buildDashboard(){
               onmouseenter="this.style.background='#E8F5E9'" onmouseleave="this.style.background='#F9F8F6'">
               <div>
                 <div style="font-size:13px;font-weight:600;color:#F0F0F0">Universal Mobility (Lucas)</div>
-                <div style="font-size:11px;color:#8A8A8E;margin-top:2px">+54 9 11 6804-3333</div>
+                <div style="font-size:11px;color:#A8A8AE;margin-top:2px">+54 9 11 6804-3333</div>
               </div>
               <div style="display:flex;align-items:center;gap:6px;background:#25D366;color:white;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
@@ -2301,7 +2295,7 @@ function buildDashboard(){
               onmouseenter="this.style.background='#E8F5E9'" onmouseleave="this.style.background='#F9F8F6'">
               <div>
                 <div style="font-size:13px;font-weight:600;color:#F0F0F0">TTP Transfers</div>
-                <div style="font-size:11px;color:#8A8A8E;margin-top:2px">+54 9 11 6188-4144</div>
+                <div style="font-size:11px;color:#A8A8AE;margin-top:2px">+54 9 11 6188-4144</div>
               </div>
               <div style="display:flex;align-items:center;gap:6px;background:#25D366;color:white;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
@@ -2342,13 +2336,13 @@ function buildTransportistas(){
       <button data-open="transportista-form" data-entry="" style="${btnS2}background:#E76F51;color:white;border:none">+ Agregar</button>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
-      ${S.transportistas.length===0?`<div style="color:#8A8A8E;font-size:14px">No hay transportistas cargados aún.</div>`:
+      ${S.transportistas.length===0?`<div style="color:#A8A8AE;font-size:14px">No hay transportistas cargados aún.</div>`:
         S.transportistas.map(t=>`
         <div style="background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
             <div>
               <div style="font-size:16px;font-weight:700;color:${T.dark}">${esc(t.nombre)}</div>
-              ${t.contacto?`<div style="font-size:12px;color:#8A8A8E;margin-top:2px">👤 ${esc(t.contacto)}</div>`:''}
+              ${t.contacto?`<div style="font-size:12px;color:#A8A8AE;margin-top:2px">👤 ${esc(t.contacto)}</div>`:''}
             </div>
             <div style="display:flex;gap:6px">
               <button data-open="transportista-form" data-entry="${t.id}" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:#3A3A3C;font-size:11px;cursor:pointer;color:#E76F51;font-weight:600">✏️</button>
@@ -2357,7 +2351,7 @@ function buildTransportistas(){
           </div>
           ${t.email?`<div style="font-size:12px;color:#A0A0A8;margin-bottom:6px">✉️ ${esc(t.email)}</div>`:''}
           ${t.telefono?`<div style="font-size:12px;color:#A0A0A8;margin-bottom:6px">📞 ${esc(t.telefono)}</div>`:''}
-          ${t.notas?`<div style="font-size:11px;color:#8A8A8E;margin-top:8px;padding-top:8px;border-top:1px solid #F5F3EF">${esc(t.notas)}</div>`:''}
+          ${t.notas?`<div style="font-size:11px;color:#A8A8AE;margin-top:8px;padding-top:8px;border-top:1px solid #F5F3EF">${esc(t.notas)}</div>`:''}
           <button data-enviar-calendario="${t.id}" style="margin-top:12px;width:100%;padding:8px;border-radius:8px;border:none;background:#E76F51;color:white;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">📅 Enviar calendario</button>
         </div>`).join('')}
     </div>
@@ -2465,8 +2459,8 @@ function buildGuias(){
         <input id="search-guia" type="text" value="${esc(S.searchGuia||'')}" placeholder="Buscar por nombre, email, idioma..." style="padding:8px 12px 8px 32px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;width:100%;color:#F0F0F0;background:#3A3A3C"
           oninput="(()=>{S.searchGuia=this.value;const grid=document.getElementById('guias-grid');if(!grid)return;const q=this.value.toLowerCase().trim();[...grid.children].forEach(el=>{const txt=(el.dataset.searchText||'').toLowerCase();el.style.display=(!q||txt.includes(q))?'':'none';});document.getElementById('guias-count').textContent=(q?[...grid.children].filter(el=>el.style.display!=='none').length:${S.guias.length})+' guía(s)';})()"/>
       </div>
-      ${(S.searchGuia||'')?`<button id="clear-search-guia" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#3A3A3C;font-size:12px;color:#8A8A8E;cursor:pointer;font-family:'DM Sans',sans-serif">✕ Limpiar</button>`:''}
-      <div id="guias-count" style="margin-left:auto;font-size:12px;color:#8A8A8E">${guiasFiltrados.length} guía(s)</div>
+      ${(S.searchGuia||'')?`<button id="clear-search-guia" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#3A3A3C;font-size:12px;color:#A8A8AE;cursor:pointer;font-family:'DM Sans',sans-serif">✕ Limpiar</button>`:''}
+      <div id="guias-count" style="margin-left:auto;font-size:12px;color:#A8A8AE">${guiasFiltrados.length} guía(s)</div>
     </div>
     <div id="guias-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
       ${guiasFiltrados.map(g=>{
@@ -2487,9 +2481,9 @@ function buildGuias(){
             </div>
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-            <div style="font-size:12px;color:#8A8A8E">✉️ <a href="mailto:${esc(g.email)}" style="color:${T.tealMid};text-decoration:none">${esc(g.email)}</a></div>
-            ${g.telefono?`<div style="font-size:12px;color:#8A8A8E">📱 ${esc(g.telefono)}</div>`:''}
-            ${isAdmin()?`<div style="font-size:12px;color:#8A8A8E">💰 $${g.valor_hora}/hora · ${eventosGuia} evento(s) confirmado(s)</div>`:`<div style="font-size:12px;color:#8A8A8E">${eventosGuia} evento(s) confirmado(s)</div>`}
+            <div style="font-size:12px;color:#A8A8AE">✉️ <a href="mailto:${esc(g.email)}" style="color:${T.tealMid};text-decoration:none">${esc(g.email)}</a></div>
+            ${g.telefono?`<div style="font-size:12px;color:#A8A8AE">📱 ${esc(g.telefono)}</div>`:''}
+            ${isAdmin()?`<div style="font-size:12px;color:#A8A8AE">💰 $${g.valor_hora}/hora · ${eventosGuia} evento(s) confirmado(s)</div>`:`<div style="font-size:12px;color:#A8A8AE">${eventosGuia} evento(s) confirmado(s)</div>`}
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button data-ver-calendario="${g.id}" style="flex:1;padding:7px;border-radius:7px;border:1px solid rgba(255,255,255,0.08);background:#3A3A3C;font-size:12px;cursor:pointer;color:#A0A0A8;font-weight:600;font-family:'DM Sans',sans-serif">📅 Calendario</button>
@@ -2499,7 +2493,7 @@ function buildGuias(){
           </div>
         </div>`;
       }).join('')}
-      ${guiasFiltrados.length===0?`<div style="grid-column:1/-1;text-align:center;padding:40px;color:#8A8A8E"><div style="font-size:32px;margin-bottom:12px">🔍</div><div style="font-size:14px">Sin resultados para "${esc(S.searchGuia||'')}"</div></div>`:''}
+      ${guiasFiltrados.length===0?`<div style="grid-column:1/-1;text-align:center;padding:40px;color:#A8A8AE"><div style="font-size:32px;margin-bottom:12px">🔍</div><div style="font-size:14px">Sin resultados para "${esc(S.searchGuia||'')}"</div></div>`:''}
     </div>
   </div>`;
 }
@@ -2525,7 +2519,7 @@ function renderEventosTable(){
   if(clearBtn) clearBtn.style.display = searchFile ? 'inline-block' : 'none';
 
   if(filtered.length===0){
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:#8A8A8E">Sin eventos</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:#A8A8AE">Sin eventos</td></tr>`;
     return;
   }
   tbody.innerHTML = filtered.map(e=>{
@@ -2569,7 +2563,7 @@ function buildViajes(){
     return `
       <div style="padding:24px">
         ${buildViajesBuscador()}
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:340px;color:#8A8A8E">
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:340px;color:#A8A8AE">
           <div style="font-size:48px;margin-bottom:16px">📁</div>
           <div style="font-size:16px;font-weight:600;margin-bottom:8px">${isAdmin()?'No hay viajes creados':'No tenés viajes asignados'}</div>
           <div style="font-size:13px;margin-bottom:20px">${isAdmin()?'Creá tu primer viaje para empezar':'Cuando te asignen a un evento aparecerá acá'}</div>
@@ -2582,7 +2576,7 @@ function buildViajes(){
     return `
       <div style="padding:24px">
         ${buildViajesBuscador()}
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:340px;color:#8A8A8E">
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:340px;color:#A8A8AE">
           <div style="font-size:32px;margin-bottom:12px">🔍</div>
           <div style="font-size:15px;font-weight:600">Sin resultados para "${esc(S.searchViaje||'')}"</div>
           <button onclick="set({searchViaje:''})" style="margin-top:14px;padding:8px 18px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#3A3A3C;font-size:13px;cursor:pointer;color:#A0A0A8">Limpiar búsqueda</button>
@@ -2626,7 +2620,7 @@ function buildViajes(){
             `:''}
             
             ${eventos.length===0?`
-              <div style="text-align:center;color:#8A8A8E;padding:40px 20px">
+              <div style="text-align:center;color:#A8A8AE;padding:40px 20px">
                 <div style="font-size:32px;margin-bottom:12px">📅</div>
                 <div style="font-size:14px">No hay eventos en este viaje</div>
               </div>
@@ -2655,7 +2649,7 @@ function buildViajes(){
                   
                   ${guia?`<div style="font-size:12px;color:#A0A0A8;margin-top:6px">👤 Guía: ${esc(guia.nombre+' '+guia.apellido)}</div>`:''}
                   ${(()=>{ const tr=S.transportistas.find(t=>t.id===e.transportista_id); return tr?`<div style="font-size:12px;color:#A0A0A8;margin-top:4px">🚐 Transportista: ${esc(tr.nombre)}</div>`:''; })()}
-                  ${e.descripcion?`<div style="font-size:12px;color:#8A8A8E;margin-top:6px;font-style:italic">${esc(e.descripcion)}</div>`:''}
+                  ${e.descripcion?`<div style="font-size:12px;color:#A8A8AE;margin-top:6px;font-style:italic">${esc(e.descripcion)}</div>`:''}
                   ${e.pickup_location?`<div style="font-size:12px;color:#A0A0A8;margin-top:4px">📍 Pick Up: <strong>${esc(e.pickup_location)}</strong></div>`:''}
                   ${e.dropoff_location?`<div style="font-size:12px;color:#A0A0A8;margin-top:2px">📍 Drop Off: <strong>${esc(e.dropoff_location)}</strong></div>`:''}
                   ${e.datos_vuelos?`<div style="font-size:12px;color:#457B9D;margin-top:4px;font-weight:600">✈️ Vuelos: ${esc(e.datos_vuelos)}</div>`:''}
@@ -2667,7 +2661,7 @@ function buildViajes(){
                     return `
                       ${invs.length>0?`
                         <div style="margin-top:10px;padding-top:10px;border-top:1px solid #E8E4DD">
-                          <div style="font-size:11px;font-weight:700;color:#8A8A8E;margin-bottom:6px">📨 INVITACIONES (${invs.length})</div>
+                          <div style="font-size:11px;font-weight:700;color:#A8A8AE;margin-bottom:6px">📨 INVITACIONES (${invs.length})</div>
                           ${invs.map(inv=>{
                             const g=S.guias.find(x=>x.id===inv.guia_id);
                             const estadoColors = {
@@ -2733,7 +2727,7 @@ function buildViajesBuscador(){
         <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none">🔍</span>
         <input id="search-viaje" type="text" value="${esc(S.searchViaje||'')}" placeholder="Buscar por file, operador, DH/GR..." style="padding:8px 12px 8px 32px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;width:100%;color:#F0F0F0;background:#3A3A3C"/>
       </div>
-      ${(S.searchViaje||'')?`<button id="clear-search-viaje" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#3A3A3C;font-size:12px;color:#8A8A8E;cursor:pointer;font-family:'DM Sans',sans-serif">✕ Limpiar</button>`:''}
+      ${(S.searchViaje||'')?`<button id="clear-search-viaje" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#3A3A3C;font-size:12px;color:#A8A8AE;cursor:pointer;font-family:'DM Sans',sans-serif">✕ Limpiar</button>`:''}
     </div>`;
 }
 
@@ -2749,12 +2743,12 @@ function buildEventos(){
   <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
       <div style="position:relative">
-        <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#8A8A8E;font-size:13px">🔍</span>
+        <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#A8A8AE;font-size:13px">🔍</span>
         <input id="search-file" value="${S.searchFile||''}" placeholder="Buscar Nro File o tipo..." style="padding:8px 12px 8px 30px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#3A3A3C;color:#F0F0F0;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;width:220px"/>
       </div>
       <button onclick="set({searchFile:document.getElementById('search-file').value})" style="padding:6px 14px;border-radius:8px;border:none;background:#E76F51;color:white;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">🔍 Buscar</button>
-      <button onclick="set({searchFile:''})" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#3A3A3C;font-size:12px;cursor:pointer;color:#8A8A8E;font-family:'DM Sans',sans-serif;display:${searchFile?'inline-block':'none'}">✕ Limpiar</button>
-      <span id="eventos-counter" style="font-size:12px;color:#8A8A8E;margin-left:auto">${filtered.length} evento(s)</span>
+      <button onclick="set({searchFile:''})" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#3A3A3C;font-size:12px;cursor:pointer;color:#A8A8AE;font-family:'DM Sans',sans-serif;display:${searchFile?'inline-block':'none'}">✕ Limpiar</button>
+      <span id="eventos-counter" style="font-size:12px;color:#A8A8AE;margin-left:auto">${filtered.length} evento(s)</span>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       ${[['ACTIVOS','Activos'],['','Todos'],['A_ASIGNAR','A asignar'],['CONFIRMADO','Confirmado'],['CANCELADO','Cancelado'],['EXPIRADO','Expirado']].map(([s,label])=>
@@ -2770,7 +2764,7 @@ function buildEventos(){
           </tr>
         </thead>
         <tbody id="eventos-tbody">
-          ${filtered.length===0?`<tr><td colspan="8" style="text-align:center;padding:40px;color:#8A8A8E">Sin eventos</td></tr>`:
+          ${filtered.length===0?`<tr><td colspan="8" style="text-align:center;padding:40px;color:#A8A8AE">Sin eventos</td></tr>`:
             filtered.map(e=>{
               const open=S.expandedEventId===e.id;
               const guia=S.guias.find(g=>g.id===e.guia_id);
@@ -2780,15 +2774,15 @@ function buildEventos(){
               return `
               <tr data-toggle-evento="${e.id}" style="border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer" onmouseenter="this.style.background='#F9F8F6'" onmouseleave="this.style.background='white'">
                 <td style="padding:10px 14px;width:28px" onclick="event.stopPropagation()">
-                  ${isAdmin()?`<input type="checkbox" data-select-evento="${e.id}" ${(S.selectedEventos||[]).includes(e.id)?'checked':''} style="cursor:pointer;width:14px;height:14px" onclick="event.stopPropagation()" />`:`<span style="font-size:10px;color:#8A8A8E">${open?'▼':'▶'}</span>` }
+                  ${isAdmin()?`<input type="checkbox" data-select-evento="${e.id}" ${(S.selectedEventos||[]).includes(e.id)?'checked':''} style="cursor:pointer;width:14px;height:14px" onclick="event.stopPropagation()" />`:`<span style="font-size:10px;color:#A8A8AE">${open?'▼':'▶'}</span>` }
                 </td>
                 <td style="padding:10px 14px;font-size:13px">
                   <div style="font-weight:600;color:${T.dark}">${esc(e.tipo_evento)}</div>
-                  ${e.nro_file?`<div style="font-size:10px;color:#8A8A8E;margin-top:2px">📁 ${esc(e.nro_file)}</div>`:''}
+                  ${e.nro_file?`<div style="font-size:10px;color:#A8A8AE;margin-top:2px">📁 ${esc(e.nro_file)}</div>`:''}
                   ${e.feedback_texto||e.feedback_foto_url?`<div onclick="abrirFeedback(${e.id})" style="font-size:10px;color:#2E7D32;margin-top:2px;font-weight:600;cursor:pointer;text-decoration:underline">📝 Feedback cargado</div>`:''}
                 </td>
-                <td style="padding:10px 14px;font-size:12px;color:#8A8A8E;white-space:nowrap">${fecha}</td>
-                <td style="padding:10px 14px;font-size:12px;color:#8A8A8E;white-space:nowrap">${e.hora_inicio}${e.hora_fin?' - '+e.hora_fin:''}</td>
+                <td style="padding:10px 14px;font-size:12px;color:#A8A8AE;white-space:nowrap">${fecha}</td>
+                <td style="padding:10px 14px;font-size:12px;color:#A8A8AE;white-space:nowrap">${e.hora_inicio}${e.hora_fin?' - '+e.hora_fin:''}</td>
                 <td style="padding:10px 14px"><span style="font-size:11px;font-weight:700;color:${e.prioridad==='URGENTE'?T.red:T.teal}">${e.prioridad}</span></td>
                 <td style="padding:10px 14px">
                   <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
@@ -2817,10 +2811,10 @@ function buildEventos(){
                 <td colspan="8" style="padding:18px 24px">
                   <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
                     <div>
-                      ${e.nro_file?`<div style="margin-bottom:14px"><div style="font-size:10px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">📁 Nro File / TourPlan</div><div style="font-size:13px;color:${T.dark};font-weight:600">${esc(e.nro_file)}</div></div>`:''}
-                      ${e.descripcion?`<div style="margin-bottom:14px"><div style="font-size:10px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Descripción</div><div style="font-size:13px;color:${T.dark};line-height:1.5">${esc(e.descripcion)}</div></div>`:''}
-                      ${e.link_adjunto?`<div><div style="font-size:10px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Adjunto</div><a href="${esc(e.link_adjunto)}" target="_blank" style="font-size:12px;color:#E76F51">🔗 Ver adjunto</a></div>`:''}
-                      ${(()=>{const tr=S.transportistas.find(t=>t.id===e.transportista_id);return tr?`<div style="margin-top:8px"><div style="font-size:10px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">🚐 Transportista</div><div style="font-size:13px;color:${T.dark};font-weight:600">${esc(tr.nombre)}</div><div style="font-size:11px;margin-top:4px">${e.transportista_confirmado?'<span style="color:#2E7D32;font-weight:700">✅ Confirmado por transportista</span>':'<span style="color:#8A8A8E">⏳ Pendiente de confirmación</span>'}</div></div>`:'';})()}
+                      ${e.nro_file?`<div style="margin-bottom:14px"><div style="font-size:10px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">📁 Nro File / TourPlan</div><div style="font-size:13px;color:${T.dark};font-weight:600">${esc(e.nro_file)}</div></div>`:''}
+                      ${e.descripcion?`<div style="margin-bottom:14px"><div style="font-size:10px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Descripción</div><div style="font-size:13px;color:${T.dark};line-height:1.5">${esc(e.descripcion)}</div></div>`:''}
+                      ${e.link_adjunto?`<div><div style="font-size:10px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Adjunto</div><a href="${esc(e.link_adjunto)}" target="_blank" style="font-size:12px;color:#E76F51">🔗 Ver adjunto</a></div>`:''}
+                      ${(()=>{const tr=S.transportistas.find(t=>t.id===e.transportista_id);return tr?`<div style="margin-top:8px"><div style="font-size:10px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">🚐 Transportista</div><div style="font-size:13px;color:${T.dark};font-weight:600">${esc(tr.nombre)}</div><div style="font-size:11px;margin-top:4px">${e.transportista_confirmado?'<span style="color:#2E7D32;font-weight:700">✅ Confirmado por transportista</span>':'<span style="color:#A8A8AE">⏳ Pendiente de confirmación</span>'}</div></div>`:'';})()}
                       <div style="margin-top:8px">
                         <a href="${buildGCalUrl(e)}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;background:#4285F4;color:white;font-size:12px;font-weight:600;text-decoration:none;font-family:'DM Sans',sans-serif">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
@@ -2829,13 +2823,13 @@ function buildEventos(){
                       </div>
                     </div>
                     <div>
-                      <div style="font-size:10px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Invitaciones (${invs.length})</div>
-                      ${invs.length===0?`<div style="font-size:12px;color:#8A8A8E">Sin invitaciones enviadas</div>`:
+                      <div style="font-size:10px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Invitaciones (${invs.length})</div>
+                      ${invs.length===0?`<div style="font-size:12px;color:#A8A8AE">Sin invitaciones enviadas</div>`:
                         invs.map(inv=>{
                           const g=S.guias.find(x=>x.id===inv.guia_id);
                           return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
                             <div style="flex:1"><div style="font-size:12px;font-weight:600;color:${T.dark}">${g?esc(g.nombre+' '+g.apellido):'Desconocido'}</div>
-                            <div style="font-size:10px;color:#8A8A8E">Expira: ${new Date(inv.expira_at).toLocaleString('es-AR')}</div></div>
+                            <div style="font-size:10px;color:#A8A8AE">Expira: ${new Date(inv.expira_at).toLocaleString('es-AR')}</div></div>
                             ${badge(inv.estado,ESTADO_INV_COLOR)}
                             ${inv.estado==='PENDIENTE'?`<button data-cancelar-inv="${inv.id}" style="padding:3px 8px;border-radius:5px;border:1px solid #fcd5d5;background:#3A3A3C5f5;font-size:10px;cursor:pointer;color:${T.red};font-weight:600;font-family:'DM Sans',sans-serif">Cancelar</button>`:''}
                           </div>`;
@@ -2912,8 +2906,8 @@ function buildCalendario(){
   const toolbar = `
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px">
       <div style="display:flex;border:1px solid rgba(255,255,255,0.08);border-radius:8px;overflow:hidden">
-        <button id="cal-view-mensual" style="padding:7px 18px;border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;background:${S.calView==='mensual'?'#1B6B74':'white'};color:${S.calView==='mensual'?'white':'#9E9A93'}">📅 Mensual</button>
-        <button id="cal-view-agenda" style="padding:7px 18px;border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;background:${S.calView==='agenda'?'#1B6B74':'white'};color:${S.calView==='agenda'?'white':'#9E9A93'}">📋 Agenda</button>
+        <button id="cal-view-mensual" style="padding:7px 18px;border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;background:${S.calView==='mensual'?'#1B6B74':'white'};color:${S.calView==='mensual'?'white':'#555555'}">📅 Mensual</button>
+        <button id="cal-view-agenda" style="padding:7px 18px;border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;background:${S.calView==='agenda'?'#1B6B74':'white'};color:${S.calView==='agenda'?'white':'#555555'}">📋 Agenda</button>
       </div>
       ${!isAdm && S.myGuia ? `
         <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
@@ -2938,7 +2932,7 @@ function buildCalendario(){
         <div style="position:relative">
           <input id="cal-filtro-file" type="text" value="${esc(S.calFiltroFile||'')}" placeholder="🔍 Buscar file..." style="padding:7px 12px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:13px;color:#F0F0F0;background:#3A3A3C;font-family:'DM Sans',sans-serif;width:160px"/>
         </div>
-        ${(filtroGuia||filtroFile)?`<button id="cal-clear-filtros" style="padding:7px 12px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:12px;color:#8A8A8E;background:#3A3A3C;cursor:pointer;font-family:'DM Sans',sans-serif">✕ Limpiar</button>`:''}
+        ${(filtroGuia||filtroFile)?`<button id="cal-clear-filtros" style="padding:7px 12px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:12px;color:#A8A8AE;background:#3A3A3C;cursor:pointer;font-family:'DM Sans',sans-serif">✕ Limpiar</button>`:''}
         <button id="btn-descargar-agenda" style="padding:7px 14px;border:1.5px solid #1B6B74;border-radius:8px;font-size:12px;font-weight:700;color:#1B6B74;background:#3A3A3C;cursor:pointer;font-family:'DM Sans',sans-serif;display:inline-flex;align-items:center;gap:6px">📥 Descargar agenda</button>
       ` : ''}
       ${!isAdm ? `
@@ -2971,7 +2965,7 @@ function buildCalendario(){
         <button id="cal-next" style="${btnS}padding:6px 14px">›</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:8px">
-        ${['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(d=>`<div style="text-align:center;font-size:11px;font-weight:700;color:#8A8A8E;padding:6px 0">${d}</div>`).join('')}
+        ${['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(d=>`<div style="text-align:center;font-size:11px;font-weight:700;color:#A8A8AE;padding:6px 0">${d}</div>`).join('')}
       </div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">
         ${cells.map(d=>{
@@ -2984,7 +2978,7 @@ function buildCalendario(){
           <div style="min-height:72px;border-radius:8px;padding:6px;background:${isToday?'rgba(231,111,81,0.12)':nota?'rgba(233,196,106,0.08)':'#1A1A1A'};border:1px solid ${isToday?'#E76F51':nota?'rgba(233,196,106,0.4)':'rgba(255,255,255,0.06)'}" ${isAdm?`data-nota-date="${dateStr}" title="${nota?nota:'Clic para agregar nota'}"`:''}>
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
               <div style="font-size:12px;font-weight:${isToday?700:500};color:${isToday?'#E76F51':'#9CA3AF'}">${d}</div>
-              ${isAdm?`<button data-add-nota="${dateStr}" style="opacity:0;font-size:10px;background:none;border:none;cursor:pointer;color:#8A8A8E;padding:0 2px;line-height:1" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0'">✏️</button>`:''}
+              ${isAdm?`<button data-add-nota="${dateStr}" style="opacity:0;font-size:10px;background:none;border:none;cursor:pointer;color:#A8A8AE;padding:0 2px;line-height:1" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0'">✏️</button>`:''}
             </div>
             ${nota?`<div style="font-size:9px;color:#D97706;background:#1F1A0D;border-radius:3px;padding:2px 4px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%" title="${esc(nota)}">${esc(nota)}</div>`:``}
             ${dayEvents.slice(0,3).map(e=>{
@@ -2995,13 +2989,13 @@ function buildCalendario(){
               const tipData=JSON.stringify({tipo:e.tipo_evento,file:e.nro_file||'',horario:e.hora_inicio?(e.hora_inicio+(e.hora_fin?' → '+e.hora_fin:'')):'',guia:(isAdm&&guia)?(guia.nombre+' '+guia.apellido):'',transportista:tr?tr.nombre:'',descripcion:e.descripcion?e.descripcion.slice(0,80):'',estado:e.estado}).replace(/"/g,'&quot;');
               return `<div style="font-size:10px;background:${color};color:white;border-radius:4px;padding:2px 5px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer" data-toggle-evento="${e.id}" data-cal-tip="${tipData}" onclick="event.stopPropagation()">${label}</div>`;
             }).join('')}
-            ${dayEvents.length>3?`<div style="font-size:9px;color:#8A8A8E">+${dayEvents.length-3} más</div>`:''}
+            ${dayEvents.length>3?`<div style="font-size:9px;color:#A8A8AE">+${dayEvents.length-3} más</div>`:''}
           </div>`;
         }).join('')}
       </div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding:12px 16px;background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;align-items:center">
-      <span style="font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.5px;margin-right:4px">Referencias:</span>
+      <span style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.5px;margin-right:4px">Referencias:</span>
       <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#A0A0A8"><span style="width:12px;height:12px;border-radius:3px;background:#52B788;display:inline-block"></span>Confirmado</span>
       <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#A0A0A8"><span style="width:12px;height:12px;border-radius:3px;background:#E9C46A;display:inline-block"></span>A asignar / Regular</span>
       <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#A0A0A8"><span style="width:12px;height:12px;border-radius:3px;background:#E63946;display:inline-block"></span>Urgente</span>
@@ -3050,7 +3044,7 @@ function buildCalendarioAgenda(toolbar, eventosFilter){
     const isToday = d.toDateString()===today;
     const count = eventosPorFecha[ds]?.length||0;
     return `<div style="flex:1;text-align:center;padding:10px 4px 8px;border-left:1px solid #E8E4DD">
-      <div style="font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase">${d.toLocaleDateString('es-AR',{weekday:'short'})}</div>
+      <div style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase">${d.toLocaleDateString('es-AR',{weekday:'short'})}</div>
       <div style="font-size:20px;font-weight:700;color:${isToday?'#E76F51':'#9CA3AF'};width:34px;height:34px;border-radius:50%;background:${isToday?T.teal+'18':'transparent'};display:flex;align-items:center;justify-content:center;margin:4px auto 0">${d.getDate()}</div>
       ${count?`<div style="font-size:10px;color:#E76F51;font-weight:600;margin-top:2px">${count} evento${count>1?'s':''}</div>`:''}
     </div>`;
@@ -3133,7 +3127,7 @@ function buildCalendarioAgenda(toolbar, eventosFilter){
       </div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding:12px 16px;background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;align-items:center">
-      <span style="font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.5px;margin-right:4px">Referencias:</span>
+      <span style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.5px;margin-right:4px">Referencias:</span>
       <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#A0A0A8"><span style="width:12px;height:12px;border-radius:3px;background:#52B788;display:inline-block"></span>Confirmado</span>
       <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#A0A0A8"><span style="width:12px;height:12px;border-radius:3px;background:#E9C46A;display:inline-block"></span>A asignar / Regular</span>
       <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#A0A0A8"><span style="width:12px;height:12px;border-radius:3px;background:#E63946;display:inline-block"></span>Urgente</span>
@@ -3169,7 +3163,7 @@ function buildDisponibilidad(){
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap">
         <div>
           <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:#F0F0F0">Mi disponibilidad</div>
-          <div style="font-size:13px;color:#8A8A8E;margin-top:4px">Toca uno o varios dias para bloquearlos. Confirma al final.</div>
+          <div style="font-size:13px;color:#A8A8AE;margin-top:4px">Toca uno o varios dias para bloquearlos. Confirma al final.</div>
         </div>
         ${haySeleccion ? `
         <div style="display:flex;gap:8px;align-items:center">
@@ -3184,7 +3178,7 @@ function buildDisponibilidad(){
         <button id="cal-next" style="padding:6px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#3A3A3C;cursor:pointer;font-family:'DM Sans',sans-serif">›</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:8px">
-        ${['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(d=>`<div style="text-align:center;font-size:11px;font-weight:700;color:#8A8A8E;padding:6px 0">${d}</div>`).join('')}
+        ${['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(d=>`<div style="text-align:center;font-size:11px;font-weight:700;color:#A8A8AE;padding:6px 0">${d}</div>`).join('')}
       </div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">
         ${cells.map(d=>{
@@ -3216,7 +3210,7 @@ function buildDisponibilidad(){
             +'</div>';
         }).join('')}
       </div>
-      <div style="display:flex;gap:16px;margin-top:16px;font-size:12px;color:#8A8A8E;flex-wrap:wrap">
+      <div style="display:flex;gap:16px;margin-top:16px;font-size:12px;color:#A8A8AE;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:3px;background:#fcd5d5;border:1px solid #E63946"></div>Bloqueado</div>
         <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:3px;background:#3A3A3C3cd;border:1px solid #E9C46A"></div>Seleccionado</div>
         <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:3px;background:#2C2C2E;border:1px solid rgba(255,255,255,0.08)"></div>Disponible</div>
@@ -3340,7 +3334,7 @@ function buildMobileInicio(){
       }).sort((a,b)=>a.fecha.localeCompare(b.fecha));
       if(!pendReconf.length) return '';
       const tieneUrg=pendReconf.some(e=>(new Date(e.fecha+'T12:00:00')-hoy2)/(1000*60*60)<=48);
-      return '<div style="background:'+(tieneUrg?'#FFF5F5':'#FFFDF0')+';border-radius:14px;padding:16px;border:2px solid '+(tieneUrg?'#E63946':'#E9C46A')+'"><div style="font-size:13px;font-weight:700;color:'+(tieneUrg?'#E63946':'#856404')+';margin-bottom:10px">'+(tieneUrg?'🔴 Reconfirmación urgente':'⏳ Reconfirmar eventos')+'</div>'+pendReconf.map(e=>{const dh=Math.round((new Date(e.fecha+"T12:00:00")-hoy2)/(1000*60*60));const isU=dh<=48;const file=S.files.find(f=>f.id===e.file_id);return "<div style='display:flex;align-items:center;gap:10px;background:#3A3A3C;padding:10px;border-radius:8px;margin-bottom:8px'><div style='flex:1'><div style='font-size:13px;font-weight:600;color:#F0F0F0'>"+esc(e.tipo_evento)+"</div><div style='font-size:11px;color:#8A8A8E'>"+(file?'📁 '+esc(file.nro_file)+' · ':'')+new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short'})+"</div></div><button onclick='reconfirmarEvento2("+e.id+")' style='padding:8px 12px;border-radius:8px;border:none;background:"+(isU?'#E63946':'#2A9D8F')+";color:white;font-size:12px;font-weight:700;cursor:pointer'>✅ Reconf.</button></div>";}).join('')+'</div>';
+      return '<div style="background:'+(tieneUrg?'#FFF5F5':'#FFFDF0')+';border-radius:14px;padding:16px;border:2px solid '+(tieneUrg?'#E63946':'#E9C46A')+'"><div style="font-size:13px;font-weight:700;color:'+(tieneUrg?'#E63946':'#856404')+';margin-bottom:10px">'+(tieneUrg?'🔴 Reconfirmación urgente':'⏳ Reconfirmar eventos')+'</div>'+pendReconf.map(e=>{const dh=Math.round((new Date(e.fecha+"T12:00:00")-hoy2)/(1000*60*60));const isU=dh<=48;const file=S.files.find(f=>f.id===e.file_id);return "<div style='display:flex;align-items:center;gap:10px;background:#3A3A3C;padding:10px;border-radius:8px;margin-bottom:8px'><div style='flex:1'><div style='font-size:13px;font-weight:600;color:#F0F0F0'>"+esc(e.tipo_evento)+"</div><div style='font-size:11px;color:#A8A8AE'>"+(file?'📁 '+esc(file.nro_file)+' · ':'')+new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short'})+"</div></div><button onclick='reconfirmarEvento2("+e.id+")' style='padding:8px 12px;border-radius:8px;border:none;background:"+(isU?'#E63946':'#2A9D8F')+";color:white;font-size:12px;font-weight:700;cursor:pointer'>✅ Reconf.</button></div>";}).join('')+'</div>';
     })()}
 
     <div style="background:#2A2A2C;border-radius:14px;padding:16px;border:1px solid rgba(255,255,255,0.08)">
@@ -3354,20 +3348,20 @@ function buildMobileInicio(){
           </div>
           <div style="flex:1;min-width:0">
             <div style="font-size:14px;font-weight:600;color:#F0F0F0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.tipo_evento)}${e.nro_file?' · '+esc(e.nro_file):''}</div>
-            <div style="font-size:12px;color:#8A8A8E;margin-top:2px">${fecha}${e.hora_inicio?' · '+e.hora_inicio.slice(0,5):''}</div>
+            <div style="font-size:12px;color:#A8A8AE;margin-top:2px">${fecha}${e.hora_inicio?' · '+e.hora_inicio.slice(0,5):''}</div>
           </div>
-          <div style="color:#8A8A8E;font-size:16px">›</div>
+          <div style="color:#A8A8AE;font-size:16px">›</div>
         </div>`;
-      }).join('') : '<div style="font-size:13px;color:#8A8A8E;text-align:center;padding:16px 0">No hay eventos proximos</div>'}
+      }).join('') : '<div style="font-size:13px;color:#A8A8AE;text-align:center;padding:16px 0">No hay eventos proximos</div>'}
     </div>
 
     <!-- Contactos de emergencia -->
     <div style="background:#2A2A2C;border-radius:14px;padding:16px;border:1px solid rgba(255,255,255,0.08)">
       <div style="font-size:13px;font-weight:700;color:#F0F0F0;margin-bottom:10px">📞 Contactos</div>
-      <div style="font-size:10px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">🚦 Guardias</div>
-      <a href="https://wa.me/5491150011738" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#2C2C2E;border-radius:8px;text-decoration:none;margin-bottom:6px"><div><div style="font-size:12px;font-weight:600;color:#F0F0F0">Guardia Tráfico</div><div style="font-size:11px;color:#8A8A8E">+54 9 11 5001-1738</div></div><div style="background:#25D366;color:white;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700">WA</div></a><a href="https://wa.me/5491169917018" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#2C2C2E;border-radius:8px;text-decoration:none;margin-bottom:6px"><div><div style="font-size:12px;font-weight:600;color:#F0F0F0">DMC & Aliwen</div><div style="font-size:11px;color:#8A8A8E">+54 9 11 6991-7018</div></div><div style="background:#25D366;color:white;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700">WA</div></a><a href="https://wa.me/5491157209905" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#2C2C2E;border-radius:8px;text-decoration:none;margin-bottom:6px"><div><div style="font-size:12px;font-weight:600;color:#F0F0F0">Guardia WEB</div><div style="font-size:11px;color:#8A8A8E">+54 9 11 5720-9905</div></div><div style="background:#25D366;color:white;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700">WA</div></a><a href="https://wa.me/5491137704335" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#2C2C2E;border-radius:8px;text-decoration:none;margin-bottom:6px"><div><div style="font-size:12px;font-weight:600;color:#F0F0F0">Guardia GRUPOS</div><div style="font-size:11px;color:#8A8A8E">+54 9 11 3770-4335</div></div><div style="background:#25D366;color:white;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700">WA</div></a>
-      <div style="font-size:10px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;margin-top:10px">🚐 Transportistas</div>
-      <a href="https://wa.me/5491159490412" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#2C2C2E;border-radius:8px;text-decoration:none;margin-bottom:6px"><div><div style="font-size:12px;font-weight:600;color:#F0F0F0">Toscana</div><div style="font-size:11px;color:#8A8A8E">+54 9 11 5949-0412</div></div><div style="background:#25D366;color:white;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700">WA</div></a><a href="https://wa.me/5491162656000" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#2C2C2E;border-radius:8px;text-decoration:none;margin-bottom:6px"><div><div style="font-size:12px;font-weight:600;color:#F0F0F0">Knar</div><div style="font-size:11px;color:#8A8A8E">+54 9 11 6265-6000</div></div><div style="background:#25D366;color:white;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700">WA</div></a><a href="https://wa.me/5491168043333" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#2C2C2E;border-radius:8px;text-decoration:none;margin-bottom:6px"><div><div style="font-size:12px;font-weight:600;color:#F0F0F0">Universal (Lucas)</div><div style="font-size:11px;color:#8A8A8E">+54 9 11 6804-3333</div></div><div style="background:#25D366;color:white;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700">WA</div></a><a href="https://wa.me/5491161884144" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#2C2C2E;border-radius:8px;text-decoration:none;margin-bottom:6px"><div><div style="font-size:12px;font-weight:600;color:#F0F0F0">TTP Transfers</div><div style="font-size:11px;color:#8A8A8E">+54 9 11 6188-4144</div></div><div style="background:#25D366;color:white;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700">WA</div></a>
+      <div style="font-size:10px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">🚦 Guardias</div>
+      <a href="https://wa.me/5491150011738" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#2C2C2E;border-radius:8px;text-decoration:none;margin-bottom:6px"><div><div style="font-size:12px;font-weight:600;color:#F0F0F0">Guardia Tráfico</div><div style="font-size:11px;color:#A8A8AE">+54 9 11 5001-1738</div></div><div style="background:#25D366;color:white;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700">WA</div></a><a href="https://wa.me/5491169917018" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#2C2C2E;border-radius:8px;text-decoration:none;margin-bottom:6px"><div><div style="font-size:12px;font-weight:600;color:#F0F0F0">DMC & Aliwen</div><div style="font-size:11px;color:#A8A8AE">+54 9 11 6991-7018</div></div><div style="background:#25D366;color:white;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700">WA</div></a><a href="https://wa.me/5491157209905" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#2C2C2E;border-radius:8px;text-decoration:none;margin-bottom:6px"><div><div style="font-size:12px;font-weight:600;color:#F0F0F0">Guardia WEB</div><div style="font-size:11px;color:#A8A8AE">+54 9 11 5720-9905</div></div><div style="background:#25D366;color:white;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700">WA</div></a><a href="https://wa.me/5491137704335" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#2C2C2E;border-radius:8px;text-decoration:none;margin-bottom:6px"><div><div style="font-size:12px;font-weight:600;color:#F0F0F0">Guardia GRUPOS</div><div style="font-size:11px;color:#A8A8AE">+54 9 11 3770-4335</div></div><div style="background:#25D366;color:white;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700">WA</div></a>
+      <div style="font-size:10px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;margin-top:10px">🚐 Transportistas</div>
+      <a href="https://wa.me/5491159490412" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#2C2C2E;border-radius:8px;text-decoration:none;margin-bottom:6px"><div><div style="font-size:12px;font-weight:600;color:#F0F0F0">Toscana</div><div style="font-size:11px;color:#A8A8AE">+54 9 11 5949-0412</div></div><div style="background:#25D366;color:white;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700">WA</div></a><a href="https://wa.me/5491162656000" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#2C2C2E;border-radius:8px;text-decoration:none;margin-bottom:6px"><div><div style="font-size:12px;font-weight:600;color:#F0F0F0">Knar</div><div style="font-size:11px;color:#A8A8AE">+54 9 11 6265-6000</div></div><div style="background:#25D366;color:white;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700">WA</div></a><a href="https://wa.me/5491168043333" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#2C2C2E;border-radius:8px;text-decoration:none;margin-bottom:6px"><div><div style="font-size:12px;font-weight:600;color:#F0F0F0">Universal (Lucas)</div><div style="font-size:11px;color:#A8A8AE">+54 9 11 6804-3333</div></div><div style="background:#25D366;color:white;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700">WA</div></a><a href="https://wa.me/5491161884144" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#2C2C2E;border-radius:8px;text-decoration:none;margin-bottom:6px"><div><div style="font-size:12px;font-weight:600;color:#F0F0F0">TTP Transfers</div><div style="font-size:11px;color:#A8A8AE">+54 9 11 6188-4144</div></div><div style="background:#25D366;color:white;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700">WA</div></a>
     </div>
   </div>`;
 }
@@ -3407,15 +3401,15 @@ function buildMobileCalendario(){
           const dEvs=monthEvs.filter(e=>e.fecha===ds);
           const isTodayW=d.toDateString()===today;
           return '<div style="display:flex;gap:10px;align-items:flex-start;padding:8px;border-radius:8px;background:'+(isTodayW?T.teal+'15':'transparent')+'">'
-            +'<div style="width:44px;text-align:center;flex-shrink:0"><div style="font-size:10px;font-weight:700;color:#8A8A8E">'+dNames[i]+'</div><div style="font-size:18px;font-weight:700;color:'+(isTodayW?T.teal:'#1A1A1A')+'">'+d.getDate()+'</div></div>'
+            +'<div style="width:44px;text-align:center;flex-shrink:0"><div style="font-size:10px;font-weight:700;color:#A8A8AE">'+dNames[i]+'</div><div style="font-size:18px;font-weight:700;color:'+(isTodayW?T.teal:'#1A1A1A')+'">'+d.getDate()+'</div></div>'
             +'<div style="flex:1">'
             +(dEvs.length ? dEvs.map(e=>'<div data-mobile-detalle="'+e.id+'" style="background:'+T.teal+';border-radius:8px;padding:8px 10px;margin-bottom:4px;cursor:pointer"><div style="font-size:12px;font-weight:700;color:white">'+esc(e.tipo_evento)+'</div>'+(e.hora_inicio?'<div style="font-size:11px;color:rgba(255,255,255,0.8)">'+e.hora_inicio.slice(0,5)+(e.hora_fin?' → '+e.hora_fin.slice(0,5):'')+'</div>':'')+'</div>').join('')
-              : '<div style="font-size:12px;color:#8A8A8E;padding:8px 0">Sin eventos</div>')
+              : '<div style="font-size:12px;color:#A8A8AE;padding:8px 0">Sin eventos</div>')
             +'</div></div>';
         }).join('')+'</div>';
       })() : `
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:6px">
-        ${['L','M','X','J','V','S','D'].map(d=>`<div style="text-align:center;font-size:10px;font-weight:700;color:#8A8A8E;padding:4px 0">${d}</div>`).join('')}
+        ${['L','M','X','J','V','S','D'].map(d=>`<div style="text-align:center;font-size:10px;font-weight:700;color:#A8A8AE;padding:4px 0">${d}</div>`).join('')}
       </div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">
         ${cells.map(d=>{
@@ -3437,11 +3431,11 @@ function buildMobileCalendario(){
           <div style="width:4px;height:40px;border-radius:2px;background:${T.teal};flex-shrink:0"></div>
           <div style="flex:1">
             <div style="font-size:14px;font-weight:600;color:#F0F0F0">${esc(e.tipo_evento)}${e.nro_file?' · '+esc(e.nro_file):''}</div>
-            <div style="font-size:12px;color:#8A8A8E;margin-top:2px;text-transform:capitalize">${fecha}${e.hora_inicio?' · '+e.hora_inicio.slice(0,5):''}</div>
+            <div style="font-size:12px;color:#A8A8AE;margin-top:2px;text-transform:capitalize">${fecha}${e.hora_inicio?' · '+e.hora_inicio.slice(0,5):''}</div>
           </div>
-          <div style="color:#8A8A8E">›</div>
+          <div style="color:#A8A8AE">›</div>
         </div>`;
-      }).join('') : '<div style="font-size:13px;color:#8A8A8E;text-align:center;padding:16px 0">Sin eventos este mes</div>'}
+      }).join('') : '<div style="font-size:13px;color:#A8A8AE;text-align:center;padding:16px 0">Sin eventos este mes</div>'}
     </div>
   </div>`;
 }
@@ -3454,14 +3448,14 @@ function buildMobileInvitaciones(){
     const evento = S.eventos.find(e=>e.id===inv.evento_id);
     if(!evento) return '';
     const fecha = new Date(evento.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-    const estadoColor = {ACEPTADA:'#52B788',RECHAZADA:'#E63946',EXPIRADA:'#9E9A93',TOMADA_POR_OTRO:'#9E9A93',CANCELADA:'#9E9A93'}[inv.estado]||'#E9C46A';
+    const estadoColor = {ACEPTADA:'#52B788',RECHAZADA:'#E63946',EXPIRADA:'#B0B0B0',TOMADA_POR_OTRO:'#B0B0B0',CANCELADA:'#B0B0B0'}[inv.estado]||'#E9C46A';
     return `<div style="background:#2A2A2C;border-radius:14px;padding:16px;border:1.5px solid ${isPend?'rgba(233,196,106,0.4)':'rgba(255,255,255,0.08)'};margin-bottom:10px">
       ${isPend?`<div style="font-size:10px;font-weight:700;color:#D97706;background:#1F1A0D;border-radius:6px;padding:3px 8px;display:inline-block;margin-bottom:10px">PENDIENTE · Expira en ${Math.max(0,Math.ceil((new Date(inv.expira_at)-new Date())/3600000))}hs</div>`:`<div style="font-size:10px;font-weight:700;color:${estadoColor};background:${estadoColor}20;border-radius:6px;padding:3px 8px;display:inline-block;margin-bottom:10px">${inv.estado}</div>`}
       <div style="font-size:16px;font-weight:700;font-family:'Playfair Display',serif;color:#F0F0F0;margin-bottom:4px">${esc(evento.tipo_evento)}</div>
-      ${evento.nro_file?`<div style="font-size:12px;color:#8A8A8E;margin-bottom:4px">File: ${esc(evento.nro_file)}</div>`:''}
+      ${evento.nro_file?`<div style="font-size:12px;color:#A8A8AE;margin-bottom:4px">File: ${esc(evento.nro_file)}</div>`:''}
       <div style="font-size:13px;color:#A0A0A8;text-transform:capitalize;margin-bottom:4px">${fecha}</div>
       ${evento.hora_inicio?`<div style="font-size:13px;color:#A0A0A8;margin-bottom:4px">${evento.hora_inicio.slice(0,5)}${evento.hora_fin?' → '+evento.hora_fin.slice(0,5):''}</div>`:''}
-      ${evento.descripcion?`<div style="font-size:12px;color:#8A8A8E;margin-top:6px">${esc(evento.descripcion)}</div>`:''}
+      ${evento.descripcion?`<div style="font-size:12px;color:#A8A8AE;margin-top:6px">${esc(evento.descripcion)}</div>`:''}
       ${isPend?`
       <div style="display:flex;gap:10px;margin-top:14px">
         <button data-mobile-inv-rechazar="${inv.id}" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid #fcd5d5;background:#3A3A3C5f5;color:#E63946;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">No puedo</button>
@@ -3480,7 +3474,7 @@ function buildMobileInvitaciones(){
       <div style="font-size:14px;font-weight:600;color:#F0F0F0">Sin invitaciones pendientes</div>
     </div>`}
     ${resto.length ? `
-    <div style="font-size:12px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;margin-top:6px">Historial</div>
+    <div style="font-size:12px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;margin-top:6px">Historial</div>
     ${resto.map(i=>cardInv(i,false)).join('')}` : ''}
   </div>`;
 }
@@ -3502,7 +3496,7 @@ function buildMobileDisponibilidad(){
   <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
     <div style="background:#2A2A2C;border-radius:14px;padding:16px;border:1px solid rgba(255,255,255,0.08)">
       <div style="font-size:15px;font-weight:700;color:#F0F0F0;margin-bottom:4px">Mi disponibilidad</div>
-      <div style="font-size:12px;color:#8A8A8E;margin-bottom:14px">Toca los dias que no podes trabajar para bloquearlos.</div>
+      <div style="font-size:12px;color:#A8A8AE;margin-bottom:14px">Toca los dias que no podes trabajar para bloquearlos.</div>
 
       ${haySeleccion?`
       <div style="background:#1F1A0D;border-radius:10px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
@@ -3519,7 +3513,7 @@ function buildMobileDisponibilidad(){
         <button id="cal-next" style="width:36px;height:36px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#3A3A3C;cursor:pointer;font-size:18px">›</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:6px">
-        ${['L','M','X','J','V','S','D'].map(d=>`<div style="text-align:center;font-size:10px;font-weight:700;color:#8A8A8E;padding:3px 0">${d}</div>`).join('')}
+        ${['L','M','X','J','V','S','D'].map(d=>`<div style="text-align:center;font-size:10px;font-weight:700;color:#A8A8AE;padding:3px 0">${d}</div>`).join('')}
       </div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">
         ${cells.map(d=>{
@@ -3537,7 +3531,7 @@ function buildMobileDisponibilidad(){
           </div>`;
         }).join('')}
       </div>
-      <div style="display:flex;gap:12px;margin-top:12px;font-size:11px;color:#8A8A8E">
+      <div style="display:flex;gap:12px;margin-top:12px;font-size:11px;color:#A8A8AE">
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:2px;background:#fcd5d5;border:1px solid #E63946"></div>Bloqueado</div>
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:2px;background:#3A3A3C3cd;border:1px solid #E9C46A"></div>Seleccionado</div>
       </div>
@@ -3566,7 +3560,7 @@ function buildMobileFeedback(){
         return `<div data-mobile-detalle="${e.id}" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer">
           <div style="flex:1">
             <div style="font-size:14px;font-weight:600;color:#F0F0F0">${esc(e.tipo_evento)}${e.nro_file?' · '+esc(e.nro_file):''}</div>
-            <div style="font-size:12px;color:#8A8A8E;margin-top:2px">${fecha}</div>
+            <div style="font-size:12px;color:#A8A8AE;margin-top:2px">${fecha}</div>
           </div>
           <div style="padding:4px 10px;border-radius:6px;background:#1F1A0D;color:#D97706;font-size:11px;font-weight:700">Pendiente</div>
         </div>`;
@@ -3578,13 +3572,13 @@ function buildMobileFeedback(){
     </div>`}
     ${conFeedback.length?`
     <div style="background:#2A2A2C;border-radius:14px;padding:16px;border:1px solid rgba(255,255,255,0.08)">
-      <div style="font-size:13px;font-weight:700;color:#8A8A8E;margin-bottom:10px">Enviados (${conFeedback.length})</div>
+      <div style="font-size:13px;font-weight:700;color:#A8A8AE;margin-bottom:10px">Enviados (${conFeedback.length})</div>
       ${conFeedback.sort((a,b)=>b.fecha.localeCompare(a.fecha)).slice(0,5).map(e=>{
         const fecha = new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short'});
         return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
           <div style="width:8px;height:8px;border-radius:50%;background:#52B788;flex-shrink:0"></div>
           <div style="flex:1;font-size:13px;color:#A0A0A8">${esc(e.tipo_evento)}${e.nro_file?' · '+esc(e.nro_file):''}</div>
-          <div style="font-size:11px;color:#8A8A8E">${fecha}</div>
+          <div style="font-size:11px;color:#A8A8AE">${fecha}</div>
         </div>`;
       }).join('')}
     </div>`:''}
@@ -3606,7 +3600,7 @@ function buildMobileLiquidaciones(){
         return `<div data-mobile-detalle="${e.id}" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer">
           <div style="flex:1">
             <div style="font-size:14px;font-weight:600;color:#F0F0F0">${esc(e.tipo_evento)}${e.nro_file?' · '+esc(e.nro_file):''}</div>
-            <div style="font-size:12px;color:#8A8A8E;margin-top:2px">${fecha}</div>
+            <div style="font-size:12px;color:#A8A8AE;margin-top:2px">${fecha}</div>
           </div>
           <div style="padding:4px 10px;border-radius:6px;background:#fcd5d5;color:#E63946;font-size:11px;font-weight:700">Pendiente</div>
         </div>`;
@@ -3614,14 +3608,14 @@ function buildMobileLiquidaciones(){
     </div>`:''}
     ${liq.length?`
     <div style="background:#2A2A2C;border-radius:14px;padding:16px;border:1px solid rgba(255,255,255,0.08)">
-      <div style="font-size:13px;font-weight:700;color:#8A8A8E;margin-bottom:10px">Enviadas (${liq.length})</div>
+      <div style="font-size:13px;font-weight:700;color:#A8A8AE;margin-bottom:10px">Enviadas (${liq.length})</div>
       ${liq.sort((a,b)=>b.created_at.localeCompare(a.created_at)).slice(0,10).map(l=>{
         const ev = S.eventos.find(e=>e.id===l.evento_id);
         const estadoColor = l.estado==='PAGADA'?'#52B788':l.estado==='APROBADA'?'#2A9D8F':'#E9C46A';
         return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
           <div style="flex:1">
             <div style="font-size:13px;font-weight:600;color:#F0F0F0">${ev?esc(ev.tipo_evento):'Evento'}</div>
-            <div style="font-size:12px;color:#8A8A8E">$${l.total?.toLocaleString('es-AR')||'—'}</div>
+            <div style="font-size:12px;color:#A8A8AE">$${l.total?.toLocaleString('es-AR')||'—'}</div>
           </div>
           <div style="padding:3px 8px;border-radius:6px;background:${estadoColor}20;color:${estadoColor};font-size:11px;font-weight:700">${l.estado}</div>
         </div>`;
@@ -3630,7 +3624,7 @@ function buildMobileLiquidaciones(){
     <div style="background:#2A2A2C;border-radius:14px;padding:24px;text-align:center;border:1px solid rgba(255,255,255,0.08)">
       <div style="font-size:32px;margin-bottom:8px">💰</div>
       <div style="font-size:14px;font-weight:600;color:#F0F0F0">Sin liquidaciones aun</div>
-      <div style="font-size:12px;color:#8A8A8E;margin-top:4px">Toca un evento pasado para liquidarlo</div>
+      <div style="font-size:12px;color:#A8A8AE;margin-top:4px">Toca un evento pasado para liquidarlo</div>
     </div>`}
   </div>`;
 }
@@ -3660,16 +3654,16 @@ function buildMobileDetalle(){
 
     ${evento.descripcion?`
     <div style="background:#2A2A2C;border-radius:14px;padding:16px;border:1px solid rgba(255,255,255,0.08)">
-      <div style="font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Descripcion</div>
+      <div style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Descripcion</div>
       <div style="font-size:14px;color:#F0F0F0;line-height:1.5">${esc(evento.descripcion)}</div>
     </div>`:''}
 
     ${tr?`
     <div style="background:#2A2A2C;border-radius:14px;padding:16px;border:1px solid rgba(255,255,255,0.08)">
-      <div style="font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Transportista</div>
+      <div style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Transportista</div>
       <div style="font-size:14px;font-weight:600;color:#F0F0F0">${esc(tr.nombre)}</div>
       ${tr.telefono?`<div style="font-size:13px;color:#A0A0A8;margin-top:4px">${esc(tr.telefono)}</div>`:''}
-      ${tr.contacto?`<div style="font-size:12px;color:#8A8A8E">${esc(tr.contacto)}</div>`:''}
+      ${tr.contacto?`<div style="font-size:12px;color:#A8A8AE">${esc(tr.contacto)}</div>`:''}
     </div>`:''}
 
     ${evento.link_adjunto?`
@@ -3703,11 +3697,11 @@ function buildMobileDetalle(){
       </div>`:`
       <div style="display:flex;flex-direction:column;gap:10px">
         <div style="display:flex;gap:10px">
-          <div style="flex:1"><label style="font-size:11px;font-weight:600;color:#8A8A8E;display:block;margin-bottom:4px">Horas</label><input id="mobile-liq-horas" type="number" min="0" step="0.5" placeholder="0" style="width:100%;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px;font-size:14px;font-family:'DM Sans',sans-serif"/></div>
-          <div style="flex:1"><label style="font-size:11px;font-weight:600;color:#8A8A8E;display:block;margin-bottom:4px">Valor/hora</label><input id="mobile-liq-valor" type="number" value="${guia.valor_hora||0}" placeholder="0" style="width:100%;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px;font-size:14px;font-family:'DM Sans',sans-serif"/></div>
+          <div style="flex:1"><label style="font-size:11px;font-weight:600;color:#A8A8AE;display:block;margin-bottom:4px">Horas</label><input id="mobile-liq-horas" type="number" min="0" step="0.5" placeholder="0" style="width:100%;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px;font-size:14px;font-family:'DM Sans',sans-serif"/></div>
+          <div style="flex:1"><label style="font-size:11px;font-weight:600;color:#A8A8AE;display:block;margin-bottom:4px">Valor/hora</label><input id="mobile-liq-valor" type="number" value="${guia.valor_hora||0}" placeholder="0" style="width:100%;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px;font-size:14px;font-family:'DM Sans',sans-serif"/></div>
         </div>
-        <div><label style="font-size:11px;font-weight:600;color:#8A8A8E;display:block;margin-bottom:4px">Gastos extras ($)</label><input id="mobile-liq-gastos" type="number" min="0" placeholder="0" style="width:100%;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px;font-size:14px;font-family:'DM Sans',sans-serif"/></div>
-        <div><label style="font-size:11px;font-weight:600;color:#8A8A8E;display:block;margin-bottom:4px">Observaciones</label><textarea id="mobile-liq-obs" placeholder="Detalle..." style="width:100%;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px;font-size:14px;font-family:'DM Sans',sans-serif;resize:none;min-height:60px"></textarea></div>
+        <div><label style="font-size:11px;font-weight:600;color:#A8A8AE;display:block;margin-bottom:4px">Gastos extras ($)</label><input id="mobile-liq-gastos" type="number" min="0" placeholder="0" style="width:100%;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px;font-size:14px;font-family:'DM Sans',sans-serif"/></div>
+        <div><label style="font-size:11px;font-weight:600;color:#A8A8AE;display:block;margin-bottom:4px">Observaciones</label><textarea id="mobile-liq-obs" placeholder="Detalle..." style="width:100%;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px;font-size:14px;font-family:'DM Sans',sans-serif;resize:none;min-height:60px"></textarea></div>
         <button data-mobile-guardar-liq="${evento.id}" style="width:100%;padding:12px;border-radius:10px;border:none;background:#E76F51;color:white;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">Enviar liquidacion</button>
       </div>`}
     </div>`:''}
@@ -3733,11 +3727,11 @@ function buildHistorial(){
       <table style="width:100%;border-collapse:collapse;background:#2A2A2C;color:#F0F0F0">
         <thead>
           <tr style="background:#232325">
-            ${['Fecha/Hora','Evento','Guía','Acción','Detalle','Actor'].map(h=>`<th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.06em;white-space:nowrap">${h}</th>`).join('')}
+            ${['Fecha/Hora','Evento','Guía','Acción','Detalle','Actor'].map(h=>`<th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.06em;white-space:nowrap">${h}</th>`).join('')}
           </tr>
         </thead>
         <tbody>
-          ${S.historial.length===0?`<tr><td colspan="6" style="text-align:center;padding:40px;color:#8A8A8E">Sin registros</td></tr>`:
+          ${S.historial.length===0?`<tr><td colspan="6" style="text-align:center;padding:40px;color:#A8A8AE">Sin registros</td></tr>`:
             S.historial.map(h=>{
               const evento=S.eventos.find(e=>e.id===h.evento_id);
               const guia=S.guias.find(g=>g.id===h.guia_id);
@@ -3745,12 +3739,12 @@ function buildHistorial(){
               const fecha=new Date(h.created_at).toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
               return `
               <tr style="border-bottom:1px solid rgba(255,255,255,0.05)" onmouseenter="this.style.background='#F9F8F6'" onmouseleave="this.style.background='white'">
-                <td style="padding:10px 14px;font-size:12px;color:#8A8A8E;white-space:nowrap">${fecha}</td>
+                <td style="padding:10px 14px;font-size:12px;color:#A8A8AE;white-space:nowrap">${fecha}</td>
                 <td style="padding:10px 14px;font-size:12px;font-weight:600;color:${T.dark}">${evento?esc(evento.tipo_evento):'—'}</td>
                 <td style="padding:10px 14px;font-size:12px;color:#E76F51;font-weight:600">${guia?esc(guia.nombre+' '+guia.apellido):'—'}</td>
                 <td style="padding:10px 14px"><span style="font-size:12px;font-weight:600">${icon} ${esc(h.accion)}</span></td>
-                <td style="padding:10px 14px;font-size:12px;color:#8A8A8E;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(h.detalle||'')}</td>
-                <td style="padding:10px 14px"><span style="font-size:10px;background:#2C2C2E;color:#8A8A8E;padding:2px 8px;border-radius:10px;font-weight:600">${esc(h.actor||'SISTEMA')}</span></td>
+                <td style="padding:10px 14px;font-size:12px;color:#A8A8AE;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(h.detalle||'')}</td>
+                <td style="padding:10px 14px"><span style="font-size:10px;background:#2C2C2E;color:#A8A8AE;padding:2px 8px;border-radius:10px;font-weight:600">${esc(h.actor||'SISTEMA')}</span></td>
               </tr>`;
             }).join('')}
         </tbody>
@@ -3810,7 +3804,7 @@ function buildReconfirmaciones(){
       </div>
       <div style="text-align:right;flex-shrink:0">
         <div style="font-size:20px;font-weight:700;color:${borderColor}">${diffLabel}</div>
-        <div style="font-size:9px;color:#8A8A8E;text-transform:uppercase">para el evento</div>
+        <div style="font-size:9px;color:#A8A8AE;text-transform:uppercase">para el evento</div>
         ${!isOk?`<div style="font-size:9px;font-weight:700;color:${borderColor};margin-top:2px">${isUrgent?'⚠️ URGENTE':'⏳ PENDIENTE'}</div>`:''}
       </div>
     </div>`;
@@ -3821,7 +3815,7 @@ function buildReconfirmaciones(){
     <div style="display:flex;align-items:center;justify-content:space-between">
       <div>
         <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:#F0F0F0">⚠️ Reconfirmaciones</div>
-        <div style="font-size:13px;color:#8A8A8E;margin-top:4px">Eventos de los próximos 7 días que requieren reconfirmación del guía</div>
+        <div style="font-size:13px;color:#A8A8AE;margin-top:4px">Eventos de los próximos 7 días que requieren reconfirmación del guía</div>
       </div>
       <div style="display:flex;gap:10px">
         ${urgentes.length?`<div style="background:#1F0D0D;border:1.5px solid #E63946;border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:20px;font-weight:700;color:#E63946">${urgentes.length}</div><div style="font-size:10px;color:#E63946;font-weight:700">URGENTES</div></div>`:''}
@@ -3831,7 +3825,7 @@ function buildReconfirmaciones(){
     </div>
 
     ${urgentes.length===0 && warnings.length===0 && reconfOk.length===0 ? `
-      <div style="background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:48px;text-align:center;color:#8A8A8E">
+      <div style="background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:48px;text-align:center;color:#A8A8AE">
         <div style="font-size:40px;margin-bottom:12px">✅</div>
         <div style="font-size:15px;font-weight:600">Todo en orden</div>
         <div style="font-size:13px;margin-top:6px">No hay eventos que requieran reconfirmación esta semana</div>
@@ -3889,18 +3883,18 @@ function buildLiquidacionesGuia(){
     <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.05);background:${liq?'#F8FFF9':'white'}">
       <div style="flex:1">
         <div style="font-size:13px;font-weight:600;color:#F0F0F0">${esc(e.tipo_evento)}</div>
-        <div style="font-size:11px;color:#8A8A8E">${fecha}${e.hora_inicio?' · '+String(e.hora_inicio).slice(0,5):''}</div>
+        <div style="font-size:11px;color:#A8A8AE">${fecha}${e.hora_inicio?' · '+String(e.hora_inicio).slice(0,5):''}</div>
       </div>
       ${liq ? `
         <div style="text-align:right;margin-right:4px">
           <div style="font-size:13px;font-weight:700;color:#2E7D32">$${liq.total.toLocaleString('es-AR')}</div>
-          <div style="font-size:9px;color:#8A8A8E;text-transform:uppercase">${liq.estado}</div>
+          <div style="font-size:9px;color:#A8A8AE;text-transform:uppercase">${liq.estado}</div>
         </div>
         <button onclick="verLiquidacion(${liq.id})" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(74,222,128,0.3);background:rgba(74,222,128,0.1);font-size:11px;cursor:pointer;color:#4ADE80;font-weight:600;font-family:'DM Sans',sans-serif">👁</button>
       ` : e.fecha <= new Date().toISOString().slice(0,10) ? `
         <button onclick="nuevaLiquidacion(${e.id})" style="padding:5px 12px;border-radius:6px;border:none;background:#E76F51;color:white;font-size:11px;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif">+ Liquidar</button>
       ` : `
-        <span style="font-size:10px;color:#8A8A8E;padding:4px 8px">Pendiente</span>
+        <span style="font-size:10px;color:#A8A8AE;padding:4px 8px">Pendiente</span>
       `}
     </div>`;
   };
@@ -3942,9 +3936,9 @@ function buildLiquidacionesGuia(){
 
   return `
   <div style="padding:24px;display:flex;flex-direction:column;gap:4px;max-width:860px">
-    <div style="font-size:12px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px">💰 Mis liquidaciones</div>
+    <div style="font-size:12px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px">💰 Mis liquidaciones</div>
     ${misFiles.length===0 && sinFile.length===0 ? `
-      <div style="background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:48px;text-align:center;color:#8A8A8E">
+      <div style="background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:48px;text-align:center;color:#A8A8AE">
         <div style="font-size:40px;margin-bottom:12px">💰</div>
         <div style="font-size:15px">No tenés eventos confirmados para liquidar</div>
       </div>
@@ -3952,7 +3946,7 @@ function buildLiquidacionesGuia(){
     ${misFiles.map(f=>renderFile(f)).join('')}
     ${sinFile.length>0 ? `
       <div style="background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;margin-bottom:12px">
-        <div style="background:#2C2C2E;padding:12px 18px;font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em">Eventos sin viaje</div>
+        <div style="background:#2C2C2E;padding:12px 18px;font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em">Eventos sin viaje</div>
         ${sinFile.map(e=>renderEvento(e)).join('')}
       </div>
     ` : ''}
@@ -3994,7 +3988,7 @@ function buildLiquidacionesAdmin(){
       <div style="width:24px;height:24px;border-radius:50%;background:rgba(231,111,81,0.12);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#E76F51;flex-shrink:0">${guia?esc(guia.nombre[0]):'?'}</div>
       <div style="flex:1">
         <div style="font-size:12px;font-weight:600;color:#F0F0F0">${guia?esc(guia.nombre+' '+guia.apellido):'—'} · <span style="font-weight:400;color:#A0A0A8">${evento?esc(evento.tipo_evento):'—'}</span></div>
-        <div style="font-size:11px;color:#8A8A8E">${fecha} · ${l.horas}h · $${(l.valor_hora||0).toLocaleString('es-AR')}/h</div>
+        <div style="font-size:11px;color:#A8A8AE">${fecha} · ${l.horas}h · $${(l.valor_hora||0).toLocaleString('es-AR')}/h</div>
       </div>
       ${l.gastos_extras?`<div style="font-size:11px;color:#A0A0A8">+$${l.gastos_extras.toLocaleString('es-AR')} extras</div>`:''}
       <div style="font-size:13px;font-weight:700;color:#E76F51;min-width:70px;text-align:right">$${l.total.toLocaleString('es-AR')}</div>
@@ -4051,19 +4045,19 @@ function buildLiquidacionesAdmin(){
   <div style="padding:24px;display:flex;flex-direction:column;gap:16px;max-width:1000px">
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
       <div style="background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px">
-        <div style="font-size:10px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Total</div>
+        <div style="font-size:10px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Total</div>
         <div style="font-size:24px;font-weight:700;color:#E76F51">$${total.toLocaleString('es-AR')}</div>
       </div>
       <div style="background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px">
-        <div style="font-size:10px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Pendientes</div>
+        <div style="font-size:10px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Pendientes</div>
         <div style="font-size:24px;font-weight:700;color:#E9C46A">${pendientesCount}</div>
       </div>
       <div style="background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px">
-        <div style="font-size:10px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Aprobadas</div>
+        <div style="font-size:10px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Aprobadas</div>
         <div style="font-size:24px;font-weight:700;color:#60A5FA">${aprobadas}</div>
       </div>
       <div style="background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px">
-        <div style="font-size:10px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Pagadas</div>
+        <div style="font-size:10px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Pagadas</div>
         <div style="font-size:24px;font-weight:700;color:#2E7D32">${pagadas}</div>
       </div>
     </div>
@@ -4073,7 +4067,7 @@ function buildLiquidacionesAdmin(){
     </div>
 
     ${allLiqs.length===0?`
-      <div style="background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:48px;text-align:center;color:#8A8A8E">
+      <div style="background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:48px;text-align:center;color:#A8A8AE">
         <div style="font-size:40px;margin-bottom:12px">💰</div>
         <div>Sin liquidaciones cargadas aún</div>
       </div>
@@ -4081,7 +4075,7 @@ function buildLiquidacionesAdmin(){
 
     ${sinFile.length>0?`
       <div style="background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden">
-        <div style="background:#2C2C2E;padding:12px 18px;font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em">Sin viaje asignado</div>
+        <div style="background:#2C2C2E;padding:12px 18px;font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em">Sin viaje asignado</div>
         ${sinFile.map(({l,evento})=>renderLiqRow(l,evento)).join('')}
       </div>
     `:''}
@@ -4128,17 +4122,17 @@ function buildMisInvitaciones(){
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px">
               <div>
                 <div style="font-size:16px;font-weight:700;color:#F0F0F0">${esc(evento.tipo_evento||'Evento')}</div>
-                <div style="font-size:13px;color:#8A8A8E;margin-top:3px">${fecha}</div>
+                <div style="font-size:13px;color:#A8A8AE;margin-top:3px">${fecha}</div>
               </div>
               <span style="font-size:11px;font-weight:700;color:${evento.prioridad==='URGENTE'?'#E63946':'#1B6B74'};background:${evento.prioridad==='URGENTE'?'rgba(239,68,68,0.12)':'#e8f4f5'};padding:3px 10px;border-radius:20px;white-space:nowrap">${evento.prioridad||''}</span>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
               <div style="background:#2C2C2E;border-radius:8px;padding:10px">
-                <div style="font-size:10px;font-weight:700;color:#8A8A8E;text-transform:uppercase;margin-bottom:3px">Horario</div>
+                <div style="font-size:10px;font-weight:700;color:#A8A8AE;text-transform:uppercase;margin-bottom:3px">Horario</div>
                 <div style="font-size:13px;font-weight:600">${evento.hora_inicio||'—'}${evento.hora_fin?' - '+evento.hora_fin:''}</div>
               </div>
               <div style="background:#2C2C2E;border-radius:8px;padding:10px">
-                <div style="font-size:10px;font-weight:700;color:#8A8A8E;text-transform:uppercase;margin-bottom:3px">Responder antes de</div>
+                <div style="font-size:10px;font-weight:700;color:#A8A8AE;text-transform:uppercase;margin-bottom:3px">Responder antes de</div>
                 <div style="font-size:13px;font-weight:600;color:${vencida?'#E63946':'#856404'}">${expira}</div>
               </div>
             </div>
@@ -4177,7 +4171,7 @@ function buildMisInvitaciones(){
 
     ${pasadas.length===0?'':`
     <div>
-      <div style="font-size:12px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px">Historial de invitaciones</div>
+      <div style="font-size:12px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px">Historial de invitaciones</div>
       <div style="background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden">
         ${pasadas.slice(0,10).map(inv=>{
           const evento = S.eventos.find(e=>e.id===inv.evento_id) || {};
@@ -4186,7 +4180,7 @@ function buildMisInvitaciones(){
           <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.05)">
             <div style="flex:1">
               <div style="font-size:13px;font-weight:600;color:#F0F0F0">${esc(evento.tipo_evento||'Evento')}</div>
-              <div style="font-size:11px;color:#8A8A8E">${fecha}${evento.nro_file?' · 📁 '+esc(evento.nro_file):''}</div>
+              <div style="font-size:11px;color:#A8A8AE">${fecha}${evento.nro_file?' · 📁 '+esc(evento.nro_file):''}</div>
             </div>
             ${badge(inv.estado, ESTADO_INV_COLOR)}
             ${inv.estado==='ACEPTADA'?`<button onclick="abrirFeedback(${evento.id})" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:#3A3A3C;font-size:11px;cursor:pointer;color:#E76F51;font-weight:600;font-family:'DM Sans',sans-serif">${evento.feedback_texto?'✏️ Ver feedback':'📝 Feedback'}</button>`:''}
@@ -4196,7 +4190,7 @@ function buildMisInvitaciones(){
     </div>`}
 
     ${pendientes.length===0 && pasadas.length===0 ? `
-    <div style="text-align:center;padding:60px 20px;color:#8A8A8E">
+    <div style="text-align:center;padding:60px 20px;color:#A8A8AE">
       <div style="font-size:40px;margin-bottom:12px">📨</div>
       <div style="font-size:15px;font-weight:600">Sin invitaciones por ahora</div>
       <div style="font-size:13px;margin-top:6px">Cuando te asignen un evento vas a verlo acá</div>
@@ -4211,13 +4205,13 @@ function buildUsuarios(){
 
     <!-- Usuarios del sistema -->
     <div id="usuarios-list" style="background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px">
-      <div style="font-size:13px;color:#8A8A8E">Cargando usuarios...</div>
+      <div style="font-size:13px;color:#A8A8AE">Cargando usuarios...</div>
     </div>
 
     <!-- Import / Export eventos -->
     <div style="background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:24px">
       <div style="font-size:13px;font-weight:700;color:#F0F0F0;margin-bottom:4px">📋 Importar / Exportar Eventos</div>
-      <div style="font-size:12px;color:#8A8A8E;margin-bottom:18px">Cargá eventos masivamente desde Excel. Si detecta duplicados (misma fecha + tipo + file) los omite automáticamente.</div>
+      <div style="font-size:12px;color:#A8A8AE;margin-bottom:18px">Cargá eventos masivamente desde Excel. Si detecta duplicados (misma fecha + tipo + file) los omite automáticamente.</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
         <button id="btn-import-eventos" style="${btnP(T.teal)}padding:8px 18px;font-size:13px">⬆ Importar eventos (.xlsx)</button>
         <button id="btn-export-eventos" style="${btnS}padding:8px 18px;font-size:13px">⬇ Exportar eventos (.xlsx)</button>
@@ -4230,7 +4224,7 @@ function buildUsuarios(){
     <!-- SLA Config -->
     <div style="background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:24px">
       <div style="font-size:13px;font-weight:700;color:#F0F0F0;margin-bottom:4px">⚙️ Configuración SLA</div>
-      <div style="font-size:12px;color:#8A8A8E;margin-bottom:14px">Tiempo máximo de respuesta para invitaciones.</div>
+      <div style="font-size:12px;color:#A8A8AE;margin-bottom:14px">Tiempo máximo de respuesta para invitaciones.</div>
       <button id="btn-config-sla2" style="${btnS}padding:8px 18px;font-size:13px">⚙️ Configurar SLA</button>
     </div>
 
@@ -4294,29 +4288,29 @@ function buildViajeModal(entry={}){
       </div>
       <div style="padding:28px;display:flex;flex-direction:column;gap:18px">
         <div>
-          <label style="display:block;font-size:11px;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Nro File *</label>
+          <label style="display:block;font-size:11px;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Nro File *</label>
           <input id="v-nro-file" type="text" value="${esc(entry.nro_file||'')}" placeholder="Ej: 12345" style="${iStyle}"/>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div>
-            <label style="display:block;font-size:11px;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Fecha IN *</label>
+            <label style="display:block;font-size:11px;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Fecha IN *</label>
             <input id="v-fecha-in" type="date" value="${entry.fecha_in||''}" style="${iStyle}"/>
           </div>
           <div>
-            <label style="display:block;font-size:11px;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Fecha OUT *</label>
+            <label style="display:block;font-size:11px;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Fecha OUT *</label>
             <input id="v-fecha-out" type="date" value="${entry.fecha_out||''}" style="${iStyle}"/>
           </div>
         </div>
         <div>
-          <label style="display:block;font-size:11px;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Operador</label>
+          <label style="display:block;font-size:11px;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Operador</label>
           <input id="v-operador" type="text" value="${esc(entry.operador_nombre||'')}" placeholder="Nombre del operador" style="${iStyle}"/>
         </div>
         <div>
-          <label style="display:block;font-size:11px;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">DH / GR</label>
+          <label style="display:block;font-size:11px;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">DH / GR</label>
           <input id="v-dh-gr" type="text" value="${esc(entry.dh_gr_nombre||'')}" placeholder="Nombre del DH/GR" style="${iStyle}"/>
         </div>
         <div>
-          <label style="display:block;font-size:11px;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">👤 Pasajero Principal</label>
+          <label style="display:block;font-size:11px;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">👤 Pasajero Principal</label>
           <input id="v-pasajero" type="text" value="${esc(entry.pasajero_principal||'')}" placeholder="Nombre del pasajero principal" style="${iStyle}"/>
         </div>
         <div style="display:flex;gap:10px;margin-top:10px">
@@ -4353,57 +4347,57 @@ function buildEventoEnViajeModal(fileId){
         
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div>
-            <label style="display:block;font-size:11px;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Tipo de evento *</label>
+            <label style="display:block;font-size:11px;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Tipo de evento *</label>
             <select id="ev-tipo" style="${iStyle};cursor:pointer">
               <option value="">Seleccionar...</option>
               ${tiposOpts}
             </select>
           </div>
           <div>
-            <label style="display:block;font-size:11px;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Fecha *</label>
+            <label style="display:block;font-size:11px;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Fecha *</label>
             <input id="ev-fecha" type="date" min="${new Date().toISOString().slice(0,10) > file.fecha_in ? new Date().toISOString().slice(0,10) : file.fecha_in}" max="${file.fecha_out}" style="${iStyle}"/>
           </div>
         </div>
         
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div>
-            <label style="display:block;font-size:11px;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Hora inicio *</label>
+            <label style="display:block;font-size:11px;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Hora inicio *</label>
             <input id="ev-hora-inicio" type="time" style="${iStyle}"/>
           </div>
           <div>
-            <label style="display:block;font-size:11px;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Hora fin</label>
+            <label style="display:block;font-size:11px;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Hora fin</label>
             <input id="ev-hora-fin" type="time" style="${iStyle}"/>
           </div>
         </div>
         
         <div>
-          <label style="display:block;font-size:11px;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Link Drive (adjuntos)</label>
+          <label style="display:block;font-size:11px;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Link Drive (adjuntos)</label>
           <input id="ev-link-adjunto" type="url" placeholder="https://drive.google.com/..." style="${iStyle}"/>
         </div>
         
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div>
-            <label style="display:block;font-size:11px;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">📍 Pick Up Location</label>
+            <label style="display:block;font-size:11px;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">📍 Pick Up Location</label>
             <input id="ev-pickup" type="text" placeholder="Hotel, dirección..." style="${iStyle}"/>
           </div>
           <div>
-            <label style="display:block;font-size:11px;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">📍 Drop Off Location</label>
+            <label style="display:block;font-size:11px;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">📍 Drop Off Location</label>
             <input id="ev-dropoff" type="text" placeholder="Terminal, hotel..." style="${iStyle}"/>
           </div>
         </div>
         <div>
-          <label style="display:block;font-size:11px;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">✈️ Datos de vuelos (si aplica)</label>
+          <label style="display:block;font-size:11px;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">✈️ Datos de vuelos (si aplica)</label>
           <input id="ev-vuelos" type="text" placeholder="Ej: AA1234 EZE 14:30 / IB2345 AEP 09:15" style="${iStyle}"/>
         </div>
         <div>
-          <label style="display:block;font-size:11px;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Notas</label>
+          <label style="display:block;font-size:11px;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Notas</label>
           <textarea id="ev-notas" rows="3" placeholder="Notas adicionales..." style="${iStyle};resize:vertical"></textarea>
         </div>
 
         <div style="border-top:1px solid #F0EDE8;margin:4px 0;padding-top:12px">
-          <div style="font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">🚐 Transportista</div>
+          <div style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">🚐 Transportista</div>
           <div style="margin-bottom:10px">
-            <label style="display:block;font-size:11px;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">¿Aplica transportista?</label>
+            <label style="display:block;font-size:11px;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">¿Aplica transportista?</label>
             <select id="ev-aplica-transportista" style="${iStyle};cursor:pointer" onchange="document.getElementById('ev-transportista-select').style.display=this.value==='si'?'block':'none'">
               <option value="no">No aplica</option>
               <option value="si">Sí aplica</option>
@@ -4411,14 +4405,14 @@ function buildEventoEnViajeModal(fileId){
           </div>
           <div id="ev-transportista-select" style="display:none;display:flex;flex-direction:column;gap:10px">
             <div>
-              <label style="display:block;font-size:11px;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Transportista</label>
+              <label style="display:block;font-size:11px;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Transportista</label>
               <select id="ev-transportista-id" style="${iStyle};cursor:pointer">
                 <option value="">— Seleccionar —</option>
                 ${S.transportistas.map(t=>`<option value="${t.id}">${esc(t.nombre)}</option>`).join('')}
               </select>
             </div>
             <div>
-              <label style="display:block;font-size:11px;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Tipo de vehículo</label>
+              <label style="display:block;font-size:11px;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">Tipo de vehículo</label>
               <select id="ev-tipo-vehiculo" style="${iStyle};cursor:pointer">
                 <option value="">— Tipo de vehículo —</option>
                 <option value="Auto Tradicional">Auto Tradicional</option><option value="Auto Ejecutivo">Auto Ejecutivo</option><option value="H1">H1</option><option value="Van">Van</option><option value="Mini Bus">Mini Bus</option><option value="Bus">Bus</option>
@@ -4458,7 +4452,7 @@ function buildGuiaModal(entry={}){
           </div>
           <div style="flex:1">
             <div style="font-size:13px;font-weight:600;color:#F0F0F0;margin-bottom:4px">Foto del guía</div>
-            <div style="font-size:11px;color:#8A8A8E;margin-bottom:8px">JPG o PNG, máx 2MB. Aparece en el perfil y en el sistema.</div>
+            <div style="font-size:11px;color:#A8A8AE;margin-bottom:8px">JPG o PNG, máx 2MB. Aparece en el perfil y en el sistema.</div>
             <label id="btn-pick-guia-foto" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:7px;border:1px solid rgba(255,255,255,0.08);background:#3A3A3C;font-size:12px;font-weight:600;cursor:pointer;color:#A0A0A8;font-family:'DM Sans',sans-serif">
               📷 ${entry.foto_url ? 'Cambiar foto' : 'Subir foto'}
               <input id="guia-foto-input" type="file" accept="image/*" style="display:none" onchange="handleGuiaFotoChange(this)"/>
@@ -4515,7 +4509,7 @@ function buildEventoModal(entry={}){
         ${g2(`${fld('📍 Pick Up Location',inp('pickup_location','pickup_location','Hotel, dirección...'))} ${fld('📍 Drop Off Location',inp('dropoff_location','dropoff_location','Terminal, hotel...'))}`)}        ${fld('✈️ Datos de vuelos (si aplica)',inp('datos_vuelos','datos_vuelos','Ej: AA1234 EZE 14:30 / IB2345 AEP 09:15'))}
         ${fld('Link adjunto (Drive, doc, etc.)',inp('link_adjunto','link_adjunto','https://drive.google.com/...'))}
         <div style="border-top:1px solid #F0EDE8;margin:8px 0;padding-top:8px">
-          <div style="font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">🚐 Transportista</div>
+          <div style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">🚐 Transportista</div>
           ${fld('¿Aplica transportista?',`<select id="e-aplica-transportista" style="${iStyle}cursor:pointer"><option value="no" ${!entry.transportista_id?'selected':''}>No aplica</option><option value="si" ${entry.transportista_id?'selected':''}>Sí aplica</option></select>`)}
           <div id="e-transportista-select" style="display:${entry.transportista_id?'block':'none'}">
             ${fld('Transportista',`<select id="e-transportista-id" style="${iStyle}cursor:pointer"><option value="">— Seleccionar —</option>${S.transportistas.map(t=>`<option value="${t.id}" ${entry.transportista_id===t.id?'selected':''}>` + esc(t.nombre) + `</option>`).join('')}</select>`)}
@@ -4582,9 +4576,9 @@ function buildInvitarModal(eventoId){
         <div style="background:#1F1A0D;border-radius:8px;padding:12px 16px;font-size:13px;color:#D97706">
           ⏱ SLA: <strong>${SLA[evento?.prioridad]} horas</strong> para responder · El primero que acepte queda confirmado
         </div>
-        <div style="font-size:12px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em">Seleccioná guías a invitar</div>
+        <div style="font-size:12px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em">Seleccioná guías a invitar</div>
         <div style="position:relative">
-          <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#8A8A8E;font-size:13px">🔍</span>
+          <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#A8A8AE;font-size:13px">🔍</span>
           <input id="inv-search-guia" type="text" placeholder="Buscar guía..." oninput="(()=>{const q=this.value.toLowerCase();document.querySelectorAll('[data-inv-guia]').forEach(el=>{el.style.display=el.dataset.invGuia.toLowerCase().includes(q)?'flex':'none';});})()" style="width:100%;padding:9px 12px 9px 36px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:#3A3A3C;color:#F0F0F0;font-size:13px;font-family:'DM Sans',sans-serif;box-sizing:border-box;outline:none"/>
         </div>
         <div style="display:flex;flex-direction:column;gap:8px;max-height:280px;overflow:auto">
@@ -4606,7 +4600,7 @@ function buildInvitarModal(eventoId){
               +'<div style="width:34px;height:34px;border-radius:50%;background:'+(noDisponible?'rgba(239,68,68,0.2)':'rgba(231,111,81,0.15)')+';display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:'+(noDisponible?'#EF4444':'#E76F51')+';flex-shrink:0">'+esc(g.nombre[0])+'</div>'
               +'<div style="flex:1">'
                 +'<div style="font-size:13px;font-weight:600;color:#F0F0F0">'+esc(g.nombre)+' '+esc(g.apellido)+'</div>'
-                +'<div style="font-size:11px;color:#8A8A8E">'+(isAdmin()?g.tipo+' · $'+g.valor_hora+'/h · ':'')+esc(g.email)+'</div>'
+                +'<div style="font-size:11px;color:#A8A8AE">'+(isAdmin()?g.tipo+' · $'+g.valor_hora+'/h · ':'')+esc(g.email)+'</div>'
                 +(noDisponible?'<div style="font-size:11px;color:#EF4444;font-weight:600;margin-top:2px">⛔ No disponible · '+noDispLabel+'</div>':'')
               +'</div>'
               +(yaInvitado?'<span style="font-size:10px;background:rgba(74,222,128,0.15);color:#4ADE80;padding:2px 8px;border-radius:10px;font-weight:600">Ya invitado</span>':'')
@@ -4640,24 +4634,24 @@ function buildDescargarAgendaModal(){
       <div style="padding:28px;display:flex;flex-direction:column;gap:16px">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div>
-            <label style="font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">📅 Desde</label>
+            <label style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">📅 Desde</label>
             <input id="agenda-desde" type="date" value="${hoy}" style="${iStyle}"/>
           </div>
           <div>
-            <label style="font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">📅 Hasta</label>
+            <label style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">📅 Hasta</label>
             <input id="agenda-hasta" type="date" value="${en30}" style="${iStyle}"/>
           </div>
         </div>
         ${isAdm ? `
         <div>
-          <label style="font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">👤 Guía</label>
+          <label style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">👤 Guía</label>
           <select id="agenda-guia" style="${iStyle}cursor:pointer">
             <option value="">Todos los guías</option>
             ${guiasOpts}
           </select>
         </div>` : ''}
         <div>
-          <label style="font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">📋 Incluir</label>
+          <label style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">📋 Incluir</label>
           <div style="display:flex;flex-direction:column;gap:8px">
             <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="ag-confirmados" checked style="accent-color:#1B6B74"/> Confirmados</label>
             <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="ag-asignar" checked style="accent-color:#1B6B74"/> A Asignar</label>
@@ -4696,7 +4690,7 @@ function buildInvitarViajeModal(fileId){
     return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:#2C2C2E;border-radius:7px;margin-bottom:5px">
       <div>
         <div style="font-size:12px;font-weight:700;color:#F0F0F0">${esc(e.tipo_evento)}</div>
-        <div style="font-size:11px;color:#8A8A8E">${fechaStr} · ${e.hora_inicio||'—'}${e.hora_fin?' – '+e.hora_fin:''}</div>
+        <div style="font-size:11px;color:#A8A8AE">${fechaStr} · ${e.hora_inicio||'—'}${e.hora_fin?' – '+e.hora_fin:''}</div>
       </div>
       <span style="font-size:10px;background:${estadoC.bg||'#eee'};color:${estadoC.fg||'#555'};padding:2px 8px;border-radius:10px;font-weight:600">${estadoC.label||e.estado}</span>
     </div>`;
@@ -4718,7 +4712,7 @@ function buildInvitarViajeModal(fileId){
       +'<div style="width:34px;height:34px;border-radius:50%;background:'+(disabled?'rgba(239,68,68,0.2)':'rgba(231,111,81,0.15)')+';display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:'+(disabled?'#EF4444':'#E76F51')+';flex-shrink:0">'+esc(g.nombre[0])+'</div>'
       +'<div style="flex:1">'
         +'<div style="font-size:13px;font-weight:600;color:#F0F0F0">'+esc(g.nombre)+' '+esc(g.apellido)+'</div>'
-        +'<div style="font-size:11px;color:#8A8A8E">'+esc(g.email)+'</div>'
+        +'<div style="font-size:11px;color:#A8A8AE">'+esc(g.email)+'</div>'
         +(disabled?'<div style="font-size:11px;color:#EF4444;font-weight:600;margin-top:2px">'+conflictoLabel+'</div>':'')
       +'</div>'
       +'</label>';
@@ -4739,12 +4733,12 @@ function buildInvitarViajeModal(fileId){
           ⚠️ <strong>El guía debe aceptar todos los eventos del viaje.</strong> Si rechaza, queda fuera de todos. No se puede aceptar solo algunos.
         </div>
         <div>
-          <div style="font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Eventos incluidos (${eventosViaje.length})</div>
+          <div style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Eventos incluidos (${eventosViaje.length})</div>
           <div style="max-height:180px;overflow:auto">${eventosListHtml}</div>
         </div>
         <div>
-          <div style="font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Seleccioná guías a invitar</div>
-          <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#8A8A8E;font-size:13px">🔍</span><input type="text" placeholder="Buscar guía..." oninput="(()=>{const q=this.value.toLowerCase();document.querySelectorAll('[data-inv-guia]').forEach(el=>{el.style.display=el.dataset.invGuia.toLowerCase().includes(q)?'flex':'none';});})()" style="width:100%;padding:9px 12px 9px 36px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:#3A3A3C;color:#F0F0F0;font-size:13px;font-family:'DM Sans',sans-serif;box-sizing:border-box;outline:none;margin-bottom:8px"/></div>
+          <div style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Seleccioná guías a invitar</div>
+          <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#A8A8AE;font-size:13px">🔍</span><input type="text" placeholder="Buscar guía..." oninput="(()=>{const q=this.value.toLowerCase();document.querySelectorAll('[data-inv-guia]').forEach(el=>{el.style.display=el.dataset.invGuia.toLowerCase().includes(q)?'flex':'none';});})()" style="width:100%;padding:9px 12px 9px 36px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:#3A3A3C;color:#F0F0F0;font-size:13px;font-family:'DM Sans',sans-serif;box-sizing:border-box;outline:none;margin-bottom:8px"/></div>
           <div style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto">${guiasHtml}</div>
         </div>
         <div style="display:flex;gap:10px;justify-content:flex-end">
@@ -4811,7 +4805,7 @@ function buildImportPreviewModal(entity, rows, filename){
           <table style="width:100%;border-collapse:collapse;font-size:12px">
             <thead>
               <tr style="background:#2C2C2E">
-                ${cols.map(c=>`<th style="padding:8px 10px;text-align:left;font-weight:700;color:#8A8A8E;text-transform:uppercase;font-size:10px;letter-spacing:0.06em;white-space:nowrap">${c}</th>`).join('')}
+                ${cols.map(c=>`<th style="padding:8px 10px;text-align:left;font-weight:700;color:#A8A8AE;text-transform:uppercase;font-size:10px;letter-spacing:0.06em;white-space:nowrap">${c}</th>`).join('')}
               </tr>
             </thead>
             <tbody>
@@ -4821,7 +4815,7 @@ function buildImportPreviewModal(entity, rows, filename){
             </tbody>
           </table>
         </div>
-        ${rows.length>5?`<div style="font-size:12px;color:#8A8A8E;text-align:center">... y ${rows.length-5} filas más</div>`:''}
+        ${rows.length>5?`<div style="font-size:12px;color:#A8A8AE;text-align:center">... y ${rows.length-5} filas más</div>`:''}
         <div style="background:#1F1A0D;border-radius:8px;padding:12px 16px;font-size:12px;color:#D97706">
           ⚠️ ${isGuias?'Si el email ya existe, se actualizará el guía existente. Los nuevos se crearán.':'Todos los eventos se crearán como nuevos en estado A_ASIGNAR.'}
         </div>
@@ -4849,31 +4843,31 @@ function buildLiquidarViajeModal(fileId, evsSinLiq, valorHora){
         <button id="btn-close-modal" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;color:white;font-size:20px;width:36px;height:36px;cursor:pointer">×</button>
       </div>
       <div style="padding:24px;display:flex;flex-direction:column;gap:14px">
-        <div style="font-size:12px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">⏱ Horas trabajadas por evento</div>
+        <div style="font-size:12px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">⏱ Horas trabajadas por evento</div>
         ${evsSinLiq.map((e,i)=>{
           const fecha = new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'short'});
           return `
           <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:#2C2C2E;border-radius:8px;border:1px solid rgba(255,255,255,0.08)">
             <div style="flex:1">
               <div style="font-size:12px;font-weight:600;color:#F0F0F0">${esc(e.tipo_evento)}</div>
-              <div style="font-size:11px;color:#8A8A8E">${fecha}${e.hora_inicio?' · '+String(e.hora_inicio).slice(0,5):''}</div>
+              <div style="font-size:11px;color:#A8A8AE">${fecha}${e.hora_inicio?' · '+String(e.hora_inicio).slice(0,5):''}</div>
             </div>
             <div style="display:flex;align-items:center;gap:6px">
               <input id="viaje-liq-horas-${e.id}" type="number" min="0.5" max="24" step="0.5" value="1" style="width:72px;padding:7px 10px;border-radius:7px;border:1px solid rgba(255,255,255,0.08);font-size:13px;font-family:'DM Sans',sans-serif;text-align:center" oninput="calcularTotalViaje()"/>
-              <span style="font-size:12px;color:#8A8A8E">hs</span>
+              <span style="font-size:12px;color:#A8A8AE">hs</span>
             </div>
           </div>`;
         }).join('')}
         <div>
-          <label style="font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">💸 Gastos extras del viaje ($)</label>
+          <label style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">💸 Gastos extras del viaje ($)</label>
           <input id="viaje-liq-extras" type="number" min="0" step="100" value="0" style="${iStyle}" oninput="calcularTotalViaje()"/>
         </div>
         <div>
-          <label style="font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">📝 Detalle extras</label>
+          <label style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">📝 Detalle extras</label>
           <input id="viaje-liq-detalle" type="text" placeholder="ej: taxi, estacionamiento..." style="${iStyle.replace('text-align:center','')}"/>
         </div>
         <div>
-          <label style="font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">💬 Observaciones</label>
+          <label style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">💬 Observaciones</label>
           <textarea id="viaje-liq-obs" rows="2" placeholder="Notas adicionales..." style="${iStyle.replace('text-align:center','')};resize:vertical"></textarea>
         </div>
         <div id="viaje-liq-total-box" style="background:linear-gradient(135deg,#1D3A2F,#1A4A35);border-radius:10px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
@@ -4911,19 +4905,19 @@ function buildNuevaLiquidacionModal(eventoId){
           💰 Tu valor hora: <strong>$${valorHora.toLocaleString('es-AR')}/h</strong>
         </div>
         <div>
-          <label style="font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">⏱ Cantidad de horas trabajadas *</label>
+          <label style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">⏱ Cantidad de horas trabajadas *</label>
           <input id="liq-horas" type="number" min="0.5" max="24" step="0.5" value="1" placeholder="ej: 3.5" style="${iStyle}" oninput="calcularTotal()"/>
         </div>
         <div>
-          <label style="font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">💸 Gastos extras ($)</label>
+          <label style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">💸 Gastos extras ($)</label>
           <input id="liq-extras" type="number" min="0" step="100" value="0" placeholder="0" style="${iStyle}" oninput="calcularTotal()"/>
         </div>
         <div>
-          <label style="font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">📝 Detalle gastos extras</label>
+          <label style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">📝 Detalle gastos extras</label>
           <input id="liq-detalle-extras" type="text" placeholder="ej: traslado taxi $1500, estacionamiento $500..." style="${iStyle}"/>
         </div>
         <div>
-          <label style="font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">💬 Observaciones</label>
+          <label style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">💬 Observaciones</label>
           <textarea id="liq-observaciones" rows="2" placeholder="Notas adicionales..." style="${iStyle}resize:vertical"></textarea>
         </div>
         <div id="liq-total-box" style="background:linear-gradient(135deg,#1D3A2F,#1A4A35);border-radius:10px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
@@ -4960,24 +4954,24 @@ function buildVerLiquidacionModal(liqId){
       <div style="padding:24px;display:flex;flex-direction:column;gap:14px">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div style="background:#2C2C2E;border-radius:8px;padding:12px">
-            <div style="font-size:10px;font-weight:700;color:#8A8A8E;text-transform:uppercase;margin-bottom:4px">Horas</div>
+            <div style="font-size:10px;font-weight:700;color:#A8A8AE;text-transform:uppercase;margin-bottom:4px">Horas</div>
             <div style="font-size:18px;font-weight:700;color:#F0F0F0">${liq.horas}h</div>
           </div>
           <div style="background:#2C2C2E;border-radius:8px;padding:12px">
-            <div style="font-size:10px;font-weight:700;color:#8A8A8E;text-transform:uppercase;margin-bottom:4px">Valor hora</div>
+            <div style="font-size:10px;font-weight:700;color:#A8A8AE;text-transform:uppercase;margin-bottom:4px">Valor hora</div>
             <div style="font-size:18px;font-weight:700;color:#F0F0F0">$${(liq.valor_hora||0).toLocaleString('es-AR')}</div>
           </div>
           <div style="background:#2C2C2E;border-radius:8px;padding:12px">
-            <div style="font-size:10px;font-weight:700;color:#8A8A8E;text-transform:uppercase;margin-bottom:4px">Subtotal horas</div>
+            <div style="font-size:10px;font-weight:700;color:#A8A8AE;text-transform:uppercase;margin-bottom:4px">Subtotal horas</div>
             <div style="font-size:15px;font-weight:600;color:#F0F0F0">$${(liq.horas*(liq.valor_hora||0)).toLocaleString('es-AR')}</div>
           </div>
           <div style="background:#2C2C2E;border-radius:8px;padding:12px">
-            <div style="font-size:10px;font-weight:700;color:#8A8A8E;text-transform:uppercase;margin-bottom:4px">Gastos extras</div>
+            <div style="font-size:10px;font-weight:700;color:#A8A8AE;text-transform:uppercase;margin-bottom:4px">Gastos extras</div>
             <div style="font-size:15px;font-weight:600;color:#F0F0F0">$${(liq.gastos_extras||0).toLocaleString('es-AR')}</div>
           </div>
         </div>
         ${liq.detalle_extras?`<div style="background:#1F1A0D;border-radius:8px;padding:12px"><div style="font-size:10px;font-weight:700;color:#D97706;text-transform:uppercase;margin-bottom:4px">Detalle extras</div><div style="font-size:13px;color:#A0A0A8">${esc(liq.detalle_extras)}</div></div>`:''}
-        ${liq.observaciones?`<div style="background:#2C2C2E;border-radius:8px;padding:12px"><div style="font-size:10px;font-weight:700;color:#8A8A8E;text-transform:uppercase;margin-bottom:4px">Observaciones</div><div style="font-size:13px;color:#A0A0A8">${esc(liq.observaciones)}</div></div>`:''}
+        ${liq.observaciones?`<div style="background:#2C2C2E;border-radius:8px;padding:12px"><div style="font-size:10px;font-weight:700;color:#A8A8AE;text-transform:uppercase;margin-bottom:4px">Observaciones</div><div style="font-size:13px;color:#A0A0A8">${esc(liq.observaciones)}</div></div>`:''}
         <div style="background:linear-gradient(135deg,#1D3A2F,#1A4A35);border-radius:10px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center">
           <div style="color:rgba(255,255,255,0.8);font-size:13px;font-weight:600">TOTAL</div>
           <div style="color:white;font-size:24px;font-weight:700">$${liq.total.toLocaleString('es-AR')}</div>
@@ -5024,7 +5018,7 @@ function buildCalendarioGuiaModal(guiaId){
     return `<div style="margin-bottom:16px">
       <div style="font-size:12px;font-weight:700;color:#F0F0F0;text-transform:capitalize;margin-bottom:10px;text-align:center">${monthName}</div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center">
-        ${['Lu','Ma','Mi','Ju','Vi','Sa','Do'].map(d=>`<div style="font-size:10px;font-weight:700;color:#8A8A8E;padding:4px 0">${d}</div>`).join('')}
+        ${['Lu','Ma','Mi','Ju','Vi','Sa','Do'].map(d=>`<div style="font-size:10px;font-weight:700;color:#A8A8AE;padding:4px 0">${d}</div>`).join('')}
         ${cells}
       </div>
     </div>`;
@@ -5046,23 +5040,23 @@ function buildCalendarioGuiaModal(guiaId){
           ${buildMiniMonth(year, month)}
           ${buildMiniMonth(year, month+1 > 11 ? 0 : month+1)}
         </div>
-        ${misEventos.length===0?`<div style="text-align:center;padding:20px;color:#8A8A8E">Sin eventos confirmados</div>`:`
+        ${misEventos.length===0?`<div style="text-align:center;padding:20px;color:#A8A8AE">Sin eventos confirmados</div>`:`
         <div>
-          <div style="font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Próximos eventos</div>
+          <div style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Próximos eventos</div>
           <div style="display:flex;flex-direction:column;gap:8px">
             ${misEventos.map(e=>{
               const fecha = new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'short'});
               const past = new Date(e.fecha) < today;
               return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;background:${past?'#F5F3EF':'white'};border:1.5px solid ${past?'#E8E4DD':T.teal+'40'}">
                 <div style="width:42px;text-align:center;flex-shrink:0">
-                  <div style="font-size:18px;font-weight:700;color:${past?'#9E9A93':T.teal};line-height:1">${new Date(e.fecha+'T12:00:00').getDate()}</div>
-                  <div style="font-size:10px;color:#8A8A8E;text-transform:uppercase">${new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{month:'short'})}</div>
+                  <div style="font-size:18px;font-weight:700;color:${past?'#6B6B6B':T.teal};line-height:1">${new Date(e.fecha+'T12:00:00').getDate()}</div>
+                  <div style="font-size:10px;color:#6B6B6B;text-transform:uppercase">${new Date(e.fecha+'T12:00:00').toLocaleDateString('es-AR',{month:'short'})}</div>
                 </div>
                 <div style="flex:1">
-                  <div style="font-size:13px;font-weight:600;color:${past?'#9E9A93':'#1A1A1A'}">${esc(e.tipo_evento)}</div>
-                  <div style="font-size:11px;color:#8A8A8E">${e.hora_inicio}${e.hora_fin?' - '+e.hora_fin:''}${e.nro_file?' · 📁 '+esc(e.nro_file):''}</div>
+                  <div style="font-size:13px;font-weight:600;color:${past?'#6B6B6B':'#1A1A1A'}">${esc(e.tipo_evento)}</div>
+                  <div style="font-size:11px;color:#6B6B6B">${e.hora_inicio}${e.hora_fin?' - '+e.hora_fin:''}${e.nro_file?' · 📁 '+esc(e.nro_file):''}</div>
                 </div>
-                <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:${past?'#E8E4DD':'#D4EDDA'};color:${past?'#9E9A93':'#155724'}">${past?'Realizado':'Confirmado'}</span>
+                <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:${past?'#E8E4DD':'#D4EDDA'};color:${past?'#5A5A5A':'#155724'}">${past?'Realizado':'Confirmado'}</span>
               </div>`;
             }).join('')}
           </div>
@@ -5088,19 +5082,19 @@ function buildFeedbackModal(eventoId){
       </div>
       <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
         <div>
-          <label style="font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">📝 Comentarios de la salida</label>
+          <label style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">📝 Comentarios de la salida</label>
           <textarea id="feedback-texto" rows="4" placeholder="¿Cómo salió el evento? Novedades, incidentes, observaciones..." style="${iStyle}resize:vertical;${isAdmin()&&evento.feedback_texto?'background:#2C2C2E;color:#A0A0A8':''}" ${isAdmin()&&evento.feedback_texto?'readonly':''}>${esc(evento.feedback_texto||'')}</textarea>
         </div>
         <div>
-          <label style="font-size:11px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">📸 Foto de la salida</label>
+          <label style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:6px">📸 Foto de la salida</label>
           ${evento.feedback_foto_url?`
             <div style="margin-bottom:10px">
               <img src="${esc(evento.feedback_foto_url)}" style="width:100%;border-radius:8px;max-height:200px;object-fit:cover"/>
-              <div style="font-size:11px;color:#8A8A8E;margin-top:4px">Foto cargada · podés reemplazarla</div>
+              <div style="font-size:11px;color:#A8A8AE;margin-top:4px">Foto cargada · podés reemplazarla</div>
             </div>
           `:''}
           <input id="feedback-foto" type="file" accept="image/*" style="display:none"/>
-          <button id="btn-pick-foto" style="${iStyle}cursor:pointer;text-align:left;color:#8A8A8E;font-size:13px">📷 ${evento.feedback_foto_url?'Cambiar foto':'Seleccionar foto'}</button>
+          <button id="btn-pick-foto" style="${iStyle}cursor:pointer;text-align:left;color:#A8A8AE;font-size:13px">📷 ${evento.feedback_foto_url?'Cambiar foto':'Seleccionar foto'}</button>
           <div id="foto-preview" style="margin-top:8px;display:none">
             <img id="foto-preview-img" style="width:100%;border-radius:8px;max-height:200px;object-fit:cover"/>
           </div>
@@ -5117,7 +5111,7 @@ function buildFeedbackModal(eventoId){
 
 function buildToast(){
   if(!S.toast) return '';
-  return `<div style="position:fixed;bottom:22px;right:22px;background:${S.toast.color};color:white;padding:12px 22px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,0.2);z-index:2000;animation:fadeIn 0.2s ease">${S.toast.msg}</div>`;
+  return `<div style="position:fixed;bottom:22px;right:22px;background:#1F1F22;color:#FFFFFF;padding:12px 22px;border-radius:10px;border-left:4px solid ${S.toast.color};font-size:14px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,0.35);z-index:2000;animation:fadeIn 0.2s ease;max-width:420px">${S.toast.msg}</div>`;
 }
 
 // ── EVENTS ────────────────────────────────────────────────────────────────────
@@ -5355,15 +5349,15 @@ function attachEvents(){
             ${ev.tipo_evento ? `<div style="font-size:17px;font-weight:700;color:#1B6B74;margin-bottom:14px">${esc(ev.tipo_evento)}</div>` : ''}
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
               <div>
-                <div style="font-size:10px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">📅 Fecha</div>
+                <div style="font-size:10px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">📅 Fecha</div>
                 <div style="font-size:13px;font-weight:600;color:#F0F0F0">${fechaStr}</div>
               </div>
               <div>
-                <div style="font-size:10px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">🕐 Horario</div>
+                <div style="font-size:10px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">🕐 Horario</div>
                 <div style="font-size:13px;font-weight:600;color:#F0F0F0">${horario}</div>
               </div>
-              ${ev.nro_file ? `<div style="grid-column:1/-1"><div style="font-size:10px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">📁 Nro. File</div><div style="font-size:13px;font-weight:600;color:#F0F0F0">${esc(ev.nro_file)}</div></div>` : ''}
-              ${ev.descripcion ? `<div style="grid-column:1/-1"><div style="font-size:10px;font-weight:700;color:#8A8A8E;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">📝 Descripción</div><div style="font-size:13px;color:#A0A0A8">${esc(ev.descripcion)}</div></div>` : ''}
+              ${ev.nro_file ? `<div style="grid-column:1/-1"><div style="font-size:10px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">📁 Nro. File</div><div style="font-size:13px;font-weight:600;color:#F0F0F0">${esc(ev.nro_file)}</div></div>` : ''}
+              ${ev.descripcion ? `<div style="grid-column:1/-1"><div style="font-size:10px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">📝 Descripción</div><div style="font-size:13px;color:#A0A0A8">${esc(ev.descripcion)}</div></div>` : ''}
             </div>
           </div>`;
       }
@@ -5403,7 +5397,7 @@ function attachEvents(){
         box.innerHTML=`
           <div style="font-size:56px;margin-bottom:12px">⚠️</div>
           <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:#F0F0F0;margin-bottom:8px">Lo sentimos</div>
-          <div style="font-size:14px;color:#8A8A8E;margin-bottom:28px;line-height:1.6">${result.msg}</div>
+          <div style="font-size:14px;color:#A8A8AE;margin-bottom:28px;line-height:1.6">${result.msg}</div>
           <a href="${APP_URL}" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 24px;background:#1B6B74;color:white;border-radius:10px;font-weight:700;font-size:14px;text-decoration:none">Ir a la plataforma →</a>`;
       }
     })();
@@ -6446,14 +6440,14 @@ async function doImportEventos(rows){
 async function loadUsuariosPanel(){
   const container = document.getElementById('usuarios-list');
   if(!container) return;
-  container.innerHTML = `<div style="color:#8A8A8E;font-size:13px">Cargando...</div>`;
+  container.innerHTML = `<div style="color:#A8A8AE;font-size:13px">Cargando...</div>`;
 
   // Cargar email de notificaciones
   const {data:configEmail} = await db.from('config').select('*').eq('key','email_notificaciones_admin').single();
   const emailNotif = configEmail?.value || '';
 
   const {data:roles} = await db.from('user_roles').select('*');
-  if(!roles?.length){ container.innerHTML=`<div style="color:#8A8A8E;font-size:13px">Sin usuarios configurados</div>`; return; }
+  if(!roles?.length){ container.innerHTML=`<div style="color:#A8A8AE;font-size:13px">Sin usuarios configurados</div>`; return; }
   const {data:guiasAll} = await db.from('guias').select('*');
 
   container.innerHTML = `
@@ -6488,7 +6482,7 @@ async function loadUsuariosPanel(){
             <div style="font-size:13px;font-weight:700;color:#F0F0F0">${displayName}</div>
             <div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap">
               <span style="background:${isAdminRole?'#1B6B74':'#E9C46A'}20;color:${isAdminRole?'#1B6B74':'#856404'};padding:1px 8px;border-radius:10px;font-weight:700;font-size:10px">${r.role.toUpperCase()}</span>
-              ${displayEmail?`<span style="font-size:11px;color:#8A8A8E">${displayEmail}</span>`:''}
+              ${displayEmail?`<span style="font-size:11px;color:#A8A8AE">${displayEmail}</span>`:''}
             </div>
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0">
@@ -6504,7 +6498,7 @@ async function loadUsuariosPanel(){
             ${r.user_id !== S.user?.id ? `<button onclick="darDeBajaUsuario('${r.user_id}','${displayName}')"
               style="padding:6px 12px;border-radius:6px;border:1px solid #fcd5d5;background:#3A3A3C5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600;font-family:'DM Sans',sans-serif">
               ✕ Baja
-            </button>` : '<span style="font-size:10px;color:#8A8A8E;padding:6px 4px">(vos)</span>'}
+            </button>` : '<span style="font-size:10px;color:#A8A8AE;padding:6px 4px">(vos)</span>'}
           </div>
         </div>`;
       }).join('')}
@@ -6640,6 +6634,13 @@ async function init(){
 
   // auto check SLA every 5 min
   // setInterval(checkSLA, 5*60*1000); // TODO: implement checkSLA function
+
+  // Auto-refresh every 2 minutes
+  setInterval(async()=>{
+    if(!S.user) return;
+    await loadAll();
+    if(isAdmin()) checkAlertasAdmin();
+  }, 2 * 60 * 1000);
 }
 init();
 </script>
