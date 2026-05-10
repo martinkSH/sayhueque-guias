@@ -220,7 +220,7 @@ const T = {
   teal:'#1D3A2F',      // dark green accent
   tealMid:'#1A4A35',   // dark green mid
   coral:'#E76F51',     // primary accent (orange-coral)
-  amber:'#E9C46A',     // secondary accent (yellow)
+  amber:'#E9C46A',     // secondary accent (yellow) — kept for back-compat; prefer T.status.pending
   green:'#4ADE80',     // success
   red:'#EF4444',       // danger
   blue:'#60A5FA',      // info
@@ -233,26 +233,36 @@ const T = {
   appBg:'#1C1C1E',     // app background
   cardBg:'#2A2A2C',    // card background
   panelBg:'#111111',   // sidebar
+  // ── Classic Sherpa STATUS palette (every bg/fg pair passes WCAG AA on dark surfaces) ──
+  // Use as bg + fg for badges, pills, status backgrounds. accent is for borders/icons.
+  status: {
+    pending: { bg:'#3D3018', fg:'#F4C95D', accent:'#B8842D' }, // amber profundo
+    success: { bg:'#1A3D2A', fg:'#7DDFA0', accent:'#2D7A47' }, // forest
+    warning: { bg:'#3D2418', fg:'#F4A574', accent:'#B85A2D' }, // terracotta
+    danger:  { bg:'#3D1818', fg:'#F47D7D', accent:'#B82D2D' }, // burgundy
+    info:    { bg:'#1A2D3D', fg:'#7DA8DF', accent:'#2D5C8B' }, // slate blue
+    muted:   { bg:'#2A2A2C', fg:'#A8A8AE', accent:'#5A5A5C' }, // gris
+  },
 };
 
 const TIPOS_EVENTO = ['01HS A DISPOSICION (Ing-Esp-Por)', '02HS A DISPOSICION (Ing-Esp-Por)', '03HS A DISPOSICION (Ing-Esp-Por)', '04HS A DISPOSICION (Ing-Esp-Por)', '05HS A DISPOSICION (Ing-Esp-Por)', '08HS A DISPOSICION (Ing-Esp-Por)', '09HS A DISPOSICION (Ing-Esp-Por)', 'ART TOUR (05HS) (Ing-Esp-Por)', 'BUENOS AIRES NIGHTLIFE & MILONGA', 'CITY TOUR (03HS) (Ing-Esp-Por)', 'CITY TOUR (04HS) (Ale,Ita,Fran)', 'CITY TOUR (04HS) (Ing-Esp-Por)', 'CITY TOUR (05HS) (Ale,Ita,Fran)', 'CITY TOUR (05HS) (Ing-Esp-Por)', 'CITY TOUR (06HS) (Ing-Esp-Por)', 'CITY TOUR (08HS) (Ale,Ita,Fran)', 'CITY TOUR (08HS) (Ing-Esp-Por)', 'CITY TOUR (7HS) (Ing-Esp-Por)', 'CITY TOUR ARTE Y ARQUITECTURA (05HS) (Ing-Esp-Por)', 'CITY TOUR ARTE Y ARQUITECTURA (06HS) (Ing-Esp-Por)', 'FD ESTANCIA PUESTO VIEJO (Esp,Ing)', 'FD ESTANCIA o FIESTA GAUCHA (Ale,Ita,Fran)', 'FD ESTANCIA o FIESTA GAUCHA (Esp,Ing)', 'FD TIGRE (07HS) (Ing-Esp-Por)', 'FD TIGRE 7HS (Ale,Ita,Fran)', 'HD BUENOS AIRES TASTING', 'HD CITY TOUR JUDIO (04HS) (PVT) (Ing-Esp-Por)', 'HD CITY TOUR JUDIO (05HS) (PVT) (Ing-Esp-Por)', 'HD FOODIE TOUR (05HS) (PVT) (Ing-Esp-Por)', 'HD HIDDEN BUE (04HS) (PVT) (Ing-Esp-Por)', 'HD ISLA MACIEL (04HS) (Ing-Esp-Por)', 'HD MILONGA TOUR (04HS) (PVT) (Ing-Esp-Por)', 'HD ORIENTATION WALKING TOUR (PVT) (FAMILY)', 'HD RECOLETA WALKING TOUR (PVT)', 'HD TIGRE 5HS (Ale,Ita,Fran)', 'HD TIGRE 5HS (Ing-Esp-Por)', 'HD WALKING CITY TOUR NORTE (Ale,Ita,Fran)', 'HD WALKING CITY TOUR NORTE Ing, Esp (PVT)', 'HD WALKING CITY TOUR SUR (Ale,Ita,Fran)', 'HD WALKING CITY TOUR SUR Ing, Esp (PVT)', 'HD WALKING TOUR C/ZANJON DE GRANADOS (PVT)', 'HIDDEN BAR TOUR (04HS) (Ing-Esp-Por)', 'TANGO CENA SHOW (Ale,Ita,Fran)', 'TANGO CENA SHOW (Ing-Esp-Por)', 'TANGO SHOW (Ale-Fra-Ita)', 'TANGO SHOW (Ing - Esp)', 'TRF AEP/ HTL - TERM o VV (Ale,Ita,Fran)', 'TRF AEP/ HTL - TERM o VV (Ing-Esp-Por)', 'TRF APT EZE/ SAN ANTONIO DE ARECO (Ing-Esp-Por)', 'TRF CNX AEP/ PTO - TERM o VV (Ale,Ita,Fran)', 'TRF CNX AEP/ PTO - TERM o VV (Ing-Esp-Por)', 'TRF CNX EZE/ AEP-PTO-TERM o VV (Ale,Ita,Fran)', 'TRF CNX EZE/ AEP-PTO-TERM o VV (Ing-Esp-Por)', 'TRF EZE/ HTL - TERM o VV', 'TRF EZE/ HTL - TERM o VV (Ale,Ita,Fran)', 'TRF EZE/ HTL - TERM o VV (Ing-Esp-Por)', 'TRF HTL FTE/ APT FTE', 'TRF HTL o APT EZE-AEP / ARECO o VV (Ing-Esp-Por)', 'TRF HTL o APT EZE-AEP / MONTE o VV (Ing-Esp-Por)', 'TRF HTL/ CAFE TORTONI o VV', 'TRF HTL/ MEETING POINT o VV', 'TRF HTL/ RESTAURANT/ HTL (Ing-Esp-Por)', 'TRF HTL/ THE ARGENTINE EXP, COOKING CLASS o VV', 'TRF PTO - TERM/ HTL o VV (Ale,Ita,Fran)', 'TRF PTO - TERM/ HTL o VV (Ing-Esp-Por)', 'TRF TANGO/ HTL o VV (Ing-Esp-Por)', 'TRF TIGRE/ HTL BUE (Ing-Esp-Por)', 'WALKING CITY (Ing-Esp-Por)', 'Otro'];
 let SLA = { URGENTE: 5, REGULAR: 48 }; // overridden by DB config on load
 
 const ESTADO_EVENT_COLOR = {
-  'A_ASIGNAR': {bg:'rgba(233,196,106,0.15)',fg:'#E9C46A',label:'A Asignar'},
-  'CONFIRMADO':{bg:'rgba(74,222,128,0.12)', fg:'#4ADE80',label:'Confirmado'},
-  'RECONFIRMACION_PENDIENTE':{bg:'rgba(231,111,81,0.15)',fg:'#E76F51',label:'Reconfirmación Pendiente'},
-  'RECHAZADO_POR_GUIA':{bg:'rgba(239,68,68,0.15)',fg:'#EF4444',label:'Rechazado por Guía - Reasignar'},
-  'CANCELADO': {bg:'rgba(239,68,68,0.12)',  fg:'#EF4444',label:'Cancelado'},
-  'EXPIRADO':  {bg:'rgba(255,255,255,0.06)',fg:'#A8A8AE',label:'Expirado'},
+  'A_ASIGNAR':                {...T.status.pending, label:'A Asignar'},
+  'CONFIRMADO':               {...T.status.success, label:'Confirmado'},
+  'RECONFIRMACION_PENDIENTE': {...T.status.warning, label:'Reconfirmación Pendiente'},
+  'RECHAZADO_POR_GUIA':       {...T.status.danger,  label:'Rechazado por Guía - Reasignar'},
+  'CANCELADO':                {...T.status.danger,  label:'Cancelado'},
+  'EXPIRADO':                 {...T.status.muted,   label:'Expirado'},
 };
 const ESTADO_INV_COLOR = {
-  'PENDIENTE':       {bg:'rgba(233,196,106,0.15)',fg:'#E9C46A'},
-  'ACEPTADA':        {bg:'rgba(74,222,128,0.12)', fg:'#4ADE80'},
-  'RECHAZADA':       {bg:'rgba(239,68,68,0.15)',  fg:'#EF4444'},
-  'EXPIRADA':        {bg:'rgba(255,255,255,0.06)',fg:'#A8A8AE'},
-  'CANCELADA':       {bg:'rgba(239,68,68,0.15)',  fg:'#EF4444'},
-  'TOMADA_POR_OTRO': {bg:'rgba(96,165,250,0.12)', fg:'#60A5FA'},
+  'PENDIENTE':       T.status.pending,
+  'ACEPTADA':        T.status.success,
+  'RECHAZADA':       T.status.danger,
+  'EXPIRADA':        T.status.muted,
+  'CANCELADA':       T.status.danger,
+  'TOMADA_POR_OTRO': T.status.info,
 };
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
@@ -1669,7 +1679,7 @@ function buildGCalUrl(evento){
   const details = encodeURIComponent(evento.descripcion || '');
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${start}/${end}&details=${details}`;
 }
-function badge(text,map){ const s=map[text]||{bg:'#eee',fg:'#555'}; return `<span style="background:${s.bg};color:${s.fg};padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap">${esc(text)}</span>`; }
+function badge(text,map){ const s=map[text]||T.status.muted; return `<span style="background:${s.bg};color:${s.fg};padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap">${esc(text)}</span>`; }
 const iStyle = "padding:10px 13px;border-radius:8px;border:1.5px solid rgba(255,255,255,0.1);font-size:13px;color:#F0F0F0;background:#3A3A3C;width:100%;transition:border 0.15s;font-family:'DM Sans',sans-serif;";
 function btnP(color){ return `padding:10px 22px;border-radius:9px;border:none;background:${color};color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;`; }
 const btnS = `padding:10px 20px;border-radius:9px;border:1.5px solid rgba(255,255,255,0.1);background:#3A3A3C;color:#A0A0A8;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;`;
@@ -2234,11 +2244,11 @@ function buildDashboard(){
 
     <div class="stats-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px">
       ${[
-        ['A Asignar',  aAsignar,   T.amber, 'eventos'],
-        ['Confirmados',confirmados,T.green, 'eventos'],
-        ['Urgentes',   urgentes,   T.red,   'eventos'],
-        ['Inv. Pendientes',pendInv,T.blue,  'eventos'],
-        ['Guías Activos',guiasActivos,T.coral,'guias'],
+        ['A Asignar',  aAsignar,   T.status.pending.fg, 'eventos'],
+        ['Confirmados',confirmados,T.status.success.fg, 'eventos'],
+        ['Urgentes',   urgentes,   T.status.danger.fg,  'eventos'],
+        ['Inv. Pendientes',pendInv,T.status.info.fg,    'eventos'],
+        ['Guías Activos',guiasActivos,T.status.warning.fg,'guias'],
       ].map(([label,val,color,nav])=>`
         <div data-nav="${nav}" style="background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px 18px;cursor:pointer;border-left:3px solid ${color};transition:all 0.15s"
           onmouseenter="this.style.background='#1A1A1A';this.style.transform='translateY(-2px)'"
@@ -2278,7 +2288,7 @@ function buildDashboard(){
             }
             <div style="flex:1"><div style="font-size:13px;font-weight:600;color:${T.dark}">${esc(g.nombre)} ${esc(g.apellido)}</div>
             ${isAdmin()?`<div style="font-size:11px;color:#A8A8AE">${g.tipo} · $${g.valor_hora}/h</div>`:''}</div>
-            ${isAdmin()?`<span style="font-size:10px;background:${g.tipo==='SENIOR'?T.teal+'20':'#E9C46A30'};color:${g.tipo==='SENIOR'?T.teal:'#856404'};padding:2px 8px;border-radius:10px;font-weight:600">${g.tipo}</span>`:''} 
+            ${isAdmin()?`<span style="font-size:10px;background:${g.tipo==='SENIOR'?T.status.success.bg:T.status.pending.bg};color:${g.tipo==='SENIOR'?T.status.success.fg:T.status.pending.fg};padding:2px 8px;border-radius:10px;font-weight:600">${g.tipo}</span>`:''} 
             ${isAdmin()&&g.categoria?`<span style="font-size:10px;background:#f0f0f0;color:#A0A0A8;padding:2px 8px;border-radius:10px;font-weight:600">${g.categoria}</span>`:''} 
             ${isAdmin()&&g.idiomas?.length?`<span style="font-size:10px;color:#888">${g.idiomas.join(' · ')}</span>`:''} 
           </div>`).join('')}
@@ -2441,7 +2451,7 @@ function buildTransportistas(){
             </div>
             <div style="display:flex;gap:6px">
               <button data-open="transportista-form" data-entry="${t.id}" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:#3A3A3C;font-size:11px;cursor:pointer;color:#E76F51;font-weight:600">✏️</button>
-              <button data-delete-transportista="${t.id}" style="padding:4px 10px;border-radius:6px;border:1px solid #fcd5d5;background:#3A3A3C5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600">🗑️</button>
+              <button data-delete-transportista="${t.id}" style="padding:4px 10px;border-radius:6px;border:1px solid #fcd5d5;background:#3A3A3C;font-size:11px;cursor:pointer;color:#E63946;font-weight:600">🗑️</button>
             </div>
           </div>
           ${t.email?`<div style="font-size:12px;color:#A0A0A8;margin-bottom:6px">✉️ ${esc(t.email)}</div>`:''}
@@ -2570,7 +2580,7 @@ function buildGuias(){
             <div style="flex:1">
               <div style="font-size:14px;font-weight:700;color:${T.dark}">${esc(g.nombre)} ${esc(g.apellido)}</div>
               <div style="display:flex;gap:6px;margin-top:4px">
-                ${isAdmin()?`<span style="font-size:10px;background:${g.tipo==='SENIOR'?T.teal+'20':'#E9C46A30'};color:${g.tipo==='SENIOR'?T.teal:'#856404'};padding:1px 8px;border-radius:10px;font-weight:600">${g.tipo}</span>`:''}
+                ${isAdmin()?`<span style="font-size:10px;background:${g.tipo==='SENIOR'?T.status.success.bg:T.status.pending.bg};color:${g.tipo==='SENIOR'?T.status.success.fg:T.status.pending.fg};padding:1px 8px;border-radius:10px;font-weight:600">${g.tipo}</span>`:''}
                 <span style="font-size:10px;background:${g.estado==='ACTIVO'?'#D4EDDA':'#F8D7DA'};color:${g.estado==='ACTIVO'?'#155724':'#721c24'};padding:1px 8px;border-radius:10px;font-weight:600">${g.estado}</span>
               </div>
             </div>
@@ -2785,15 +2795,15 @@ function buildViajes(){
                       <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
                         ${e.estado==='A_ASIGNAR'||e.estado==='ASIGNADO'||e.estado==='CONFIRMADO'||pendientes.length>0?`<button data-invitar="${e.id}" style="padding:6px 12px;border-radius:6px;border:none;background:#1B6B74;color:white;font-size:11px;cursor:pointer;font-weight:600">📨 ${invs.length>0?'Invitar más guías':'Invitar guía'}</button>`:''}
                         <button data-edit-evento="${e.id}" style="padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:#3A3A3C;font-size:11px;cursor:pointer;color:#E76F51;font-weight:600">✏️ Editar</button>
-                        ${e.estado!=='CANCELADO'?`<button data-cancelar-evento="${e.id}" style="padding:6px 12px;border-radius:6px;border:1px solid #fcd5d5;background:#3A3A3C5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600">❌ Cancelar</button>`:''}
+                        ${e.estado!=='CANCELADO'?`<button data-cancelar-evento="${e.id}" style="padding:6px 12px;border-radius:6px;border:1px solid #fcd5d5;background:#3A3A3C;font-size:11px;cursor:pointer;color:#E63946;font-weight:600">❌ Cancelar</button>`:''}
                       </div>
                     `;
                   })():''}
                   
                   ${!isAdmin() && e.estado==='CONFIRMADO' && e.guia_id===S.myGuia?.id && !isPast?`
                     <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
-                      ${(()=>{const rs=reconfStatus(e);if(rs==='urgent')return '<button onclick="reconfirmarEvento2('+e.id+')" style="padding:6px 12px;border-radius:6px;border:none;background:#E63946;color:white;font-size:11px;cursor:pointer;font-weight:700;font-family:DM Sans,sans-serif">🔴 Reconfirmar urgente</button>';if(rs==='warning')return '<button onclick="reconfirmarEvento2('+e.id+')" style="padding:6px 12px;border-radius:6px;border:none;background:#E9C46A;color:#D97706;font-size:11px;cursor:pointer;font-weight:700;font-family:DM Sans,sans-serif">⏳ Reconfirmar</button>';if(rs==='ok')return '<span style="font-size:11px;color:#2E7D32;font-weight:600">✅ Reconfirmado</span>';return '';})()}
-                      <button data-bajar-evento="${e.id}" style="padding:6px 12px;border-radius:6px;border:1px solid #fcd5d5;background:#3A3A3C5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600;font-family:'DM Sans',sans-serif">🚫 Me bajo</button>
+                      ${(()=>{const rs=reconfStatus(e);if(rs==='urgent')return '<button onclick="reconfirmarEvento2('+e.id+')" style="padding:6px 12px;border-radius:6px;border:none;background:'+T.status.danger.accent+';color:white;font-size:11px;cursor:pointer;font-weight:700;font-family:DM Sans,sans-serif">🔴 Reconfirmar urgente</button>';if(rs==='warning')return '<button onclick="reconfirmarEvento2('+e.id+')" style="padding:6px 12px;border-radius:6px;border:none;background:'+T.status.warning.accent+';color:white;font-size:11px;cursor:pointer;font-weight:700;font-family:DM Sans,sans-serif">⏳ Reconfirmar</button>';if(rs==='ok')return '<span style="font-size:11px;color:'+T.status.success.fg+';font-weight:600">✅ Reconfirmado</span>';return '';})()}
+                      <button data-bajar-evento="${e.id}" style="padding:6px 12px;border-radius:6px;border:1px solid ${T.status.danger.accent};background:#3A3A3C;font-size:11px;cursor:pointer;color:${T.status.danger.fg};font-weight:600;font-family:'DM Sans',sans-serif">🚫 Me bajo</button>
                     </div>
                   `:''}
                   ${!isAdmin() && e.estado==='RECONFIRMACION_PENDIENTE' && e.guia_id===S.myGuia?.id?`
@@ -2891,11 +2901,11 @@ function buildEventos(){
                   <div style="display:flex;gap:6px">
                     ${isAdmin()?`<button data-edit-evento="${e.id}" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:#3A3A3C;font-size:11px;cursor:pointer;color:#E76F51;font-weight:600;font-family:'DM Sans',sans-serif">✏️</button>`:''}
                     ${(e.estado==='A_ASIGNAR'||e.estado==='ASIGNADO')&&isAdmin()?`<button data-invitar="${e.id}" style="padding:4px 10px;border-radius:6px;border:none;background:#E76F51;color:white;font-size:11px;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif">📧 Invitar</button>`:''}
-                    ${e.estado!=='CANCELADO'&&isAdmin()?`<button data-cancelar-evento="${e.id}" style="padding:4px 10px;border-radius:6px;border:1px solid #fcd5d5;background:#3A3A3C5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600;font-family:'DM Sans',sans-serif">✕ Cancelar</button>`:''}
+                    ${e.estado!=='CANCELADO'&&isAdmin()?`<button data-cancelar-evento="${e.id}" style="padding:4px 10px;border-radius:6px;border:1px solid #fcd5d5;background:#3A3A3C;font-size:11px;cursor:pointer;color:#E63946;font-weight:600;font-family:'DM Sans',sans-serif">✕ Cancelar</button>`:''}
                     
 
                     ${!isAdmin() && e.estado==='CONFIRMADO' && e.guia_id===S.myGuia?.id && !esPasado?`
-                      <button data-bajar-evento="${e.id}" style="padding:4px 10px;border-radius:6px;border:1px solid #fcd5d5;background:#3A3A3C5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600;font-family:'DM Sans',sans-serif">
+                      <button data-bajar-evento="${e.id}" style="padding:4px 10px;border-radius:6px;border:1px solid #fcd5d5;background:#3A3A3C;font-size:11px;cursor:pointer;color:#E63946;font-weight:600;font-family:'DM Sans',sans-serif">
                         🚫 Me bajo
                       </button>`:''}
                   </div>
@@ -3077,7 +3087,10 @@ function buildCalendario(){
             </div>
             ${nota?`<div style="font-size:9px;color:#D97706;background:#1F1A0D;border-radius:3px;padding:2px 4px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%" title="${esc(nota)}">${esc(nota)}</div>`:``}
             ${dayEvents.slice(0,3).map(e=>{
-              const color=e.estado==='CONFIRMADO'?T.green:e.prioridad==='URGENTE'?T.red:T.amber;
+              // Use the .accent variant (saturated mid-tone) so white text stays readable.
+              const color = e.estado==='CONFIRMADO' ? T.status.success.accent
+                          : e.prioridad==='URGENTE' ? T.status.danger.accent
+                          : T.status.pending.accent;
               const guia=S.guias.find(g=>g.id===e.guia_id);
               const tr=S.transportistas?.find(t=>t.id===e.transportista_id);
               const label=esc(e.tipo_evento)+(e.nro_file?' / '+esc(e.nro_file):'');
@@ -3091,9 +3104,9 @@ function buildCalendario(){
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding:12px 16px;background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;align-items:center">
       <span style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.5px;margin-right:4px">Referencias:</span>
-      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#A0A0A8"><span style="width:12px;height:12px;border-radius:3px;background:#52B788;display:inline-block"></span>Confirmado</span>
-      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#A0A0A8"><span style="width:12px;height:12px;border-radius:3px;background:#E9C46A;display:inline-block"></span>A asignar / Regular</span>
-      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#A0A0A8"><span style="width:12px;height:12px;border-radius:3px;background:#E63946;display:inline-block"></span>Urgente</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#A0A0A8"><span style="width:12px;height:12px;border-radius:3px;background:${T.status.success.accent};display:inline-block"></span>Confirmado</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#A0A0A8"><span style="width:12px;height:12px;border-radius:3px;background:${T.status.pending.accent};display:inline-block"></span>A asignar / Regular</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#A0A0A8"><span style="width:12px;height:12px;border-radius:3px;background:${T.status.danger.accent};display:inline-block"></span>Urgente</span>
       <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#A0A0A8"><span style="width:12px;height:12px;border-radius:3px;background:rgba(231,111,81,0.08);border:1.5px solid #E76F51;display:inline-block"></span>Reconfirmación pendiente</span>
     </div>
   </div>`;
@@ -3123,7 +3136,10 @@ function buildCalendarioAgenda(toolbar, eventosFilter){
 
   // Helpers
   const parseMin = t => { if(!t) return 0; const [h,m]=t.split(':'); return parseInt(h)*60+parseInt(m||0); };
-  function evColor(e){ return e.estado==='CONFIRMADO'?T.green:e.prioridad==='URGENTE'?T.red:T.amber; }
+  // Use .accent variants — they keep enough contrast against white text on the chips.
+  function evColor(e){ return e.estado==='CONFIRMADO' ? T.status.success.accent
+                              : e.prioridad==='URGENTE' ? T.status.danger.accent
+                              : T.status.pending.accent; }
 
   // Eventos por fecha
   const eventosPorFecha = {};
@@ -3223,9 +3239,9 @@ function buildCalendarioAgenda(toolbar, eventosFilter){
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding:12px 16px;background:#2A2A2C;border:1px solid rgba(255,255,255,0.08);border-radius:10px;align-items:center">
       <span style="font-size:11px;font-weight:700;color:#A8A8AE;text-transform:uppercase;letter-spacing:0.5px;margin-right:4px">Referencias:</span>
-      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#A0A0A8"><span style="width:12px;height:12px;border-radius:3px;background:#52B788;display:inline-block"></span>Confirmado</span>
-      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#A0A0A8"><span style="width:12px;height:12px;border-radius:3px;background:#E9C46A;display:inline-block"></span>A asignar / Regular</span>
-      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#A0A0A8"><span style="width:12px;height:12px;border-radius:3px;background:#E63946;display:inline-block"></span>Urgente</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#A0A0A8"><span style="width:12px;height:12px;border-radius:3px;background:${T.status.success.accent};display:inline-block"></span>Confirmado</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#A0A0A8"><span style="width:12px;height:12px;border-radius:3px;background:${T.status.pending.accent};display:inline-block"></span>A asignar / Regular</span>
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#A0A0A8"><span style="width:12px;height:12px;border-radius:3px;background:${T.status.danger.accent};display:inline-block"></span>Urgente</span>
       <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#A0A0A8"><span style="width:12px;height:12px;border-radius:3px;background:rgba(231,111,81,0.08);border:1.5px solid #E76F51;display:inline-block"></span>Reconfirmación pendiente</span>
     </div>
   </div>`;
@@ -3307,7 +3323,7 @@ function buildDisponibilidad(){
       </div>
       <div style="display:flex;gap:16px;margin-top:16px;font-size:12px;color:#A8A8AE;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:3px;background:#fcd5d5;border:1px solid #E63946"></div>Bloqueado</div>
-        <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:3px;background:#3A3A3C3cd;border:1px solid #E9C46A"></div>Seleccionado</div>
+        <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:3px;background:#3A3A3C;border:1px solid #E9C46A"></div>Seleccionado</div>
         <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:3px;background:#2C2C2E;border:1px solid rgba(255,255,255,0.08)"></div>Disponible</div>
       </div>
     </div>
@@ -3416,7 +3432,7 @@ function buildMobileInicio(){
     ${pendInv.length ? `
     <div style="background:#1F1A0D;border-radius:14px;padding:16px;border:1.5px solid #E9C46A">
       <div style="font-size:13px;font-weight:700;color:#D97706;margin-bottom:4px">Tenes ${pendInv.length} invitacion(es) pendiente(s)</div>
-      <button data-mobile-tab="invitaciones" style="margin-top:6px;padding:8px 16px;border-radius:8px;border:none;background:#E9C46A;color:#F0F0F0;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">Ver ahora</button>
+      <button data-mobile-tab="invitaciones" style="margin-top:6px;padding:8px 16px;border-radius:8px;border:none;background:${T.status.pending.accent};color:#FFFFFF;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">Ver ahora</button>
     </div>` : ''}
 
     ${(()=>{
@@ -3553,7 +3569,7 @@ function buildMobileInvitaciones(){
       ${evento.descripcion?`<div style="font-size:12px;color:#A8A8AE;margin-top:6px">${esc(evento.descripcion)}</div>`:''}
       ${isPend?`
       <div style="display:flex;gap:10px;margin-top:14px">
-        <button data-mobile-inv-rechazar="${inv.id}" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid #fcd5d5;background:#3A3A3C5f5;color:#E63946;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">No puedo</button>
+        <button data-mobile-inv-rechazar="${inv.id}" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid #fcd5d5;background:#3A3A3C;color:#E63946;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">No puedo</button>
         <button data-mobile-inv-aceptar="${inv.id}" style="flex:1;padding:12px;border-radius:10px;border:none;background:#E76F51;color:white;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">Acepto!</button>
       </div>`:''}
     </div>`;
@@ -3628,7 +3644,7 @@ function buildMobileDisponibilidad(){
       </div>
       <div style="display:flex;gap:12px;margin-top:12px;font-size:11px;color:#A8A8AE">
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:2px;background:#fcd5d5;border:1px solid #E63946"></div>Bloqueado</div>
-        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:2px;background:#3A3A3C3cd;border:1px solid #E9C46A"></div>Seleccionado</div>
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:2px;background:#3A3A3C;border:1px solid #E9C46A"></div>Seleccionado</div>
       </div>
     </div>
   </div>`;
@@ -3802,11 +3818,11 @@ function buildMobileDetalle(){
     </div>`:''}
 
     <!-- RECONFIRMACION -->
-    ${(()=>{const rs=reconfStatus(evento);if(!rs||rs==='ok')return '';const isU=rs==='urgent';return '<div style="background:'+(isU?'#FFF5F5':'#FFFDF0')+';border-radius:14px;padding:16px;border:2px solid '+(isU?'#E63946':'#E9C46A')+';"><div style="font-size:13px;font-weight:700;color:'+(isU?'#E63946':'#856404')+';margin-bottom:10px">'+(isU?'🔴 Reconfirmación urgente':'⏳ Este evento necesita reconfirmación')+'</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button data-cancelar-por-cambios="'+evento.id+'" style="padding:12px;border-radius:10px;border:1.5px solid #fcd5d5;background:#3A3A3C5f5;color:#E63946;font-size:14px;font-weight:700;cursor:pointer">❌ No puedo</button><button onclick="reconfirmarEvento2('+evento.id+')" style="padding:12px;border-radius:10px;border:none;background:'+(isU?'#E63946':'#2A9D8F')+';color:white;font-size:14px;font-weight:700;cursor:pointer">✅ Confirmo</button></div></div>';})()} 
+    ${(()=>{const rs=reconfStatus(evento);if(!rs||rs==='ok')return '';const isU=rs==='urgent';return '<div style="background:'+(isU?'#FFF5F5':'#FFFDF0')+';border-radius:14px;padding:16px;border:2px solid '+(isU?'#E63946':'#E9C46A')+';"><div style="font-size:13px;font-weight:700;color:'+(isU?'#E63946':'#856404')+';margin-bottom:10px">'+(isU?'🔴 Reconfirmación urgente':'⏳ Este evento necesita reconfirmación')+'</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><button data-cancelar-por-cambios="'+evento.id+'" style="padding:12px;border-radius:10px;border:1.5px solid #fcd5d5;background:#3A3A3C;color:#E63946;font-size:14px;font-weight:700;cursor:pointer">❌ No puedo</button><button onclick="reconfirmarEvento2('+evento.id+')" style="padding:12px;border-radius:10px;border:none;background:'+(isU?'#E63946':'#2A9D8F')+';color:white;font-size:14px;font-weight:700;cursor:pointer">✅ Confirmo</button></div></div>';})()} 
     ${reconfStatus(evento)==='ok'?`<div style="background:#0D2010;border-radius:10px;padding:10px 14px;text-align:center;font-size:13px;font-weight:600;color:#4ADE80">✅ Evento reconfirmado</div>`:''}
     <!-- BAJAR DEL EVENTO -->
     ${evento.estado==='CONFIRMADO'&&evento.guia_id===guia.id&&!esPasado?`
-    <button data-bajar-evento="${evento.id}" style="width:100%;padding:12px;border-radius:10px;border:1.5px solid #fcd5d5;background:#3A3A3C5f5;color:#E63946;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:8px">🚫 Me bajo del evento</button>`:''}
+    <button data-bajar-evento="${evento.id}" style="width:100%;padding:12px;border-radius:10px;border:1.5px solid #fcd5d5;background:#3A3A3C;color:#E63946;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:8px">🚫 Me bajo del evento</button>`:''}
   </div>`;
 }
 // ── HISTORIAL ─────────────────────────────────────────────────────────────────
@@ -4246,7 +4262,7 @@ function buildMisInvitaciones(){
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
                 Agregar a Google Calendar
               </a>
-              ${evento.estado==='CONFIRMADO'&&evento.guia_id===S.myGuia?.id?`<button data-bajar-evento="${evento.id}" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;background:#3A3A3C5f5;border:1.5px solid #fcd5d5;color:#E63946;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">🚫 Me bajo del evento</button>`:''}
+              ${evento.estado==='CONFIRMADO'&&evento.guia_id===S.myGuia?.id?`<button data-bajar-evento="${evento.id}" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;background:#3A3A3C;border:1.5px solid #fcd5d5;color:#E63946;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">🚫 Me bajo del evento</button>`:''}
             </div>
             ${vencida?`<div style="text-align:center;padding:10px;background:rgba(239,68,68,0.12);border-radius:8px;font-size:12px;color:#EF4444;font-weight:600">⏱ Esta invitación venció</div>`:`
             <div style="display:flex;gap:10px">
@@ -4929,7 +4945,7 @@ function buildLiquidarViajeModal(fileId, evsSinLiq, valorHora){
   return `
   <div id="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px">
     <div style="background:#2C2C2E;border-radius:16px;width:100%;max-width:520px;max-height:90vh;overflow:auto;box-shadow:0 24px 80px rgba(0,0,0,0.25);animation:slideIn 0.2s ease">
-      <div style="background:linear-gradient(135deg,#E9C46A,#F4A261);padding:20px 28px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center">
+      <div style="background:linear-gradient(135deg,#B8842D,#B85A2D);padding:20px 28px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center">
         <div>
           <div style="color:rgba(255,255,255,0.8);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">Liquidar viaje completo</div>
           <div style="color:white;font-size:17px;font-weight:700">📁 ${esc(file.nro_file||'')}</div>
@@ -4987,7 +5003,7 @@ function buildNuevaLiquidacionModal(eventoId){
   return `
   <div id="modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px">
     <div style="background:#2C2C2E;border-radius:16px;width:100%;max-width:480px;max-height:90vh;overflow:auto;box-shadow:0 24px 80px rgba(0,0,0,0.25);animation:slideIn 0.2s ease">
-      <div style="background:linear-gradient(135deg,#E9C46A,#F4A261);padding:20px 28px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center">
+      <div style="background:linear-gradient(135deg,#B8842D,#B85A2D);padding:20px 28px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center">
         <div>
           <div style="color:rgba(255,255,255,0.8);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">Nueva liquidación</div>
           <div style="color:white;font-size:16px;font-weight:700">${esc(evento.tipo_evento||'')} · ${fecha}</div>
@@ -6571,13 +6587,13 @@ async function loadUsuariosPanel(){
         const displayEmail = guia ? esc(guia.email) : '';
         return `
         <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);background:#2A2A2C">
-          <div style="width:38px;height:38px;border-radius:50%;background:${isAdminRole?'#1B6B74':'#E9C46A'}20;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">
+          <div style="width:38px;height:38px;border-radius:50%;background:${isAdminRole?T.status.info.bg:T.status.pending.bg};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">
             ${isAdminRole?'👑':'👤'}
           </div>
           <div style="flex:1;min-width:0">
             <div style="font-size:13px;font-weight:700;color:#F0F0F0">${displayName}</div>
             <div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap">
-              <span style="background:${isAdminRole?'#1B6B74':'#E9C46A'}20;color:${isAdminRole?'#1B6B74':'#856404'};padding:1px 8px;border-radius:10px;font-weight:700;font-size:10px">${r.role.toUpperCase()}</span>
+              <span style="background:${isAdminRole?T.status.info.bg:T.status.pending.bg};color:${isAdminRole?T.status.info.fg:T.status.pending.fg};padding:1px 8px;border-radius:10px;font-weight:700;font-size:10px">${r.role.toUpperCase()}</span>
               ${displayEmail?`<span style="font-size:11px;color:#A8A8AE">${displayEmail}</span>`:''}
             </div>
           </div>
@@ -6592,7 +6608,7 @@ async function loadUsuariosPanel(){
               ✏️ Editar
             </button>
             ${r.user_id !== S.user?.id ? `<button onclick="darDeBajaUsuario('${r.user_id}','${displayName}')"
-              style="padding:6px 12px;border-radius:6px;border:1px solid #fcd5d5;background:#3A3A3C5f5;font-size:11px;cursor:pointer;color:#E63946;font-weight:600;font-family:'DM Sans',sans-serif">
+              style="padding:6px 12px;border-radius:6px;border:1px solid #fcd5d5;background:#3A3A3C;font-size:11px;cursor:pointer;color:#E63946;font-weight:600;font-family:'DM Sans',sans-serif">
               ✕ Baja
             </button>` : '<span style="font-size:10px;color:#A8A8AE;padding:6px 4px">(vos)</span>'}
           </div>
