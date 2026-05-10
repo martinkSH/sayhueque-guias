@@ -1057,6 +1057,63 @@ async function saveFeedback(eventoId, texto, fotoFile){
   toast('✅ Feedback guardado correctamente');
 }
 
+// Admin cancels a single invitation row (different from cancelling the whole event).
+// - PENDIENTE  -> mark CANCELADA. The token-acceptance flow refuses anything
+//                 not in PENDIENTE state, so the email link stops working.
+// - ACEPTADA   -> the guide already accepted and the event is CONFIRMADO with
+//                 their guia_id. Email the guide, mark CANCELADA, and put the
+//                 event back to A_ASIGNAR (no guia) so the admin can reassign.
+async function cancelarInvitacion(invId){
+  const inv = S.invitaciones.find(i=>i.id===invId);
+  if(!inv){ toast('Invitación no encontrada', T.red); return; }
+  const evento = S.eventos.find(e=>e.id===inv.evento_id);
+  const guia = S.guias.find(g=>g.id===inv.guia_id);
+
+  if(inv.estado === 'ACEPTADA'){
+    if(!confirm('Esta invitación ya fue aceptada. Cancelarla notificará al guía por email y liberará el evento. ¿Continuar?')) return;
+    const motivo = prompt('Motivo de la cancelación (opcional, se incluye en el email):') || '';
+
+    if(guia?.email && evento){
+      await sendCancelacionEmail(guia, evento, motivo);
+    }
+    if(evento?.guia_id) syncGoogleCalendar('delete', evento.id, evento.guia_id);
+
+    await db.from('invitaciones').update({estado:'CANCELADA', respondido_at:new Date().toISOString()}).eq('id', invId);
+
+    if(evento){
+      await db.from('eventos').update({estado:'A_ASIGNAR', guia_id:null}).eq('id', evento.id);
+    }
+
+    await db.from('historial').insert({
+      evento_id: inv.evento_id, guia_id: inv.guia_id, invitacion_id: invId,
+      accion: 'INVITACION_CANCELADA', actor: S.user?.email || 'ADMIN',
+      detalle: `Admin canceló asignación confirmada${motivo ? ' · Motivo: ' + motivo : ''}`
+    });
+
+    await loadAll();
+    toast('🚫 Invitación cancelada y guía notificada', T.amber);
+    return;
+  }
+
+  if(inv.estado === 'PENDIENTE'){
+    if(!confirm('¿Cancelar esta invitación pendiente? El guía no podrá aceptarla desde el email.')) return;
+
+    await db.from('invitaciones').update({estado:'CANCELADA', respondido_at:new Date().toISOString()}).eq('id', invId);
+
+    await db.from('historial').insert({
+      evento_id: inv.evento_id, guia_id: inv.guia_id, invitacion_id: invId,
+      accion: 'INVITACION_CANCELADA', actor: S.user?.email || 'ADMIN',
+      detalle: 'Admin canceló invitación pendiente'
+    });
+
+    await loadAll();
+    toast('🚫 Invitación cancelada', T.amber);
+    return;
+  }
+
+  toast(`Esta invitación ya está en estado ${inv.estado}, no se puede cancelar`, T.red);
+}
+
 async function cancelarEvento(eventoId){
   const evento = S.eventos.find(e=>e.id===eventoId);
   if(!evento) return;
@@ -1067,7 +1124,7 @@ async function cancelarEvento(eventoId){
   // notify confirmed guia if any
   if(evento.guia_id){
     const guia = S.guias.find(g=>g.id===evento.guia_id);
-    if(guia) await sendCancelEmail(guia, evento, motivo);
+    if(guia) await sendCancelacionEmail(guia, evento, motivo);
   }
 
   // cancel event
@@ -1083,7 +1140,7 @@ async function cancelarEvento(eventoId){
       await db.from('invitaciones').update({estado:'CANCELADA',respondido_at:new Date().toISOString()}).eq('id',inv.id);
       // notify each pending guia too
       const guia = S.guias.find(g=>g.id===inv.guia_id);
-      if(guia) await sendCancelEmail(guia, evento, motivo);
+      if(guia) await sendCancelacionEmail(guia, evento, motivo);
     }
   }
 
@@ -2717,7 +2774,7 @@ function buildViajes(){
                                   <div style="font-size:11px;font-weight:600;color:#F0F0F0">${g?esc(g.nombre+' '+g.apellido):'Desconocido'}</div>
                                   <div style="font-size:10px;color:#A0A0A8;margin-top:2px">${ec.label}</div>
                                 </div>
-                                ${inv.estado==='PENDIENTE'?`
+                                ${(inv.estado==='PENDIENTE'||inv.estado==='ACEPTADA')?`
                                   <button data-cancelar-inv="${inv.id}" style="padding:4px 8px;border-radius:4px;border:1px solid #dc3545;background:#3A3A3C;font-size:10px;cursor:pointer;color:#dc3545;font-weight:600">Cancelar</button>
                                 `:''}
                               </div>
@@ -2869,7 +2926,7 @@ function buildEventos(){
                             <div style="flex:1"><div style="font-size:12px;font-weight:600;color:${T.dark}">${g?esc(g.nombre+' '+g.apellido):'Desconocido'}</div>
                             <div style="font-size:10px;color:#A8A8AE">Expira: ${new Date(inv.expira_at).toLocaleString('es-AR')}</div></div>
                             ${badge(inv.estado,ESTADO_INV_COLOR)}
-                            ${inv.estado==='PENDIENTE'?`<button data-cancelar-inv="${inv.id}" style="padding:3px 8px;border-radius:5px;border:1px solid #fcd5d5;background:#3A3A3C5f5;font-size:10px;cursor:pointer;color:${T.red};font-weight:600;font-family:'DM Sans',sans-serif">Cancelar</button>`:''}
+                            ${(inv.estado==='PENDIENTE'||inv.estado==='ACEPTADA')?`<button data-cancelar-inv="${inv.id}" style="padding:3px 8px;border-radius:5px;border:1px solid #fcd5d5;background:#3A3A3C;font-size:10px;cursor:pointer;color:${T.red};font-weight:600;font-family:'DM Sans',sans-serif">Cancelar</button>`:''}
                           </div>`;
                         }).join('')}
                     </div>
@@ -5599,7 +5656,7 @@ function attachEvents(){
   });
 
   // cancelar invitacion
-  document.querySelectorAll('[data-cancelar-inv]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();if(confirm('¿Cancelar esta invitación?'))cancelarInvitacion(parseInt(btn.dataset.cancelarInv));}));
+  document.querySelectorAll('[data-cancelar-inv]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();cancelarInvitacion(parseInt(btn.dataset.cancelarInv));}));
 
   // guia responds from app - direct DB, no token needed
   document.querySelectorAll('[data-responder-inv]').forEach(btn=>btn.addEventListener('click', async()=>{
