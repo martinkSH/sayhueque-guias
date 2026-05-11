@@ -278,6 +278,7 @@ let S = {
   calMonth: new Date(),
   calView: 'mensual',     // 'mensual' | 'agenda'
   searchViaje: '',
+  filtroBranchViaje: '',  // primeras 2 letras del nro_file (BA, BR, etc) — filtro admin viajes
   searchGuia: '',
   liqFileExpanded: {},
   liqAdminExpanded: {},
@@ -2662,6 +2663,14 @@ function buildViajes(){
     );
   }
 
+  // Filtro por branch (admin) — primeras 2 letras del nro_file (TP BookingBranch).
+  const filtroBranch = (S.filtroBranchViaje||'').toUpperCase();
+  if(isAdmin() && filtroBranch){
+    filesVisibles = filesVisibles.filter(f =>
+      (f.nro_file||'').slice(0,2).toUpperCase() === filtroBranch
+    );
+  }
+
   const sortedFiles = [...filesVisibles].sort((a,b)=> new Date(a.fecha_in) - new Date(b.fecha_in));
 
   if(!sortedFiles.length && !searchViaje){
@@ -2689,20 +2698,37 @@ function buildViajes(){
       </div>`;
   }
 
+  const todayStr = new Date().toISOString().slice(0,10);
+
   return `<div style="padding:24px;display:flex;flex-direction:column;gap:0">${buildViajesBuscador()}${sortedFiles.map(file=>{
     const myGuiaId = !isAdmin() && S.myGuia ? S.myGuia.id : null;
     const eventos = S.eventos.filter(e=>e.file_id===file.id && (isAdmin() || e.guia_id===myGuiaId));
     const isExpanded = S.expandedFileId === file.id;
-    
+
     const fechaInStr = new Date(file.fecha_in+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'});
     const fechaOutStr = new Date(file.fecha_out+'T12:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'});
 
+    // Three header states, in priority order:
+    //   liquidado  (all confirmed events have liquidaciones)  -> verde brillante
+    //   finalizado (fecha_out < hoy)                          -> verde grisáceo apagado
+    //   en curso                                              -> verde oscuro Sherpa
+    const evConfirmados = S.eventos.filter(e=>e.file_id===file.id && e.estado==='CONFIRMADO');
+    const isLiquidado = evConfirmados.length > 0 && evConfirmados.every(e => S.liquidaciones?.find(l=>l.evento_id===e.id));
+    const isFinalizado = !!file.fecha_out && file.fecha_out < todayStr;
+    const headerBg = isLiquidado  ? 'linear-gradient(135deg,#2E7D32,#52B788)'
+                    : isFinalizado ? 'linear-gradient(135deg,#3A4A42,#2C3A33)'
+                    :                'linear-gradient(135deg,#1D3A2F,#1A4A35)';
+    const fileIcon  = isLiquidado ? '✅' : isFinalizado ? '🏁' : '📁';
+    const statusTag = isLiquidado ? '<span style="font-size:12px;opacity:0.85;margin-left:8px">— Liquidado</span>'
+                    : isFinalizado ? '<span style="font-size:11px;font-weight:700;margin-left:10px;background:rgba(255,255,255,0.18);padding:2px 10px;border-radius:10px;letter-spacing:0.05em">FINALIZADO</span>'
+                    : '';
+
     return `
-      <div style="background:#2A2A2C;border-radius:12px;border:1px solid rgba(255,255,255,0.08);margin-bottom:16px;overflow:hidden;animation:fadeIn 0.3s ease">
+      <div style="background:#2A2A2C;border-radius:12px;border:1px solid rgba(255,255,255,0.08);margin-bottom:16px;overflow:hidden;animation:fadeIn 0.3s ease${isFinalizado && !isLiquidado ? ';opacity:0.85' : ''}">
         <!-- File Header -->
-        <div style="padding:16px 20px;background:${(()=>{const evF=S.eventos.filter(e=>e.file_id===file.id&&e.estado==='CONFIRMADO');return evF.length>0&&evF.every(e=>S.liquidaciones?.find(l=>l.evento_id===e.id))?'linear-gradient(135deg,#2E7D32,#52B788)':'linear-gradient(135deg,#1D3A2F,#1A4A35)'})()};color:white;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="set({expandedFileId:S.expandedFileId==='${file.id}'?null:'${file.id}'})">
+        <div style="padding:16px 20px;background:${headerBg};color:white;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="set({expandedFileId:S.expandedFileId==='${file.id}'?null:'${file.id}'})">
           <div style="flex:1">
-            <div style="font-size:18px;font-weight:700;font-family:'Playfair Display',serif;margin-bottom:4px">${(()=>{const evF=S.eventos.filter(e=>e.file_id===file.id&&e.estado==='CONFIRMADO');return evF.length>0&&evF.every(e=>S.liquidaciones?.find(l=>l.evento_id===e.id))?'✅':'📁';})()} File ${esc(file.nro_file)}${(()=>{const evF=S.eventos.filter(e=>e.file_id===file.id&&e.estado==='CONFIRMADO');return evF.length>0&&evF.every(e=>S.liquidaciones?.find(l=>l.evento_id===e.id))?'<span style="font-size:12px;opacity:0.8;margin-left:8px">— Liquidado</span>':''})()}</div>
+            <div style="font-size:18px;font-weight:700;font-family:'Playfair Display',serif;margin-bottom:4px">${fileIcon} File ${esc(file.nro_file)}${statusTag}</div>
             <div style="font-size:13px;opacity:0.9">${fechaInStr} → ${fechaOutStr}</div>
             ${file.operador_nombre||file.dh_gr_nombre||file.pasajero_principal?`<div style="font-size:12px;opacity:0.8;margin-top:4px">${file.operador_nombre?'Operador: '+esc(file.operador_nombre):''}${file.operador_nombre&&file.dh_gr_nombre?' · ':''}${file.dh_gr_nombre?'DH/GR: '+esc(file.dh_gr_nombre):''}${file.pasajero_principal?' · 👤 '+esc(file.pasajero_principal):''}</div>`:''}
           </div>
@@ -2826,13 +2852,28 @@ function buildViajes(){
 }
 
 function buildViajesBuscador(){
+  // Branch = primeras 2 letras del nro_file (TP BookingBranch). Solo admin.
+  const branchesDisponibles = isAdmin()
+    ? [...new Set((S.files||[])
+        .map(f => (f.nro_file||'').slice(0,2).toUpperCase())
+        .filter(b => b.length === 2 && /^[A-Z]{2}$/.test(b)))]
+        .sort()
+    : [];
+  const filtroBranch = S.filtroBranchViaje || '';
+
   return `
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
       <div style="position:relative;flex:1;min-width:200px;max-width:360px">
         <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none">🔍</span>
         <input id="search-viaje" type="text" value="${esc(S.searchViaje||'')}" placeholder="Buscar por file, operador, DH/GR..." style="padding:8px 12px 8px 32px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;width:100%;color:#F0F0F0;background:#3A3A3C"/>
       </div>
-      ${(S.searchViaje||'')?`<button id="clear-search-viaje" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#3A3A3C;font-size:12px;color:#A8A8AE;cursor:pointer;font-family:'DM Sans',sans-serif">✕ Limpiar</button>`:''}
+      ${isAdmin() && branchesDisponibles.length ? `
+        <select id="filtro-branch-viaje" style="padding:8px 12px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:13px;color:#F0F0F0;background:#3A3A3C;font-family:'DM Sans',sans-serif;cursor:pointer">
+          <option value="">🏢 Todos los branches</option>
+          ${branchesDisponibles.map(b => `<option value="${b}" ${filtroBranch===b?'selected':''}>${b}</option>`).join('')}
+        </select>
+      ` : ''}
+      ${(S.searchViaje||S.filtroBranchViaje)?`<button id="clear-search-viaje" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#3A3A3C;font-size:12px;color:#A8A8AE;cursor:pointer;font-family:'DM Sans',sans-serif">✕ Limpiar</button>`:''}
     </div>`;
 }
 
@@ -5778,7 +5819,8 @@ function attachEvents(){
 
   // buscador viajes
   document.getElementById('search-viaje')?.addEventListener('input',e=>set({searchViaje:e.target.value}));
-  document.getElementById('clear-search-viaje')?.addEventListener('click',()=>set({searchViaje:''}));
+  document.getElementById('filtro-branch-viaje')?.addEventListener('change',e=>set({filtroBranchViaje:e.target.value}));
+  document.getElementById('clear-search-viaje')?.addEventListener('click',()=>set({searchViaje:'', filtroBranchViaje:''}));
   // search-guia usa oninput inline — NO llamar set() acá para no perder foco
   document.getElementById('clear-search-guia')?.addEventListener('click',()=>{
     S.searchGuia='';
