@@ -6534,27 +6534,52 @@ function attachEvents(){
     if(!email){toast('El email es obligatorio',T.red);return;}
     if(!userId && !pass){toast('La contraseña es obligatoria para nuevos usuarios',T.red);return;}
     const btn = document.getElementById('btn-save-usuario');
+    const origLabel = btn.textContent;
     btn.textContent='⟳ Guardando...'; btn.disabled=true;
     if(!userId){
-      // create user via Supabase admin — we use signUp and then set role
-      const {data,error} = await db.auth.signUp({email, password:pass});
-      if(error){toast('Error: '+error.message,T.red);btn.textContent='✅ Crear usuario';btn.disabled=false;return;}
+      // IMPORTANT: db.auth.signUp() replaces the current session with the
+      // newly-created user's session, kicking the admin out without warning.
+      // Use a throwaway client with persistSession:false so the admin's
+      // session in `db` stays untouched.
+      const tempClient = supabase.createClient(SB_URL, SB_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false, storageKey: 'sh-tmp-signup' }
+      });
+      const {data, error} = await tempClient.auth.signUp({email, password: pass});
+      if(error){
+        toast('Error: '+error.message, T.red);
+        btn.textContent = origLabel; btn.disabled = false;
+        return;
+      }
       const newUserId = data.user?.id;
-      if(newUserId){
-        await db.from('user_roles').insert({
-          user_id: newUserId,
-          role: role,
-          guia_id: guiaId ? parseInt(guiaId) : null
-        });
+      if(!newUserId){
+        toast('No se pudo crear el usuario (¿email ya registrado?)', T.red);
+        btn.textContent = origLabel; btn.disabled = false;
+        return;
+      }
+      // Insert role using the ADMIN's still-active `db` client.
+      const {error: roleErr} = await db.from('user_roles').insert({
+        user_id: newUserId,
+        role: role,
+        guia_id: guiaId ? parseInt(guiaId) : null
+      });
+      if(roleErr){
+        toast('Usuario creado pero falló al asignar rol: '+roleErr.message, T.red);
+        btn.textContent = origLabel; btn.disabled = false;
+        return;
       }
       toast('✅ Usuario creado. El guía debe confirmar su email.');
     } else {
       // update role
-      await db.from('user_roles').upsert({
+      const {error: upErr} = await db.from('user_roles').upsert({
         user_id: userId,
         role: role,
         guia_id: guiaId ? parseInt(guiaId) : null
       });
+      if(upErr){
+        toast('Error actualizando rol: '+upErr.message, T.red);
+        btn.textContent = origLabel; btn.disabled = false;
+        return;
+      }
       toast('✅ Rol actualizado');
     }
     set({modal:null});
