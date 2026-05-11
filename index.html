@@ -6550,9 +6550,18 @@ function attachEvents(){
         btn.textContent = origLabel; btn.disabled = false;
         return;
       }
+      // When the email is already registered, Supabase Auth (in default
+      // obfuscation mode) returns status 200 with data.user populated by
+      // a random/stub id and an EMPTY identities array. That's the tell.
+      const identities = data.user?.identities;
+      if(Array.isArray(identities) && identities.length === 0){
+        toast(`⚠️ El email "${email}" ya tiene una cuenta. Editá su rol desde la lista en lugar de crearlo de nuevo.`, T.red);
+        btn.textContent = origLabel; btn.disabled = false;
+        return;
+      }
       const newUserId = data.user?.id;
       if(!newUserId){
-        toast('No se pudo crear el usuario (¿email ya registrado?)', T.red);
+        toast('No se pudo crear el usuario (respuesta vacía de Supabase)', T.red);
         btn.textContent = origLabel; btn.disabled = false;
         return;
       }
